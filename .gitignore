@@ -1,0 +1,27 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Node / Web
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Test outputs & temporary workspaces
+test_output/
+test_stage1_results/
+test_stage1_matrix/
+test_stage2_workspace*/
+test_stage3_workspace*/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
