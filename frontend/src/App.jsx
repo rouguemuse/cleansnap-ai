@@ -1,13 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Folder,
-  RefreshCw,
   CheckCircle2,
   AlertCircle,
-  Clock,
   Upload,
   Download,
-  Shield,
   Sparkles,
   Image as ImageIcon,
   Archive,
@@ -18,19 +15,79 @@ import {
   Type,
   Package,
   Move,
-  FileCode
+  FileCode,
+  Shield,
+  Trees
 } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import JSZip from 'jszip';
 import './App.css';
 
-// Generate repeating diagonal SVG watermark data URL ONLY for the on-page preview backdrop
-function createPreviewBackdropPattern(text = 'EDR PARTY RENTALS • PREVIEW ONLY') {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200">
-    <rect width="300" height="200" fill="#ffffff"/>
-    <g transform="rotate(-26 150 100)">
-      <text x="15" y="75" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="1.5">${text}</text>
-      <text x="35" y="165" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="1.5">${text}</text>
+// Pre-loaded Real EDR Bounce House Before/After Showcase Pairs
+const EDR_SHOWCASE_SAMPLES = [
+  {
+    job_id: 'edr_tropical_slide',
+    original_filename: 'Tropical_Water_Slide_28x14.png',
+    title: 'Tropical Water Slide (28×14)',
+    subtitle: 'Removed wet concrete driveway, yellow bucket, fence, house & red "18 / 28×14" badges → Polished & brightened on Sunny Park Lawn',
+    before_url: '/samples/tropical_slide_before.jpg',
+    after_park_url: '/samples/tropical_slide_after.jpg',
+    is_showcase: true
+  },
+  {
+    job_id: 'edr_ninja_turtles',
+    original_filename: 'Ninja_Turtles_Bounce_18x15x20.png',
+    title: 'Ninja Turtles Bounce (18×15×20)',
+    subtitle: 'Removed winter driveway, dead overhanging branches, fence, cords & "10 18x15x20" text → Polished purple/green vinyl on Sunny Park Lawn',
+    before_url: '/samples/ninja_turtles_before.jpg',
+    after_park_url: '/samples/ninja_turtles_after.jpg',
+    is_showcase: true
+  },
+  {
+    job_id: 'edr_princess_castle',
+    original_filename: 'Princess_Castle_12x12.png',
+    title: 'Princess Castle (12×12)',
+    subtitle: 'Removed blue ground tarp, asphalt driveway, garage, fence & lens glare → Polished pink/purple/teal vinyl on Sunny Park Lawn',
+    before_url: '/samples/princess_castle_before.jpg',
+    after_park_url: '/samples/princess_castle_after.jpg',
+    is_showcase: true
+  },
+  {
+    job_id: 'edr_toy_story',
+    original_filename: 'Toy_Story_Bounce_14x12.png',
+    title: 'Toy Story Bounce House (14×12)',
+    subtitle: 'Removed concrete driveway, Ford truck, carport, rolled tarps, orange cord & "14 14×12" text → Polished on Lush Park Lawn',
+    before_url: '/samples/toy_story_before.jpg',
+    after_park_url: '/samples/toy_story_after.jpg',
+    is_showcase: true
+  },
+  {
+    job_id: 'edr_bungy_run',
+    original_filename: 'Bungy_Run_Dual_Lane_20ft.png',
+    title: 'Bungy Run Dual Lane (20ft)',
+    subtitle: 'Removed asphalt street, parked cars, person blur, shoes, fence & "20 bungy Run" text → Polished primary vinyl on Sunny Park Lawn',
+    before_url: '/samples/bungy_run_before.jpg',
+    after_park_url: '/samples/bungy_run_after.jpg',
+    is_showcase: true
+  },
+  {
+    job_id: 'edr_rainbow_palace',
+    original_filename: 'Rainbow_Palace_Slide.png',
+    title: 'Rainbow Palace Combo Slide',
+    subtitle: 'Removed patchy dry field, white tarp, horse trailer & barn → Polished vibrant rainbow vinyl on Sunny Park Lawn & Blue Sky',
+    before_url: '/samples/rainbow_palace_before.jpg',
+    after_park_url: '/samples/rainbow_palace_after.jpg',
+    is_showcase: true
+  }
+];
+
+// Generate repeating diagonal SVG watermark overlay ONLY for the on-page preview shield
+// (Exported/downloaded files NEVER have this watermark!)
+function createAntiTheftOverlaySvg(text = 'EDR PARTY RENTALS • PREVIEW ONLY') {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="340" height="220">
+    <g transform="rotate(-25 170 110)">
+      <text x="15" y="80" fill="rgba(255,255,255,0.28)" stroke="rgba(15,23,42,0.22)" stroke-width="0.8" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="1.8">${text}</text>
+      <text x="35" y="180" fill="rgba(255,255,255,0.28)" stroke="rgba(15,23,42,0.22)" stroke-width="0.8" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="1.8">${text}</text>
     </g>
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
@@ -52,7 +109,7 @@ function getTransparentBoundingBox(ctx, width, height) {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const alpha = imgData[(y * width + x) * 4 + 3];
-      if (alpha > 8) {
+      if (alpha > 12) {
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < minY) minY = y;
@@ -67,9 +124,9 @@ function getTransparentBoundingBox(ctx, width, height) {
 
 /**
  * Trace outer & inner boundary contour of the non-transparent alpha channel
- * to embed a true mathematical <path id="cutline_contour"> inside the exported .SVG file.
+ * to embed a true mathematical <path id="element_cutline_contour"> inside the exported .SVG file.
  */
-function traceAlphaContourSvgPath(ctx, width, height, steps = 72) {
+function traceAlphaContourSvgPath(ctx, width, height, steps = 90) {
   const data = ctx.getImageData(0, 0, width, height).data;
   const cx = width / 2;
   const cy = height / 2;
@@ -110,14 +167,14 @@ function traceAlphaContourSvgPath(ctx, width, height, steps = 72) {
 /**
  * Build a standalone, scalable .SVG string containing:
  * - Scalable viewBox matching the trimmed element dimensions
- * - Traced mathematical vector <clipPath> & die-cut <path id="cutline"> contour
+ * - Traced mathematical vector <clipPath> & die-cut <path id="element_cutline_contour"> contour
  * - High-resolution embedded cutout image
  */
 function createStandaloneSvgMarkup(stickerCanvas, pngDataUrl) {
   const w = stickerCanvas.width;
   const h = stickerCanvas.height;
   const ctx = stickerCanvas.getContext('2d');
-  const contourPath = traceAlphaContourSvgPath(ctx, w, h, 90);
+  const contourPath = traceAlphaContourSvgPath(ctx, w, h, 96);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
@@ -134,13 +191,28 @@ function createStandaloneSvgMarkup(stickerCanvas, pngDataUrl) {
 </svg>`;
 }
 
+// Cache the loaded Sunny Park Lawn & Sky backdrop image
+let cachedParkBackdropImg = null;
+async function loadSunnyParkBackdrop() {
+  if (cachedParkBackdropImg) return cachedParkBackdropImg;
+  cachedParkBackdropImg = await new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = '/backdrops/sunny_park_lawn.jpg';
+  });
+  return cachedParkBackdropImg;
+}
+
 /**
- * Multi-Stage Studio Polish, Brightening & Color Pop Pipeline
+ * Multi-Stage Bounce House Vinyl Polish, De-Wrinkle, Sunlight Warmth & Color Pop Engine
+ * Specifically engineered to transform dull, shadowy backyard/driveway bounce house photos
+ * into bright, vibrant, glossy, sun-lit commercial rental inventory.
  */
-function processStudioSubject(
+function processBounceHouseVinylPolish(
   origImg,
   cutoutImg,
-  cleaningMode = 'cutout_and_polish',
   polishIntensity = 'high'
 ) {
   const w = origImg.width;
@@ -152,13 +224,25 @@ function processStudioSubject(
   const ctx = subjectCanvas.getContext('2d');
   ctx.drawImage(origImg, 0, 0, w, h);
 
+  // Step 1: Surface De-Wrinkle Base (gentle bilateral-like blend between smooth vinyl color & sharp seams)
+  let smoothData = null;
+  if (polishIntensity !== 'off') {
+    const smoothCanvas = document.createElement('canvas');
+    smoothCanvas.width = w;
+    smoothCanvas.height = h;
+    const smoothCtx = smoothCanvas.getContext('2d');
+    smoothCtx.filter = 'blur(2.2px)';
+    smoothCtx.drawImage(origImg, 0, 0, w, h);
+    smoothData = smoothCtx.getImageData(0, 0, w, h).data;
+  }
+
   const imgData = ctx.getImageData(0, 0, w, h);
   const data = imgData.data;
 
   let maskData = null;
-  let keepFullScene = cleaningMode === 'polish_only' || !cutoutImg;
+  let keepFullScene = !cutoutImg;
 
-  if (!keepFullScene && cutoutImg) {
+  if (cutoutImg) {
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = w;
     maskCanvas.height = h;
@@ -175,48 +259,84 @@ function processStudioSubject(
     }
   }
 
-  const gamma = polishIntensity === 'high' ? 0.80 : polishIntensity === 'medium' ? 0.88 : 1.0;
-  const contrastGain = polishIntensity === 'high' ? 1.16 : polishIntensity === 'medium' ? 1.09 : 1.0;
-  const vibranceBoost = polishIntensity === 'high' ? 0.34 : polishIntensity === 'medium' ? 0.20 : 0.0;
-  const specularLift = polishIntensity === 'high' ? 12 : polishIntensity === 'medium' ? 6 : 0;
+  // Step 2: Shadow-Lifting Sunlight Tone Curve + Warmth + PVC Vinyl Specular Gloss
+  const shadowLiftGamma = polishIntensity === 'high' ? 0.72 : polishIntensity === 'medium' ? 0.84 : 1.0;
+  const contrastGain = polishIntensity === 'high' ? 1.18 : polishIntensity === 'medium' ? 1.10 : 1.0;
+  const vibranceBoost = polishIntensity === 'high' ? 0.42 : polishIntensity === 'medium' ? 0.24 : 0.0;
+  const vinylSheen = polishIntensity === 'high' ? 16 : polishIntensity === 'medium' ? 8 : 0;
 
-  const toneLut = new Uint8Array(256);
+  // Build separate R, G, B sunlight tone LUTs (adds warm golden-hour sunlight & removes cold overcast blue cast)
+  const lutR = new Uint8Array(256);
+  const lutG = new Uint8Array(256);
+  const lutB = new Uint8Array(256);
+
   for (let v = 0; v < 256; v++) {
     let norm = v / 255.0;
-    norm = Math.pow(norm, gamma);
-    norm = (norm - 0.5) * contrastGain + 0.5;
-    let out = norm * 255.0 + specularLift * Math.pow(norm, 2);
-    toneLut[v] = Math.max(0, Math.min(255, Math.round(out)));
+    // Deep shadow recovery curve (lifts dark bounce house interiors & shaded walls without blowing out highlights)
+    const lifted = Math.pow(norm, shadowLiftGamma);
+    // S-curve contrast around mid-point
+    const contrasted = (lifted - 0.46) * contrastGain + 0.48;
+    // Specular vinyl gloss sheen on bright planes
+    const baseOut = contrasted * 255.0 + vinylSheen * Math.pow(lifted, 2.2);
+
+    const warmShift = polishIntensity === 'high' ? 6 * Math.sin(norm * Math.PI) : polishIntensity === 'medium' ? 3 * Math.sin(norm * Math.PI) : 0;
+    lutR[v] = Math.max(0, Math.min(255, Math.round(baseOut + warmShift * 1.15)));
+    lutG[v] = Math.max(0, Math.min(255, Math.round(baseOut + warmShift * 0.45)));
+    lutB[v] = Math.max(0, Math.min(255, Math.round(baseOut - warmShift * 0.65)));
   }
 
   for (let i = 0; i < data.length; i += 4) {
     if (!keepFullScene && maskData) {
       let a = maskData[i + 3];
-      if (a > 8) {
-        a = Math.min(255, Math.round(a * 1.75));
-      } else {
+      // Clean alpha fringe (erosion of noisy low-alpha driveway/branch halo)
+      if (a < 28) {
         data[i + 3] = 0;
         continue;
       }
+      a = Math.min(255, Math.round((a - 24) * 1.25));
       data[i + 3] = a;
     } else {
       data[i + 3] = 255;
     }
 
-    let r = toneLut[data[i]];
-    let g = toneLut[data[i + 1]];
-    let b = toneLut[data[i + 2]];
+    let rOrig = data[i];
+    let gOrig = data[i + 1];
+    let bOrig = data[i + 2];
 
+    // Edge-preserving vinyl de-wrinkle: if local pixel difference from blurred canvas is small (minor wrinkle/grain),
+    // blend 35% of smooth vinyl surface; if large (seam, netting, character art), keep 100% sharp!
+    if (smoothData) {
+      const diff =
+        Math.abs(rOrig - smoothData[i]) +
+        Math.abs(gOrig - smoothData[i + 1]) +
+        Math.abs(bOrig - smoothData[i + 2]);
+      if (diff < 42) {
+        const smoothWeight = (1.0 - diff / 42.0) * 0.38;
+        rOrig = Math.round(rOrig * (1 - smoothWeight) + smoothData[i] * smoothWeight);
+        gOrig = Math.round(gOrig * (1 - smoothWeight) + smoothData[i + 1] * smoothWeight);
+        bOrig = Math.round(bOrig * (1 - smoothWeight) + smoothData[i + 2] * smoothWeight);
+      }
+    }
+
+    let r = lutR[rOrig];
+    let g = lutG[gOrig];
+    let b = lutB[bOrig];
+
+    // Selective Vinyl Color Pop (boosts primary/secondary inflatable vinyl colors while protecting white labels)
     if (vibranceBoost > 0) {
       const maxC = Math.max(r, g, b);
       const minC = Math.min(r, g, b);
-      const sat = (maxC - minC) / 255.0;
-      const avg = 0.299 * r + 0.587 * g + 0.114 * b;
-      const dynVib = vibranceBoost * (1.0 - sat * 0.65);
+      const chroma = maxC - minC;
+      const sat = maxC > 0 ? chroma / maxC : 0;
+      const luma = 0.299 * r + 0.587 * g + 0.114 * b;
 
-      r = Math.max(0, Math.min(255, Math.round(r + (r - avg) * dynVib)));
-      g = Math.max(0, Math.min(255, Math.round(g + (g - avg) * dynVib)));
-      b = Math.max(0, Math.min(255, Math.round(b + (b - avg) * dynVib)));
+      // Only boost pixels that already have color hue (protects neutral whites/blacks)
+      if (chroma > 14) {
+        const dynVib = vibranceBoost * (1.15 - sat * 0.55);
+        r = Math.max(0, Math.min(255, Math.round(r + (r - luma) * dynVib)));
+        g = Math.max(0, Math.min(255, Math.round(g + (g - luma) * dynVib)));
+        b = Math.max(0, Math.min(255, Math.round(b + (b - luma) * dynVib)));
+      }
     }
 
     data[i] = r;
@@ -226,24 +346,31 @@ function processStudioSubject(
 
   ctx.putImageData(imgData, 0, 0);
 
+  // Step 3: Crisp Seam & Artwork Definition Pass (Unsharp Mask on structural details)
   if (polishIntensity !== 'off') {
     const blurCanvas = document.createElement('canvas');
     blurCanvas.width = w;
     blurCanvas.height = h;
     const blurCtx = blurCanvas.getContext('2d');
-    blurCtx.filter = 'blur(1.5px)';
+    blurCtx.filter = 'blur(1.2px)';
     blurCtx.drawImage(subjectCanvas, 0, 0);
 
     const sharpData = ctx.getImageData(0, 0, w, h);
     const sp = sharpData.data;
     const bp = blurCtx.getImageData(0, 0, w, h).data;
-    const amount = polishIntensity === 'high' ? 0.42 : 0.25;
+    const amount = polishIntensity === 'high' ? 0.45 : 0.26;
 
     for (let i = 0; i < sp.length; i += 4) {
       if (sp[i + 3] === 0) continue;
-      sp[i] = Math.max(0, Math.min(255, Math.round(sp[i] + (sp[i] - bp[i]) * amount)));
-      sp[i + 1] = Math.max(0, Math.min(255, Math.round(sp[i + 1] + (sp[i + 1] - bp[i + 1]) * amount)));
-      sp[i + 2] = Math.max(0, Math.min(255, Math.round(sp[i + 2] + (sp[i + 2] - bp[i + 2]) * amount)));
+      const dR = sp[i] - bp[i];
+      const dG = sp[i + 1] - bp[i + 1];
+      const dB = sp[i + 2] - bp[i + 2];
+      // Only sharpen true seams/edges (threshold > 6) so vinyl stays smooth and glossy
+      if (Math.abs(dR) + Math.abs(dG) + Math.abs(dB) > 18) {
+        sp[i] = Math.max(0, Math.min(255, Math.round(sp[i] + dR * amount)));
+        sp[i + 1] = Math.max(0, Math.min(255, Math.round(sp[i + 1] + dG * amount)));
+        sp[i + 2] = Math.max(0, Math.min(255, Math.round(sp[i + 2] + dB * amount)));
+      }
     }
     ctx.putImageData(sharpData, 0, 0);
   }
@@ -251,19 +378,28 @@ function processStudioSubject(
   return subjectCanvas;
 }
 
-// Render 2000x2000 Catalog Framed outputs + Tightly Cropped Sticker PNG & Scalable SVG
-async function buildCatalogOutputs(
-  originalFile,
+/**
+ * Build All Outputs:
+ * 1. Sunny Park Lawn & Sky Composite (1448×1086 4:3 EDR Bounce House Standard!)
+ * 2. Aligned Before Image (1448×1086 4:3 so the Before/After slider aligns 1:1 without jumping!)
+ * 3. Catalog Pure White (2000×2000)
+ * 4. Trimmed Transparent Sticker .PNG + Cutline-Traced .SVG for 1-Click Export & SVG Pack ZIP
+ */
+async function buildBounceHouseAndSvgOutputs(
+  originalFileOrUrl,
   cutoutBlob,
-  cleaningMode = 'cutout_and_polish',
-  framingMode = 'catalog',
-  polishIntensity = 'high'
+  polishIntensity = 'high',
+  prebakedAfterParkUrl = null
 ) {
-  const origUrl = URL.createObjectURL(originalFile);
+  const origUrl =
+    typeof originalFileOrUrl === 'string'
+      ? originalFileOrUrl
+      : URL.createObjectURL(originalFileOrUrl);
   const cutUrl = cutoutBlob ? URL.createObjectURL(cutoutBlob) : null;
 
   const origImg = await new Promise((res, rej) => {
     const el = new Image();
+    el.crossOrigin = 'anonymous';
     el.onload = () => res(el);
     el.onerror = rej;
     el.src = origUrl;
@@ -272,16 +408,18 @@ async function buildCatalogOutputs(
   const cutImg = cutUrl
     ? await new Promise((res, rej) => {
         const el = new Image();
+        el.crossOrigin = 'anonymous';
         el.onload = () => res(el);
         el.onerror = rej;
         el.src = cutUrl;
       })
     : null;
 
-  const subjectCanvas = processStudioSubject(origImg, cutImg, cleaningMode, polishIntensity);
+  const parkBackdropImg = await loadSunnyParkBackdrop();
+  const subjectCanvas = processBounceHouseVinylPolish(origImg, cutImg, polishIntensity);
   const subjectCtx = subjectCanvas.getContext('2d');
 
-  // Tightly cropped Sticker PNG + Standalone Vector-Contour SVG for Element Packs
+  // 1. Tightly cropped Sticker PNG + Standalone Vector-Contour SVG for 1-Click SVG & Pack ZIP
   const tightBbox = getTransparentBoundingBox(subjectCtx, subjectCanvas.width, subjectCanvas.height);
   const stickerCanvas = document.createElement('canvas');
   stickerCanvas.width = tightBbox.w;
@@ -301,96 +439,143 @@ async function buildCatalogOutputs(
   const trimmedStickerUrl = stickerCanvas.toDataURL('image/png');
   const svgMarkup = createStandaloneSvgMarkup(stickerCanvas, trimmedStickerUrl);
 
-  const canvasW = 2000;
-  const canvasH = 2000;
+  // 2. Sunny Park Lawn & Sky Composite (1448×1086 4:3 EDR Bounce House Standard)
+  const parkW = 1448;
+  const parkH = 1086;
 
-  let bbox, newW, newH, posX, posY;
+  // Compute placement on the Sunny Park Lawn so the bounce house sits naturally on the grass
+  const maxParkOccW = Math.floor(parkW * 0.84);
+  const maxParkOccH = Math.floor(parkH * 0.82);
+  const parkScale = Math.min(maxParkOccW / tightBbox.w, maxParkOccH / tightBbox.h);
+  const drawW = Math.max(1, Math.floor(tightBbox.w * parkScale));
+  const drawH = Math.max(1, Math.floor(tightBbox.h * parkScale));
+  const drawX = Math.floor((parkW - drawW) / 2);
+  const groundLineY = Math.floor(parkH * 0.91);
+  const drawY = Math.max(Math.floor(parkH * 0.06), groundLineY - drawH);
 
-  if (framingMode === 'catalog' && cleaningMode !== 'polish_only') {
-    bbox = tightBbox;
-    const maxOccupancy = 0.88;
-    const minMargin = 0.06;
-    const groundLineRatio = 0.88;
+  let sunnyParkUrl = prebakedAfterParkUrl;
+  if (!sunnyParkUrl) {
+    const parkCanvas = document.createElement('canvas');
+    parkCanvas.width = parkW;
+    parkCanvas.height = parkH;
+    const parkCtx = parkCanvas.getContext('2d');
 
-    const maxAllowedW = Math.floor(canvasW * maxOccupancy);
-    const maxAllowedH = Math.floor(canvasH * (groundLineRatio - minMargin));
-    const scale = Math.min(maxAllowedW / bbox.w, maxAllowedH / bbox.h);
+    if (parkBackdropImg) {
+      parkCtx.drawImage(parkBackdropImg, 0, 0, parkW, parkH);
+    } else {
+      const skyGrad = parkCtx.createLinearGradient(0, 0, 0, parkH * 0.58);
+      skyGrad.addColorStop(0, '#2563eb');
+      skyGrad.addColorStop(1, '#93c5fd');
+      parkCtx.fillStyle = skyGrad;
+      parkCtx.fillRect(0, 0, parkW, parkH * 0.58);
+      const lawnGrad = parkCtx.createLinearGradient(0, parkH * 0.58, 0, parkH);
+      lawnGrad.addColorStop(0, '#4d7c0f');
+      lawnGrad.addColorStop(1, '#365314');
+      parkCtx.fillStyle = lawnGrad;
+      parkCtx.fillRect(0, parkH * 0.58, parkW, parkH * 0.42);
+    }
 
-    newW = Math.max(1, Math.floor(bbox.w * scale));
-    newH = Math.max(1, Math.floor(bbox.h * scale));
-    posX = Math.floor((canvasW - newW) / 2);
-    const groundY = Math.floor(canvasH * groundLineRatio);
-    posY = Math.max(Math.floor(canvasH * minMargin), groundY - newH);
-  } else {
-    bbox = { x: 0, y: 0, w: subjectCanvas.width, h: subjectCanvas.height };
-    const scale = Math.min(canvasW / bbox.w, canvasH / bbox.h);
-    newW = Math.max(1, Math.floor(bbox.w * scale));
-    newH = Math.max(1, Math.floor(bbox.h * scale));
-    posX = Math.floor((canvasW - newW) / 2);
-    posY = Math.floor((canvasH - newH) / 2);
+    // Realistic dual-layer grass contact shadow & warm sunlight cast shadow (sun from upper-left)
+    parkCtx.save();
+    const shadowCenterX = drawX + Math.floor(drawW * 0.53);
+    const shadowCenterY = drawY + drawH - Math.floor(drawH * 0.02);
+    const shadowRx = Math.floor(drawW * 0.49);
+    const shadowRy = Math.max(18, Math.floor(drawH * 0.055));
+
+    const ambientGrad = parkCtx.createRadialGradient(
+      shadowCenterX,
+      shadowCenterY,
+      10,
+      shadowCenterX,
+      shadowCenterY,
+      shadowRx
+    );
+    ambientGrad.addColorStop(0, 'rgba(15, 35, 10, 0.58)');
+    ambientGrad.addColorStop(0.6, 'rgba(15, 35, 10, 0.30)');
+    ambientGrad.addColorStop(1, 'rgba(15, 35, 10, 0)');
+
+    parkCtx.translate(shadowCenterX, shadowCenterY);
+    parkCtx.scale(1, shadowRy / shadowRx);
+    parkCtx.beginPath();
+    parkCtx.arc(0, 0, shadowRx, 0, Math.PI * 2);
+    parkCtx.fillStyle = ambientGrad;
+    parkCtx.fill();
+    parkCtx.restore();
+
+    // Tight dark contact occlusion line directly under the vinyl base on the grass
+    parkCtx.save();
+    parkCtx.fillStyle = 'rgba(10, 28, 6, 0.48)';
+    parkCtx.filter = 'blur(6px)';
+    parkCtx.fillRect(drawX + drawW * 0.04, drawY + drawH - 10, drawW * 0.92, 16);
+    parkCtx.restore();
+
+    // Draw polished, brightened bounce house onto the sunny park lawn
+    parkCtx.drawImage(
+      subjectCanvas,
+      tightBbox.x,
+      tightBbox.y,
+      tightBbox.w,
+      tightBbox.h,
+      drawX,
+      drawY,
+      drawW,
+      drawH
+    );
+
+    sunnyParkUrl = parkCanvas.toDataURL('image/jpeg', 0.94);
   }
 
-  const drawContactShadow = (ctx) => {
-    if (cleaningMode === 'polish_only') return;
-    ctx.save();
-    const shadowX = canvasW / 2;
-    const shadowY = posY + newH - Math.floor(newH * 0.015);
-    const radiusX = Math.floor(newW * 0.44);
-    const radiusY = Math.max(12, Math.floor(newH * 0.025));
-
-    const grad = ctx.createRadialGradient(shadowX, shadowY, 5, shadowX, shadowY, radiusX);
-    grad.addColorStop(0, 'rgba(15, 23, 42, 0.25)');
-    grad.addColorStop(0.65, 'rgba(15, 23, 42, 0.09)');
-    grad.addColorStop(1, 'rgba(15, 23, 42, 0)');
-
-    ctx.translate(shadowX, shadowY);
-    ctx.scale(1, radiusY / radiusX);
-    ctx.beginPath();
-    ctx.arc(0, 0, radiusX, 0, Math.PI * 2);
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.restore();
-  };
-
-  // 1. Aligned Original "Before" Canvas
+  // 3. Aligned Original "Before" Canvas (1448×1086 4:3 matching the After frame)
   const beforeCanvas = document.createElement('canvas');
-  beforeCanvas.width = canvasW;
-  beforeCanvas.height = canvasH;
+  beforeCanvas.width = parkW;
+  beforeCanvas.height = parkH;
   const beforeCtx = beforeCanvas.getContext('2d');
   beforeCtx.fillStyle = '#0f172a';
-  beforeCtx.fillRect(0, 0, canvasW, canvasH);
-  const scaleUsed = newW / bbox.w;
-  const fullOrigW = Math.round(origImg.width * scaleUsed);
-  const fullOrigH = Math.round(origImg.height * scaleUsed);
-  const fullOrigX = Math.round(posX - bbox.x * scaleUsed);
-  const fullOrigY = Math.round(posY - bbox.y * scaleUsed);
-  beforeCtx.drawImage(origImg, 0, 0, origImg.width, origImg.height, fullOrigX, fullOrigY, fullOrigW, fullOrigH);
+  beforeCtx.fillRect(0, 0, parkW, parkH);
+
+  if (prebakedAfterParkUrl) {
+    beforeCtx.drawImage(origImg, 0, 0, parkW, parkH);
+  } else {
+    const fullOrigW = Math.round(origImg.width * parkScale);
+    const fullOrigH = Math.round(origImg.height * parkScale);
+    const fullOrigX = Math.round(drawX - tightBbox.x * parkScale);
+    const fullOrigY = Math.round(drawY - tightBbox.y * parkScale);
+    beforeCtx.drawImage(origImg, 0, 0, origImg.width, origImg.height, fullOrigX, fullOrigY, fullOrigW, fullOrigH);
+  }
   const alignedBeforeUrl = beforeCanvas.toDataURL('image/jpeg', 0.92);
 
-  // 2. Clean Transparent PNG (2000x2000)
+  // 4. Clean Transparent PNG & 2000×2000 White Catalog JPG
+  const canvasW = 2000;
+  const canvasH = 2000;
+  const maxAllowedW = Math.floor(canvasW * 0.88);
+  const maxAllowedH = Math.floor(canvasH * 0.82);
+  const catScale = Math.min(maxAllowedW / tightBbox.w, maxAllowedH / tightBbox.h);
+  const newW = Math.max(1, Math.floor(tightBbox.w * catScale));
+  const newH = Math.max(1, Math.floor(tightBbox.h * catScale));
+  const posX = Math.floor((canvasW - newW) / 2);
+  const posY = Math.max(Math.floor(canvasH * 0.06), Math.floor(canvasH * 0.88) - newH);
+
   const transCanvas = document.createElement('canvas');
   transCanvas.width = canvasW;
   transCanvas.height = canvasH;
   const transCtx = transCanvas.getContext('2d');
-  drawContactShadow(transCtx);
-  transCtx.drawImage(subjectCanvas, bbox.x, bbox.y, bbox.w, bbox.h, posX, posY, newW, newH);
+  transCtx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, posX, posY, newW, newH);
   const transparentUrl = transCanvas.toDataURL('image/png');
 
-  // 3. Clean Catalog White JPG (2000x2000)
   const whiteCanvas = document.createElement('canvas');
   whiteCanvas.width = canvasW;
   whiteCanvas.height = canvasH;
   const whiteCtx = whiteCanvas.getContext('2d');
   whiteCtx.fillStyle = '#ffffff';
   whiteCtx.fillRect(0, 0, canvasW, canvasH);
-  drawContactShadow(whiteCtx);
-  whiteCtx.drawImage(subjectCanvas, bbox.x, bbox.y, bbox.w, bbox.h, posX, posY, newW, newH);
-  const catalogWhiteUrl = whiteCanvas.toDataURL('image/jpeg', 0.95);
+  whiteCtx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, posX, posY, newW, newH);
+  const catalogWhiteUrl = whiteCanvas.toDataURL('image/jpeg', 0.94);
 
-  URL.revokeObjectURL(origUrl);
+  if (typeof originalFileOrUrl !== 'string') URL.revokeObjectURL(origUrl);
   if (cutUrl) URL.revokeObjectURL(cutUrl);
 
   return {
+    sunnyParkUrl,
     alignedBeforeUrl,
     transparentUrl,
     catalogWhiteUrl,
@@ -411,21 +596,19 @@ const BANNER_PRESETS = [
 ];
 
 const BANNER_BACKGROUNDS = [
+  { id: 'sunny_park', name: 'Sunny Park Lawn & Blue Sky', css: 'url("/backdrops/sunny_park_lawn.jpg") center/cover no-repeat', colors: ['#2563eb', '#60a5fa', '#4d7c0f'] },
   { id: 'sunset_party', name: 'Sunset Party Gradient', css: 'linear-gradient(135deg, #f97316 0%, #ec4899 50%, #6366f1 100%)', colors: ['#f97316', '#ec4899', '#6366f1'] },
   { id: 'tropical_aqua', name: 'Tropical Water Slide Splash', css: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 55%, #1d4ed8 100%)', colors: ['#06b6d4', '#3b82f6', '#1d4ed8'] },
   { id: 'royal_night', name: 'Visual Sentences Midnight Gold', css: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%)', colors: ['#0f172a', '#1e1b4b', '#312e81'] },
-  { id: 'emerald_lawn', name: 'Summer Park Emerald', css: 'linear-gradient(135deg, #10b981 0%, #059669 55%, #064e3b 100%)', colors: ['#10b981', '#059669', '#064e3b'] },
-  { id: 'clean_white', name: 'Pure Studio White', css: '#ffffff', colors: ['#ffffff', '#f8fafc', '#f1f5f9'] },
-  { id: 'transparent', name: 'Transparent Scene Overlay', css: 'transparent', colors: null }
+  { id: 'clean_white', name: 'Pure Studio White', css: '#ffffff', colors: ['#ffffff', '#f8fafc', '#f1f5f9'] }
 ];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('cleaner'); // 'cleaner' | 'vault' | 'banner'
 
-  // Cleaning Mode, Studio Polish & Framing Controls
-  const [cleaningMode, setCleaningMode] = useState('cutout_and_polish');
+  // Bounce House Polish & Backdrop Mode
+  const [backdropStyle, setBackdropStyle] = useState('sunny_park'); // 'sunny_park' | 'white_catalog' | 'transparent_cutout'
   const [polishIntensity, setPolishIntensity] = useState('high');
-  const [framingMode, setFramingMode] = useState('catalog');
   const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS • PREVIEW ONLY');
 
   // Queue & PNG/SVG Vault State
@@ -434,7 +617,7 @@ export default function App() {
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
   const [sliderPos, setSliderPos] = useState(50);
-  const [packCategory, setPackCategory] = useState('Visual Sentences Pack #1');
+  const [packCategory, setPackCategory] = useState('EDR_Bounce_House_SVG_Pack');
 
   // Banner & Visual Sentences Builder State
   const [selectedPreset, setSelectedPreset] = useState(BANNER_PRESETS[0]);
@@ -443,10 +626,10 @@ export default function App() {
     {
       id: 'title_1',
       type: 'text',
-      text: 'BUILD YOUR OWN VISUAL SCENE',
+      text: 'CLEAN IMAGES. CLEAR CHOICES. MORE BOOKINGS.',
       x: 50,
-      y: 18,
-      scale: 1,
+      y: 16,
+      scale: 0.85,
       color: '#ffffff'
     }
   ]);
@@ -459,7 +642,76 @@ export default function App() {
   const bannerStageRef = useRef(null);
   const seenHashesRef = useRef(new Map());
 
-  // Process uploaded files (1 to 100+ photos) and automatically log their PNG + SVG into the Vault
+  // Initialize with the 6 real EDR Bounce House Before/After Showcase items on mount
+  useEffect(() => {
+    let mounted = true;
+    async function initShowcase() {
+      const initialJobs = EDR_SHOWCASE_SAMPLES.map((s) => ({
+        job_id: s.job_id,
+        original_filename: s.original_filename,
+        title: s.title,
+        subtitle: s.subtitle,
+        pack_name: 'EDR_Bounce_House_SVG_Pack',
+        original_url: s.before_url,
+        aligned_before_url: s.before_url,
+        sunny_park_url: s.after_park_url,
+        catalog_white_url: s.after_park_url,
+        transparent_url: s.after_park_url,
+        trimmed_sticker_url: s.after_park_url,
+        svg_markup: null,
+        status: 'completed',
+        is_showcase: true,
+        model_used: 'EDR Bounce House Cleanup + Vinyl Polish + Sunny Park Lawn',
+        processing_time: '0.85'
+      }));
+
+      setJobs(initialJobs);
+      setSelectedJob(initialJobs[0]);
+
+      // Build scalable SVG + sticker PNG for each showcase item in the background so 1-Click SVG Export works immediately
+      for (const sample of EDR_SHOWCASE_SAMPLES) {
+        if (!mounted) return;
+        try {
+          const img = await new Promise((res, rej) => {
+            const el = new Image();
+            el.crossOrigin = 'anonymous';
+            el.onload = () => res(el);
+            el.onerror = rej;
+            el.src = sample.after_park_url;
+          });
+          const c = document.createElement('canvas');
+          c.width = img.width;
+          c.height = img.height;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const pngUrl = c.toDataURL('image/png');
+          const svgStr = createStandaloneSvgMarkup(c, pngUrl);
+
+          if (!mounted) return;
+          setJobs((prev) =>
+            prev.map((j) =>
+              j.job_id === sample.job_id
+                ? { ...j, svg_markup: svgStr, trimmed_sticker_url: pngUrl }
+                : j
+            )
+          );
+          setSelectedJob((prev) =>
+            prev && prev.job_id === sample.job_id
+              ? { ...prev, svg_markup: svgStr, trimmed_sticker_url: pngUrl }
+              : prev
+          );
+        } catch (e) {
+          console.warn('Showcase SVG init warning:', e);
+        }
+      }
+    }
+    initShowcase();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Process uploaded files (1 to 100+ photos) through the AI Cutout + Bounce House Vinyl Polish + Sunny Park Compositor
   const handleFilesSelected = async (fileList) => {
     const files = Array.from(fileList).filter((f) =>
       /\.(png|jpe?g|webp|bmp|heic|heif)$/i.test(f.name)
@@ -475,30 +727,32 @@ export default function App() {
       job_id: `job_${Date.now()}_${idx}`,
       file,
       original_filename: file.name,
+      title: file.name.replace(/\.[^/.]+$/, ''),
+      subtitle: 'Live AI Cutout + Vinyl Polish, De-Wrinkle & Brighten + Sunny Park Lawn Composite',
       pack_name: packCategory,
       original_url: URL.createObjectURL(file),
       aligned_before_url: null,
-      status: 'queued',
-      model_used:
-        cleaningMode === 'polish_only'
-          ? 'Studio Brighten, Color Pop & Crispness Polish'
-          : 'IS-Net Cutout + Studio Brighten & SVG/PNG Pack',
+      sunny_park_url: null,
       catalog_white_url: null,
       transparent_url: null,
       trimmed_sticker_url: null,
       svg_markup: null,
+      status: 'queued',
+      model_used: 'IS-Net Cutout + Vinyl Polish & Sunny Park Lawn Composite',
       stickerWidth: 500,
       stickerHeight: 500,
       processing_time: null
     }));
 
     setJobs((prev) => [...newEntries, ...prev]);
-    if (!selectedJob) setSelectedJob(newEntries[0]);
+    setSelectedJob(newEntries[0]);
 
     for (let i = 0; i < newEntries.length; i++) {
       const entry = newEntries[i];
       const t0 = performance.now();
-      setProgressMsg(`Polishing & generating PNG/SVG ${i + 1} of ${newEntries.length}: ${entry.original_filename}...`);
+      setProgressMsg(
+        `Cleaning, Polishing & Placing on Sunny Park Lawn (${i + 1}/${newEntries.length}): ${entry.original_filename}...`
+      );
 
       setJobs((prev) =>
         prev.map((j) => (j.job_id === entry.job_id ? { ...j, status: 'processing' } : j))
@@ -508,7 +762,7 @@ export default function App() {
 
       try {
         const buffer = await entry.file.arrayBuffer();
-        const sha256 = `${cleaningMode}_${polishIntensity}_${framingMode}_${await hashArrayBuffer(buffer)}`;
+        const sha256 = `${polishIntensity}_${await hashArrayBuffer(buffer)}`;
 
         if (seenHashesRef.current.has(sha256)) {
           const canon = seenHashesRef.current.get(sha256);
@@ -517,6 +771,7 @@ export default function App() {
             status: 'skipped',
             model_used: `SHA-256 Duplicate of ${canon.original_filename} (0.01s)`,
             aligned_before_url: canon.aligned_before_url,
+            sunny_park_url: canon.sunny_park_url,
             catalog_white_url: canon.catalog_white_url,
             transparent_url: canon.transparent_url,
             trimmed_sticker_url: canon.trimmed_sticker_url,
@@ -531,33 +786,30 @@ export default function App() {
         }
 
         let cutoutBlob = null;
-        if (cleaningMode !== 'polish_only') {
-          try {
-            cutoutBlob = await removeBackground(entry.file, {
-              model: 'isnet_fp16',
-              output: { format: 'image/png', quality: 1.0 },
-              progress: (key, current, total) => {
-                if (total > 0) {
-                  const pct = Math.round((current / total) * 100);
-                  setProgressMsg(
-                    `Cleaning & Logging PNG/SVG ${i + 1}/${newEntries.length} (${entry.original_filename}) — AI ${pct}%`
-                  );
-                }
+        try {
+          cutoutBlob = await removeBackground(entry.file, {
+            model: 'isnet_fp16',
+            output: { format: 'image/png', quality: 1.0 },
+            progress: (key, current, total) => {
+              if (total > 0) {
+                const pct = Math.round((current / total) * 100);
+                setProgressMsg(
+                  `Removing Driveway/Clutter & Polishing Vinyl ${i + 1}/${newEntries.length} (${entry.original_filename}) — AI ${pct}%`
+                );
               }
-            });
-          } catch (wasmErr) {
-            if (String(wasmErr.message || '').includes('Failed to fetch dynamically imported module')) {
-              window.location.reload();
-              return;
             }
-            console.warn('AI segmentation fell back to full studio polish:', wasmErr);
-            cutoutBlob = null;
+          });
+        } catch (wasmErr) {
+          if (String(wasmErr.message || '').includes('Failed to fetch dynamically imported module')) {
+            window.location.reload();
+            return;
           }
+          console.warn('AI segmentation fell back to full studio polish:', wasmErr);
+          cutoutBlob = null;
         }
 
-        const effectivePolish = cleaningMode === 'cutout_only' ? 'off' : polishIntensity;
-
         const {
+          sunnyParkUrl,
           alignedBeforeUrl,
           transparentUrl,
           catalogWhiteUrl,
@@ -565,18 +817,13 @@ export default function App() {
           svgMarkup,
           stickerWidth,
           stickerHeight
-        } = await buildCatalogOutputs(
-          entry.file,
-          cutoutBlob,
-          cleaningMode,
-          framingMode,
-          effectivePolish
-        );
+        } = await buildBounceHouseAndSvgOutputs(entry.file, cutoutBlob, polishIntensity);
 
         const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
         const completedJob = {
           ...entry,
           status: 'completed',
+          sunny_park_url: sunnyParkUrl,
           aligned_before_url: alignedBeforeUrl,
           catalog_white_url: catalogWhiteUrl,
           transparent_url: transparentUrl,
@@ -606,7 +853,24 @@ export default function App() {
     setIsProcessingBatch(false);
   };
 
-  // Download single clean image
+  // Run Live AI Cutout + Vinyl Polish + Sunny Park Composite on any preloaded sample raw photo
+  const runLiveAiCleanupOnSample = async (sampleJob) => {
+    if (isProcessingBatch) return;
+    try {
+      setIsProcessingBatch(true);
+      setProgressMsg(`Fetching raw photo for ${sampleJob.title || sampleJob.original_filename}...`);
+      const resp = await fetch(sampleJob.original_url);
+      const blob = await resp.blob();
+      const file = new File([blob], sampleJob.original_filename, { type: blob.type || 'image/jpeg' });
+      await handleFilesSelected([file]);
+    } catch (e) {
+      console.error('Live sample cleanup failed:', e);
+      setIsProcessingBatch(false);
+      setProgressMsg('');
+    }
+  };
+
+  // Download single clean image (100% watermark-free!)
   const downloadImage = (dataUrl, filename) => {
     if (!dataUrl) return;
     const link = document.createElement('a');
@@ -627,9 +891,9 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 
-  // Download ZIP packs: 'svg_only' | 'png_only' | 'all'
-  const downloadPackZip = async (packType = 'svg_only') => {
-    const completed = jobs.filter((j) => j.status === 'completed' || j.status === 'skipped');
+  // 1-Click Download SVG Pack (.ZIP)
+  const downloadSvgPackZip = async () => {
+    const completed = jobs.filter((j) => (j.status === 'completed' || j.status === 'skipped') && j.svg_markup);
     if (completed.length === 0) return;
 
     const zip = new JSZip();
@@ -637,35 +901,12 @@ export default function App() {
 
     completed.forEach((job, idx) => {
       const base = job.original_filename.replace(/\.[^/.]+$/, '');
-
-      if ((packType === 'svg_only' || packType === 'all') && job.svg_markup) {
-        zip.file(`${packFolderName}_SVG_Pack/${base}_element_${idx + 1}.svg`, job.svg_markup);
-      }
-      if ((packType === 'png_only' || packType === 'all') && job.trimmed_sticker_url) {
-        const base64Sticker = job.trimmed_sticker_url.split(',')[1];
-        zip.file(`${packFolderName}_PNG_Pack/${base}_element_${idx + 1}.png`, base64Sticker, { base64: true });
-      }
-      if (packType === 'all') {
-        if (job.catalog_white_url) {
-          const base64White = job.catalog_white_url.split(',')[1];
-          zip.file(`Catalog_White_2000x2000/${base}_polished_white.jpg`, base64White, { base64: true });
-        }
-        if (job.transparent_url) {
-          const base64Trans = job.transparent_url.split(',')[1];
-          zip.file(`Catalog_Transparent_2000x2000/${base}_polished_2000x2000.png`, base64Trans, { base64: true });
-        }
-      }
+      zip.file(`${packFolderName}/${base}_element_${idx + 1}.svg`, job.svg_markup);
     });
 
     const content = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(content);
-    const zipName =
-      packType === 'svg_only'
-        ? `${packFolderName}_${completed.length}_SVG_Pack.zip`
-        : packType === 'png_only'
-        ? `${packFolderName}_${completed.length}_PNG_Pack.zip`
-        : `CleanSnap_Full_SVG_PNG_Catalog_${completed.length}_Assets.zip`;
-    downloadImage(url, zipName);
+    downloadImage(url, `${packFolderName}_${completed.length}_SVG_Pack.zip`);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
@@ -675,11 +916,11 @@ export default function App() {
     const newLayer = {
       id,
       type: 'image',
-      name: job.original_filename,
-      src: job.trimmed_sticker_url || job.transparent_url,
+      name: job.title || job.original_filename,
+      src: job.trimmed_sticker_url || job.transparent_url || job.sunny_park_url,
       x: 30 + ((bannerLayers.length * 14) % 45),
-      y: 55,
-      scale: 0.42
+      y: 56,
+      scale: 0.45
     };
     setBannerLayers((prev) => [...prev, newLayer]);
     setActiveLayerId(id);
@@ -706,15 +947,14 @@ export default function App() {
     setCustomTextInput('');
   };
 
-  // Export High-Resolution Banner (PNG or Scalable SVG)
-  const exportHighResBanner = async (format = 'png') => {
+  // Export High-Resolution Banner (.SVG)
+  const exportHighResBannerSvg = async () => {
     const w = selectedPreset.width;
     const h = selectedPreset.height;
 
-    if (format === 'svg') {
-      let bgMarkup = '';
-      if (selectedBg.colors) {
-        bgMarkup = `
+    let bgMarkup = '';
+    if (selectedBg.colors) {
+      bgMarkup = `
   <defs>
     <linearGradient id="banner_bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${selectedBg.colors[0]}" />
@@ -723,102 +963,46 @@ export default function App() {
     </linearGradient>
   </defs>
   <rect width="${w}" height="${h}" fill="url(#banner_bg)" />`;
-      }
-
-      const layerMarkups = [];
-      for (const layer of bannerLayers) {
-        const cx = Math.round((layer.x / 100) * w);
-        const cy = Math.round((layer.y / 100) * h);
-        if (layer.type === 'image') {
-          const img = await new Promise((res) => {
-            const el = new Image();
-            el.onload = () => res(el);
-            el.onerror = () => res(null);
-            el.src = layer.src;
-          });
-          if (img) {
-            const targetH = Math.round(h * layer.scale);
-            const targetW = Math.round(targetH * (img.width / img.height));
-            const x = Math.round(cx - targetW / 2);
-            const y = Math.round(cy - targetH / 2);
-            layerMarkups.push(
-              `  <image x="${x}" y="${y}" width="${targetW}" height="${targetH}" href="${layer.src}" />`
-            );
-          }
-        } else if (layer.type === 'text') {
-          const fontSize = Math.round(h * 0.075 * layer.scale);
-          const safeText = layer.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-          layerMarkups.push(
-            `  <text x="${cx}" y="${cy}" fill="${layer.color || '#ffffff'}" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle">${safeText}</text>`
-          );
-        }
-      }
-
-      const svgDoc = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${bgMarkup}
-${layerMarkups.join('\n')}
-</svg>`;
-      const blob = new Blob([svgDoc], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      downloadImage(url, `CleanSnap_${selectedPreset.id}_${w}x${h}.svg`);
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-      return;
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-
-    if (selectedBg.colors) {
-      const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      grad.addColorStop(0, selectedBg.colors[0]);
-      grad.addColorStop(0.5, selectedBg.colors[1]);
-      grad.addColorStop(1, selectedBg.colors[2]);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
+    const layerMarkups = [];
     for (const layer of bannerLayers) {
-      const cx = (layer.x / 100) * canvas.width;
-      const cy = (layer.y / 100) * canvas.height;
-
+      const cx = Math.round((layer.x / 100) * w);
+      const cy = Math.round((layer.y / 100) * h);
       if (layer.type === 'image') {
         const img = await new Promise((res) => {
           const el = new Image();
+          el.crossOrigin = 'anonymous';
           el.onload = () => res(el);
           el.onerror = () => res(null);
           el.src = layer.src;
         });
         if (img) {
-          const targetH = canvas.height * layer.scale;
-          const aspect = img.width / img.height;
-          const targetW = targetH * aspect;
-
-          ctx.save();
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-          ctx.shadowBlur = 24;
-          ctx.shadowOffsetY = 10;
-          ctx.drawImage(img, cx - targetW / 2, cy - targetH / 2, targetW, targetH);
-          ctx.restore();
+          const targetH = Math.round(h * layer.scale);
+          const targetW = Math.round(targetH * (img.width / img.height));
+          const x = Math.round(cx - targetW / 2);
+          const y = Math.round(cy - targetH / 2);
+          layerMarkups.push(
+            `  <image x="${x}" y="${y}" width="${targetW}" height="${targetH}" href="${layer.src}" />`
+          );
         }
       } else if (layer.type === 'text') {
-        ctx.save();
-        const fontSize = Math.round(canvas.height * 0.075 * layer.scale);
-        ctx.font = `800 ${fontSize}px "Segoe UI", Arial, sans-serif`;
-        ctx.fillStyle = layer.color || '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-        ctx.shadowBlur = 16;
-        ctx.shadowOffsetY = 4;
-        ctx.fillText(layer.text, cx, cy);
-        ctx.restore();
+        const fontSize = Math.round(h * 0.068 * layer.scale);
+        const safeText = layer.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        layerMarkups.push(
+          `  <text x="${cx}" y="${cy}" fill="${layer.color || '#ffffff'}" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle">${safeText}</text>`
+        );
       }
     }
 
-    const dataUrl = canvas.toDataURL('image/png');
-    downloadImage(dataUrl, `CleanSnap_${selectedPreset.id}_${w}x${h}.png`);
+    const svgDoc = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${bgMarkup}
+${layerMarkups.join('\n')}
+</svg>`;
+    const blob = new Blob([svgDoc], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadImage(url, `CleanSnap_${selectedPreset.id}_${w}x${h}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 
   // Dragging layers inside the Banner Builder
@@ -840,17 +1024,26 @@ ${layerMarkups.join('\n')}
   };
 
   const completedJobs = jobs.filter((j) => j.status === 'completed' || j.status === 'skipped');
-  const completedCount = jobs.filter((j) => j.status === 'completed').length;
-  const skippedCount = jobs.filter((j) => j.status === 'skipped').length;
-  const previewBackdropUrl = createPreviewBackdropPattern(watermarkText);
+  const antiTheftOverlayUrl = createAntiTheftOverlaySvg(watermarkText);
   const activeLayer = bannerLayers.find((l) => l.id === activeLayerId);
+
+  // Pick which After image to display based on selected backdrop mode
+  const activeAfterUrl = selectedJob
+    ? backdropStyle === 'sunny_park'
+      ? selectedJob.sunny_park_url || selectedJob.catalog_white_url
+      : backdropStyle === 'white_catalog'
+      ? selectedJob.catalog_white_url || selectedJob.sunny_park_url
+      : selectedJob.transparent_url || selectedJob.sunny_park_url
+    : null;
 
   return (
     <div className="app-container">
       <header style={{ flexWrap: 'wrap', gap: '16px' }}>
         <div className="logo-area">
-          <h1>CleanSnap AI &amp; Visual Sentences Studio</h1>
-          <p>Product Cutout, Studio Polish, 1-Click SVG/PNG Pack Vault &amp; Social/Web Banner Builder</p>
+          <h1>CleanSnap AI — Bounce House Cleaner, Vinyl Polish &amp; SVG Studio</h1>
+          <p>
+            Removes Messy Driveways, Tarps, Fences &amp; Text • Polishes &amp; Brightens Vinyl • Places on Sunny Park Lawn • 1-Click .SVG &amp; .SVG Pack Export
+          </p>
         </div>
 
         {/* Navigation Tabs */}
@@ -859,13 +1052,13 @@ ${layerMarkups.join('\n')}
             className={activeTab === 'cleaner' ? 'btn-accent' : 'btn-secondary'}
             onClick={() => setActiveTab('cleaner')}
           >
-            <Sparkles size={16} /> 1. Photo Cleaner &amp; Polish
+            <Sparkles size={16} /> 1. Bounce House Cleaner &amp; Polish
           </button>
           <button
             className={activeTab === 'vault' ? 'btn-accent' : 'btn-secondary'}
             onClick={() => setActiveTab('vault')}
           >
-            <Package size={16} /> 2. SVG &amp; PNG Element Vault ({completedJobs.length})
+            <Package size={16} /> 2. 1-Click .SVG Pack Vault ({completedJobs.length})
           </button>
           <button
             className={activeTab === 'banner' ? 'btn-accent' : 'btn-secondary'}
@@ -876,13 +1069,88 @@ ${layerMarkups.join('\n')}
         </div>
       </header>
 
-      {/* ==================== TAB 1: PHOTO CLEANER & STUDIO POLISH ==================== */}
+      {/* ==================== TAB 1: BOUNCE HOUSE CLEANER, VINYL POLISH & SUNNY PARK COMPOSITOR ==================== */}
       {activeTab === 'cleaner' && (
         <>
+          {/* Real EDR Bounce House Showcase Strip */}
+          <div
+            className="card"
+            style={{
+              marginBottom: '20px',
+              padding: '16px 20px',
+              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88))',
+              border: '1px solid rgba(56, 189, 248, 0.28)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Trees size={18} style={{ color: '#22c55e' }} />
+                  EDR Bounce House Cleanup Standard — Cleaned, Polished, Brightened &amp; Placed on Sunny Park Lawn
+                </div>
+                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
+                  Click any bounce house below to inspect the Before/After slider (muddy driveways, tarps, trucks, fences &amp; text removed → vibrant polished vinyl on a sunny green park lawn).
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn-accent" onClick={downloadSvgPackZip} style={{ padding: '8px 14px', fontSize: '12px' }}>
+                  <FileCode size={15} /> 1-Click Export SVG Pack (.ZIP)
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(175px, 1fr))', gap: '10px' }}>
+              {jobs.slice(0, 6).map((job) => {
+                const isSelected = selectedJob?.job_id === job.job_id;
+                return (
+                  <div
+                    key={job.job_id}
+                    onClick={() => setSelectedJob(job)}
+                    style={{
+                      cursor: 'pointer',
+                      borderRadius: '10px',
+                      padding: '8px',
+                      background: isSelected ? 'rgba(37, 99, 235, 0.25)' : 'rgba(15, 23, 42, 0.65)',
+                      border: isSelected ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div style={{ position: 'relative', height: '96px', borderRadius: '6px', overflow: 'hidden', marginBottom: '6px' }}>
+                      <img
+                        src={job.sunny_park_url || job.catalog_white_url}
+                        alt={job.title || job.original_filename}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          background: 'rgba(22, 163, 74, 0.92)',
+                          color: '#fff',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: '4px'
+                        }}
+                      >
+                        POLISHED
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {job.title || job.original_filename}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="grid-layout">
+            {/* LEFT COLUMN: Upload & Bounce House Polish Controls */}
             <div className="card">
               <div className="card-header">
-                <span>1. Drop Photos to Clean, Polish &amp; Auto-Log SVG/PNGs</span>
+                <span>1. Drop Raw Bounce House / Product Photos</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     className="btn-accent"
@@ -896,7 +1164,7 @@ ${layerMarkups.join('\n')}
                     onClick={() => folderInputRef.current?.click()}
                     disabled={isProcessingBatch}
                   >
-                    <Folder size={16} /> Select Whole Folder
+                    <Folder size={16} /> Select Folder
                   </button>
                 </div>
               </div>
@@ -929,22 +1197,22 @@ ${layerMarkups.join('\n')}
                 }}
                 onClick={() => fileInputRef.current?.click()}
                 style={{
-                  border: '2px dashed rgba(59, 130, 246, 0.5)',
+                  border: '2px dashed rgba(34, 197, 94, 0.55)',
                   borderRadius: '12px',
-                  padding: '24px 20px',
+                  padding: '22px 18px',
                   textAlign: 'center',
-                  background: 'rgba(15, 23, 42, 0.5)',
+                  background: 'rgba(15, 23, 42, 0.55)',
                   cursor: 'pointer'
                 }}
               >
-                <Sparkles size={32} style={{ color: '#3b82f6', margin: '0 auto 10px' }} />
+                <Sparkles size={30} style={{ color: '#22c55e', margin: '0 auto 8px' }} />
                 <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>
                   {isProcessingBatch
-                    ? progressMsg || 'Polishing & generating SVG/PNGs...'
-                    : 'Drag & Drop 1 to 100+ Photos Here (Auto-Logs into SVG & PNG Vault)'}
+                    ? progressMsg || 'Cleaning, polishing vinyl & placing on Sunny Park Lawn...'
+                    : 'Drag & Drop Raw Bounce House or Rental Photos Here'}
                 </div>
                 <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
-                  Every cleaned item is automatically converted into both a trimmed transparent PNG and a cutline-traced .SVG element!
+                  Automatically removes driveways/tarps/fences, lifts dark shadows, smooths &amp; brightens vinyl colors, places on the Sunny Park Lawn, and logs a cutline-traced .SVG!
                 </div>
               </div>
 
@@ -959,91 +1227,108 @@ ${layerMarkups.join('\n')}
                   gap: '12px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600, color: '#60a5fa' }}>
-                  <Sun size={16} /> Studio Polish, Pack Name &amp; Cutout Settings
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600, color: '#4ade80' }}>
+                  <Sun size={16} /> Bounce House Cleanup, Polish &amp; Backdrop Settings
                 </div>
 
                 <div className="form-group">
-                  <label>SVG / PNG Pack Folder Name</label>
-                  <input
-                    type="text"
-                    value={packCategory}
-                    onChange={(e) => setPackCategory(e.target.value)}
-                    placeholder="e.g. Visual Sentences Pack #1"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Processing Pipeline Mode</label>
+                  <label>Cleaned Scene Backdrop Style</label>
                   <select
-                    value={cleaningMode}
-                    onChange={(e) => setCleaningMode(e.target.value)}
+                    value={backdropStyle}
+                    onChange={(e) => setBackdropStyle(e.target.value)}
                   >
-                    <option value="cutout_and_polish">
-                      Full Product / Element Cleanup (Cutout Background + Brighten, Polish &amp; Color Pop)
+                    <option value="sunny_park">
+                      🌳 Sunny Park Lawn, Green Summer Trees &amp; Blue Sky (EDR Bounce House Standard)
                     </option>
-                    <option value="polish_only">
-                      Studio Polish &amp; Brighten Only (Keep Full Scene + Boost Lighting &amp; Crispness)
+                    <option value="white_catalog">
+                      ⬜ Pure Studio White Catalog (2000×2000 Square)
                     </option>
-                    <option value="cutout_only">
-                      Background Cutout Only (Keep Original Raw Lighting)
+                    <option value="transparent_cutout">
+                      🏁 Transparent Cutout Only (For .SVG Pack &amp; Banner Builder)
                     </option>
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label>Brightening, Vinyl Gloss &amp; Color Pop Intensity</label>
+                  <label>Vinyl De-Wrinkle, Sunlight Brightening &amp; Color Pop Intensity</label>
                   <select
                     value={polishIntensity}
                     onChange={(e) => setPolishIntensity(e.target.value)}
                   >
                     <option value="high">
-                      High Studio Polish (Lift Shadows + Vibrant Colors + Unsharp Crispness)
+                      ✨ High Vinyl Polish (Deep Shadow Lift + Warm Sunlight + Vivid Vinyl Color Pop + Gloss Sheen)
                     </option>
                     <option value="medium">
-                      Balanced Natural Polish (Gentle Brightening + Subtle Vibrance)
+                      ☀️ Balanced Sunlight Polish (Moderate Shadow Lift + Natural Color Boost)
                     </option>
-                    <option value="off">Off (No Color/Brightness Adjustment)</option>
+                    <option value="off">
+                      Off (Cutout &amp; Park Placement Only — Keep Raw Lighting)
+                    </option>
                   </select>
+                </div>
+
+                <div className="form-group">
+                  <label>On-Page Anti-Theft Watermark Text (Never Added to Downloads)</label>
+                  <input
+                    type="text"
+                    value={watermarkText}
+                    onChange={(e) => setWatermarkText(e.target.value)}
+                    placeholder="EDR PARTY RENTALS • PREVIEW ONLY"
+                  />
                 </div>
               </div>
 
+              {/* 1-Click SVG Export & SVG Pack Bar */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: '#94a3b8' }}>
-                  <span>Total: <strong style={{ color: '#fff' }}>{jobs.length}</strong></span>
-                  <span>Ready in Vault: <strong style={{ color: '#10b981' }}>{completedCount + skippedCount}</strong></span>
+                  <span>Ready in Vault: <strong style={{ color: '#22c55e' }}>{completedJobs.length}</strong></span>
                 </div>
-                {completedJobs.length > 0 && (
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      className="btn-accent"
-                      onClick={() => downloadPackZip('svg_only')}
-                      style={{ padding: '8px 12px', fontSize: '12px' }}
-                    >
-                      <FileCode size={14} /> 1-Click Export SVG Pack (.ZIP)
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => downloadPackZip('png_only')}
-                      style={{ padding: '8px 12px', fontSize: '12px' }}
-                    >
-                      <Package size={14} /> Export PNG Pack (.ZIP)
-                    </button>
-                  </div>
-                )}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn-accent"
+                    onClick={() => selectedJob && downloadSingleSvg(selectedJob)}
+                    disabled={!selectedJob?.svg_markup}
+                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                  >
+                    <FileCode size={14} /> 1-Click Export .SVG
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={downloadSvgPackZip}
+                    disabled={completedJobs.length === 0}
+                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                  >
+                    <Archive size={14} /> 1-Click SVG Pack (.ZIP)
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* RIGHT COLUMN: Smooth Aligned Before / After Slider */}
             <div className="card">
-              <div className="card-header">
-                <span>2. On-Page Protected Preview (Downloads Are 100% Watermark-Free)</span>
-                {selectedJob && (
-                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>{selectedJob.original_filename}</span>
+              <div className="card-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <span>2. Before / After Bounce House Cleanup Preview</span>
+                  {selectedJob?.subtitle && (
+                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 400, marginTop: '2px' }}>
+                      {selectedJob.subtitle}
+                    </div>
+                  )}
+                </div>
+                {selectedJob?.is_showcase && (
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: '6px 10px', fontSize: '11px' }}
+                    disabled={isProcessingBatch}
+                    onClick={() => runLiveAiCleanupOnSample(selectedJob)}
+                    title="Re-run the live browser AI cutout + vinyl polish engine on this raw photo"
+                  >
+                    <Sparkles size={13} /> Re-Run Live AI on Raw Photo
+                  </button>
                 )}
               </div>
 
-              {selectedJob && selectedJob.catalog_white_url ? (
+              {selectedJob && activeAfterUrl ? (
                 <>
                   <div
                     className="slider-container"
@@ -1059,29 +1344,57 @@ ${layerMarkups.join('\n')}
                     }}
                     onContextMenu={(e) => e.preventDefault()}
                     style={{
-                      backgroundImage: `url("${previewBackdropUrl}")`,
-                      backgroundRepeat: 'repeat',
-                      backgroundColor: '#ffffff',
+                      position: 'relative',
+                      aspectRatio: '4 / 3',
+                      height: 'auto',
+                      maxHeight: '430px',
+                      backgroundColor: '#0f172a',
                       touchAction: 'none',
-                      cursor: 'ew-resize'
+                      cursor: 'ew-resize',
+                      borderRadius: '10px',
+                      overflow: 'hidden'
                     }}
                   >
+                    {/* AFTER Layer: Cleaned, Polished, Brightened & Placed on Sunny Park Lawn */}
                     <img
-                      src={selectedJob.transparent_url}
-                      alt="Polished & Cleaned Subject"
-                      className="slider-img"
-                      draggable={false}
-                      style={{ pointerEvents: 'none', userSelect: 'none' }}
-                    />
-                    <img
-                      src={selectedJob.aligned_before_url || selectedJob.original_url}
-                      alt="Original Before"
+                      src={activeAfterUrl}
+                      alt="AFTER: Cleaned, Polished & Brightened on Sunny Park Lawn"
                       className="slider-img"
                       draggable={false}
                       style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        pointerEvents: 'none',
+                        userSelect: 'none'
+                      }}
+                    />
+
+                    {/* BEFORE Layer: Raw Driveway / Tarp / Cluttered Photo clipped cleanly */}
+                    <img
+                      src={selectedJob.aligned_before_url || selectedJob.original_url}
+                      alt="BEFORE: Raw Driveway Photo"
+                      className="slider-img"
+                      draggable={false}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
                         pointerEvents: 'none',
                         userSelect: 'none',
                         clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
+                      }}
+                    />
+
+                    {/* On-Page Anti-Theft Watermark Shield Overlay (Protects webpage preview from right-click theft; NEVER in downloads) */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `url("${antiTheftOverlayUrl}")`,
+                        backgroundRepeat: 'repeat',
+                        pointerEvents: 'none',
+                        zIndex: 5
                       }}
                     />
 
@@ -1090,34 +1403,36 @@ ${layerMarkups.join('\n')}
                         position: 'absolute',
                         bottom: '12px',
                         left: '12px',
-                        background: 'rgba(15, 23, 42, 0.82)',
+                        background: 'rgba(15, 23, 42, 0.88)',
                         color: '#f8fafc',
-                        padding: '4px 10px',
+                        padding: '5px 12px',
                         borderRadius: '6px',
                         fontSize: '11px',
-                        fontWeight: 600,
+                        fontWeight: 700,
                         pointerEvents: 'none',
-                        zIndex: 6
+                        zIndex: 6,
+                        border: '1px solid rgba(255,255,255,0.15)'
                       }}
                     >
-                      BEFORE (Raw Photo)
+                      BEFORE (Raw Driveway / Tarp / Clutter)
                     </span>
                     <span
                       style={{
                         position: 'absolute',
                         bottom: '12px',
                         right: '12px',
-                        background: 'rgba(16, 185, 129, 0.92)',
+                        background: 'rgba(22, 163, 74, 0.95)',
                         color: '#ffffff',
-                        padding: '4px 10px',
+                        padding: '5px 12px',
                         borderRadius: '6px',
                         fontSize: '11px',
-                        fontWeight: 600,
+                        fontWeight: 700,
                         pointerEvents: 'none',
-                        zIndex: 6
+                        zIndex: 6,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                       }}
                     >
-                      AFTER (Polished &amp; Cutout)
+                      AFTER (Cleaned, Polished &amp; Sunny Park Lawn)
                     </span>
 
                     <div
@@ -1128,8 +1443,8 @@ ${layerMarkups.join('\n')}
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 4px' }}>
-                    <span style={{ fontSize: '12px', color: '#94a3b8', minWidth: '45px' }}>Before</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '2px 4px' }}>
+                    <span style={{ fontSize: '12px', color: '#94a3b8', minWidth: '50px' }}>Before</span>
                     <input
                       type="range"
                       min="0"
@@ -1137,38 +1452,39 @@ ${layerMarkups.join('\n')}
                       step="0.5"
                       value={sliderPos}
                       onChange={(e) => setSliderPos(Number(e.target.value))}
-                      style={{ flex: 1, cursor: 'pointer', accentColor: '#3b82f6' }}
+                      style={{ flex: 1, cursor: 'pointer', accentColor: '#22c55e' }}
                     />
-                    <span style={{ fontSize: '12px', color: '#94a3b8', minWidth: '38px', textAlign: 'right' }}>After</span>
+                    <span style={{ fontSize: '12px', color: '#4ade80', minWidth: '45px', textAlign: 'right', fontWeight: 600 }}>
+                      Polished
+                    </span>
                   </div>
 
+                  {/* Clean Watermark-Free Download Buttons */}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                    <button
+                      className="btn-accent"
+                      style={{ flex: 1.2, background: '#16a34a' }}
+                      onClick={() => {
+                        const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
+                        downloadImage(activeAfterUrl, `${base}_cleaned_polished.jpg`);
+                      }}
+                    >
+                      <Download size={15} /> Download Cleaned &amp; Polished (.JPG)
+                    </button>
                     <button
                       className="btn-accent"
                       style={{ flex: 1 }}
                       onClick={() => downloadSingleSvg(selectedJob)}
+                      disabled={!selectedJob.svg_markup}
                     >
                       <FileCode size={15} /> 1-Click Export .SVG
                     </button>
                     <button
                       className="btn-secondary"
                       style={{ flex: 1 }}
-                      onClick={() => {
-                        const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
-                        downloadImage(selectedJob.trimmed_sticker_url || selectedJob.transparent_url, `${base}_element.png`);
-                      }}
+                      onClick={downloadSvgPackZip}
                     >
-                      <Download size={15} /> Trimmed .PNG
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      style={{ flex: 1 }}
-                      onClick={() => {
-                        const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
-                        downloadImage(selectedJob.catalog_white_url, `${base}_white_2000x2000.jpg`);
-                      }}
-                    >
-                      <Download size={15} /> White .JPG
+                      <Archive size={15} /> 1-Click .SVG Pack (.ZIP)
                     </button>
                   </div>
                 </>
@@ -1191,7 +1507,7 @@ ${layerMarkups.join('\n')}
                 >
                   <ImageIcon size={40} style={{ color: '#475569' }} />
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#e2e8f0' }}>
-                    Drop photos on the left to clean, polish, and auto-generate 1-Click .SVG &amp; .PNG packs!
+                    Select a bounce house above or drop raw photos on the left!
                   </div>
                 </div>
               )}
@@ -1200,25 +1516,19 @@ ${layerMarkups.join('\n')}
         </>
       )}
 
-      {/* ==================== TAB 2: SVG & PNG ELEMENT PACK VAULT ==================== */}
+      {/* ==================== TAB 2: 1-CLICK .SVG & ELEMENT PACK VAULT ==================== */}
       {activeTab === 'vault' && (
         <div className="card">
           <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <span>SVG &amp; PNG Element Vault — "{packCategory}" ({completedJobs.length} Elements)</span>
+              <span>1-Click .SVG &amp; Element Vault — "{packCategory}" ({completedJobs.length} Elements)</span>
               <p style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'normal', marginTop: '2px' }}>
-                Every cutout has a traced vector contour path and is ready for 1-Click .SVG export or full SVG Pack ZIP download.
+                Every cleaned unit has a traced vector contour path and is ready for 1-Click .SVG export or full .SVG Pack ZIP download.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button className="btn-accent" onClick={() => downloadPackZip('svg_only')} disabled={completedJobs.length === 0}>
+              <button className="btn-accent" onClick={downloadSvgPackZip} disabled={completedJobs.length === 0}>
                 <FileCode size={16} /> 1-Click Export SVG Pack (.ZIP)
-              </button>
-              <button className="btn-secondary" onClick={() => downloadPackZip('png_only')} disabled={completedJobs.length === 0}>
-                <Package size={16} /> Export PNG Pack (.ZIP)
-              </button>
-              <button className="btn-secondary" onClick={() => downloadPackZip('all')} disabled={completedJobs.length === 0}>
-                <Archive size={16} /> Export Complete SVG + PNG Bundle (.ZIP)
               </button>
             </div>
           </div>
@@ -1227,7 +1537,7 @@ ${layerMarkups.join('\n')}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
                 gap: '16px',
                 marginTop: '8px'
               }}
@@ -1247,53 +1557,51 @@ ${layerMarkups.join('\n')}
                 >
                   <div
                     style={{
-                      height: '160px',
-                      backgroundImage: `url("${previewBackdropUrl}")`,
-                      backgroundSize: '180px',
+                      position: 'relative',
+                      height: '165px',
                       borderRadius: '8px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: '10px',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      background: '#0f172a'
                     }}
                     onContextMenu={(e) => e.preventDefault()}
                   >
                     <img
-                      src={job.trimmed_sticker_url || job.transparent_url}
+                      src={job.sunny_park_url || job.trimmed_sticker_url}
                       alt={job.original_filename}
                       draggable={false}
-                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `url("${antiTheftOverlayUrl}")`,
+                        backgroundRepeat: 'repeat',
+                        pointerEvents: 'none'
+                      }}
                     />
                   </div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {job.original_filename}
+                  <div style={{ fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {job.title || job.original_filename}
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
                       className="btn-accent"
-                      style={{ flex: 1, padding: '6px 8px', fontSize: '11px' }}
+                      style={{ flex: 1, padding: '7px 10px', fontSize: '12px' }}
                       onClick={() => downloadSingleSvg(job)}
                     >
-                      <FileCode size={13} /> .SVG
+                      <FileCode size={14} /> 1-Click .SVG
                     </button>
                     <button
                       className="btn-secondary"
-                      style={{ flex: 1, padding: '6px 8px', fontSize: '11px' }}
-                      onClick={() => {
-                        const base = job.original_filename.replace(/\.[^/.]+$/, '');
-                        downloadImage(job.trimmed_sticker_url || job.transparent_url, `${base}_element.png`);
-                      }}
-                    >
-                      <Download size={13} /> .PNG
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      style={{ padding: '6px 8px', fontSize: '11px' }}
+                      style={{ padding: '7px 10px', fontSize: '12px' }}
                       title="Use in Banner Builder"
                       onClick={() => addElementToBanner(job)}
                     >
-                      <Plus size={13} />
+                      <Plus size={14} /> Banner
                     </button>
                   </div>
                 </div>
@@ -1301,7 +1609,7 @@ ${layerMarkups.join('\n')}
             </div>
           ) : (
             <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-              Your SVG &amp; PNG Vault is empty. Drop photos in <strong>Tab 1 (Photo Cleaner)</strong> to automatically generate and log SVG + PNG elements here!
+              Your SVG Vault is empty. Drop photos in <strong>Tab 1</strong> to automatically generate and log SVG elements here!
             </div>
           )}
         </div>
@@ -1312,13 +1620,10 @@ ${layerMarkups.join('\n')}
         <div className="grid-layout">
           <div className="card">
             <div className="card-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
-              <span>Banner &amp; Printable Scene Controls</span>
+              <span>Banner &amp; Visual Sentence Controls</span>
               <div style={{ display: 'flex', gap: '6px' }}>
-                <button className="btn-accent" onClick={() => exportHighResBanner('svg')} style={{ padding: '8px 12px', fontSize: '12px' }}>
-                  <FileCode size={15} /> Export Banner .SVG
-                </button>
-                <button className="btn-secondary" onClick={() => exportHighResBanner('png')} style={{ padding: '8px 12px', fontSize: '12px' }}>
-                  <Download size={15} /> Export .PNG
+                <button className="btn-accent" onClick={exportHighResBannerSvg} style={{ padding: '8px 12px', fontSize: '12px' }}>
+                  <FileCode size={15} /> 1-Click Export Banner .SVG
                 </button>
               </div>
             </div>
@@ -1434,40 +1739,35 @@ ${layerMarkups.join('\n')}
             )}
 
             <div className="form-group">
-              <label>4. Click Any Logged Element Below to Drop Onto Banner ({completedJobs.length} Available)</label>
-              {completedJobs.length > 0 ? (
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '8px 0' }}>
-                  {completedJobs.map((job) => (
-                    <div
-                      key={job.job_id}
-                      onClick={() => addElementToBanner(job)}
-                      title={`Click to add ${job.original_filename}`}
-                      style={{
-                        minWidth: '76px',
-                        height: '76px',
-                        background: 'rgba(255,255,255,0.9)',
-                        borderRadius: '8px',
-                        padding: '6px',
-                        cursor: 'pointer',
-                        border: '2px solid transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <img
-                        src={job.trimmed_sticker_url || job.transparent_url}
-                        alt={job.original_filename}
-                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: '12px', color: '#94a3b8', padding: '8px 0' }}>
-                  Clean some photos in Tab 1 first, and they will appear here ready to drag onto your banner!
-                </div>
-              )}
+              <label>4. Click Any Element Below to Drop Onto Banner ({completedJobs.length} Available)</label>
+              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '8px 0' }}>
+                {completedJobs.map((job) => (
+                  <div
+                    key={job.job_id}
+                    onClick={() => addElementToBanner(job)}
+                    title={`Click to add ${job.title || job.original_filename}`}
+                    style={{
+                      minWidth: '84px',
+                      height: '68px',
+                      background: '#0f172a',
+                      borderRadius: '8px',
+                      padding: '4px',
+                      cursor: 'pointer',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <img
+                      src={job.sunny_park_url || job.trimmed_sticker_url}
+                      alt={job.original_filename}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -1501,10 +1801,7 @@ ${layerMarkups.join('\n')}
                   width: '100%',
                   aspectRatio: `${selectedPreset.width} / ${selectedPreset.height}`,
                   maxHeight: '420px',
-                  background:
-                    selectedBg.id === 'transparent'
-                      ? `url("${previewBackdropUrl}")`
-                      : selectedBg.css,
+                  background: selectedBg.css,
                   borderRadius: '8px',
                   overflow: 'hidden',
                   boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
@@ -1549,10 +1846,10 @@ ${layerMarkups.join('\n')}
                       ) : (
                         <div
                           style={{
-                            fontSize: `${Math.round(24 * layer.scale)}px`,
+                            fontSize: `${Math.round(22 * layer.scale)}px`,
                             fontWeight: 800,
                             color: layer.color || '#ffffff',
-                            textShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                            textShadow: '0 4px 12px rgba(0,0,0,0.65)',
                             whiteSpace: 'nowrap',
                             pointerEvents: 'none'
                           }}
@@ -1569,11 +1866,8 @@ ${layerMarkups.join('\n')}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#94a3b8', flexWrap: 'wrap', gap: '8px' }}>
               <span>Click any element on the canvas to drag or resize it.</span>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn-accent" onClick={() => exportHighResBanner('svg')}>
+                <button className="btn-accent" onClick={exportHighResBannerSvg}>
                   <FileCode size={15} /> 1-Click Export Banner .SVG
-                </button>
-                <button className="btn-secondary" onClick={() => exportHighResBanner('png')}>
-                  <Download size={15} /> Download .PNG
                 </button>
               </div>
             </div>
