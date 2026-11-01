@@ -14,7 +14,7 @@ import {
   Sliders,
   Sun
 } from 'lucide-react';
-import { removeBackground, preload } from '@imgly/background-removal';
+import { removeBackground } from '@imgly/background-removal';
 import JSZip from 'jszip';
 import './App.css';
 
@@ -59,8 +59,20 @@ function getTransparentBoundingBox(ctx, width, height) {
   return { x: minX, y: minY, w: Math.max(1, maxX - minX + 1), h: Math.max(1, maxY - minY + 1) };
 }
 
-// Apply studio shadow recovery, warm white balance, clarity, and optional AI mask
-function processStudioSubject(origImg, cutoutImg, cleaningMode = 'product_cutout', maskProtectLevel = 2) {
+/**
+ * Multi-Stage Studio Polish, Brightening & Color Pop Pipeline:
+ * 1. Auto-Levels & Shadow Lift (brightens dark outdoor/indoor shadows without blowing out highlights)
+ * 2. Studio Brightness & Contrast S-Curve (makes vinyl/surfaces look glossy and polished)
+ * 3. Vibrance & Color Pop (boosts muted colors so slides/products pop off the page)
+ * 4. Unsharp Mask Crispness Pass (sharpens edges, stitching, and textures)
+ * 5. AI Background Cutout + Smart Scene Protection
+ */
+function processStudioSubject(
+  origImg,
+  cutoutImg,
+  cleaningMode = 'cutout_and_polish',
+  polishIntensity = 'high'
+) {
   const w = origImg.width;
   const h = origImg.height;
 
@@ -68,56 +80,118 @@ function processStudioSubject(origImg, cutoutImg, cleaningMode = 'product_cutout
   subjectCanvas.width = w;
   subjectCanvas.height = h;
   const ctx = subjectCanvas.getContext('2d');
-
-  // Studio lighting, clarity, and color boost
-  ctx.filter =
-    cleaningMode === 'scene_enhance'
-      ? 'brightness(1.07) contrast(1.08) saturate(1.12)'
-      : 'brightness(1.03) contrast(1.05) saturate(1.07)';
   ctx.drawImage(origImg, 0, 0, w, h);
-  ctx.filter = 'none';
 
-  // If mode is Full Scene Studio Enhance, keep 100% of the image (never remove rooms, architecture, or background)
-  if (cleaningMode === 'scene_enhance' || !cutoutImg) {
-    return subjectCanvas;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  // Step 1: Load AI Alpha Mask if doing background cutout
+  let maskData = null;
+  let keepFullScene = cleaningMode === 'polish_only' || !cutoutImg;
+
+  if (!keepFullScene && cutoutImg) {
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = w;
+    maskCanvas.height = h;
+    const maskCtx = maskCanvas.getContext('2d');
+    maskCtx.drawImage(cutoutImg, 0, 0, w, h);
+    maskData = maskCtx.getImageData(0, 0, w, h).data;
+
+    // Check if AI mask accidentally erased >88% of a full room/scene
+    let opaqueCount = 0;
+    for (let i = 0; i < maskData.length; i += 4) {
+      if (maskData[i + 3] > 60) opaqueCount++;
+    }
+    if (opaqueCount / (w * h) < 0.12) {
+      keepFullScene = true;
+    }
   }
 
-  const origData = ctx.getImageData(0, 0, w, h);
-  const pixels = origData.data;
+  // Step 2: Configure Studio Polish Parameters
+  const gamma = polishIntensity === 'high' ? 0.80 : polishIntensity === 'medium' ? 0.88 : 1.0;
+  const contrastGain = polishIntensity === 'high' ? 1.16 : polishIntensity === 'medium' ? 1.09 : 1.0;
+  const vibranceBoost = polishIntensity === 'high' ? 0.34 : polishIntensity === 'medium' ? 0.20 : 0.0;
+  const specularLift = polishIntensity === 'high' ? 12 : polishIntensity === 'medium' ? 6 : 0;
 
-  const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = w;
-  maskCanvas.height = h;
-  const maskCtx = maskCanvas.getContext('2d');
-  maskCtx.drawImage(cutoutImg, 0, 0, w, h);
-  const maskData = maskCtx.getImageData(0, 0, w, h).data;
+  // Precompute 256-entry Gamma + S-Curve Lookup Table for fast pixel polishing
+  const toneLut = new Uint8Array(256);
+  for (let v = 0; v < 256; v++) {
+    // Normalize 0..1
+    let norm = v / 255.0;
+    // Shadow-lifting gamma curve
+    norm = Math.pow(norm, gamma);
+    // Midtone contrast S-curve around 0.5
+    norm = (norm - 0.5) * contrastGain + 0.5;
+    // Slight highlight polish lift
+    let out = norm * 255.0 + specularLift * Math.pow(norm, 2);
+    toneLut[v] = Math.max(0, Math.min(255, Math.round(out)));
+  }
 
-  // Safeguard check: calculate what percentage of the image the AI mask kept
-  let opaqueCount = 0;
-  const totalPixels = w * h;
-  const boostFactor = maskProtectLevel === 2 ? 2.2 : maskProtectLevel === 1 ? 1.45 : 1.0;
-
-  for (let i = 0; i < pixels.length; i += 4) {
-    let a = maskData[i + 3];
-    if (a > 6) {
-      a = Math.min(255, Math.round(a * boostFactor));
-      if (a > 128) opaqueCount++;
+  // Apply Studio Polish + Vibrance + Alpha Cutout per pixel
+  for (let i = 0; i < data.length; i += 4) {
+    // Handle alpha mask
+    if (!keepFullScene && maskData) {
+      let a = maskData[i + 3];
+      if (a > 8) {
+        // Recover soft subject edges
+        a = Math.min(255, Math.round(a * 1.75));
+      } else {
+        data[i + 3] = 0;
+        continue;
+      }
+      data[i + 3] = a;
     } else {
-      a = 0;
+      data[i + 3] = 255;
     }
-    pixels[i + 3] = a;
+
+    // Apply Tone Curve (Brightening + Shadow Lift + Vinyl Gloss Contrast)
+    let r = toneLut[data[i]];
+    let g = toneLut[data[i + 1]];
+    let b = toneLut[data[i + 2]];
+
+    // Apply Smart Vibrance (boosts dull/muted colors more than already-saturated colors)
+    if (vibranceBoost > 0) {
+      const maxC = Math.max(r, g, b);
+      const minC = Math.min(r, g, b);
+      const sat = (maxC - minC) / 255.0;
+      const avg = 0.299 * r + 0.587 * g + 0.114 * b;
+      const dynVib = vibranceBoost * (1.0 - sat * 0.65);
+
+      r = Math.max(0, Math.min(255, Math.round(r + (r - avg) * dynVib)));
+      g = Math.max(0, Math.min(255, Math.round(g + (g - avg) * dynVib)));
+      b = Math.max(0, Math.min(255, Math.round(b + (b - avg) * dynVib)));
+    }
+
+    data[i] = r;
+    data[i + 1] = g;
+    data[i + 2] = b;
   }
 
-  // Automatic Smart Fallback: If the AI only kept a tiny fragment (< 12% of the photo, e.g., a person inside a grand library scene),
-  // preserve the full enhanced image so we don't wipe out 90% of the artwork/scene!
-  const keptRatio = opaqueCount / totalPixels;
-  if (keptRatio < 0.12 && maskProtectLevel >= 1) {
-    for (let i = 0; i < pixels.length; i += 4) {
-      pixels[i + 3] = 255;
+  ctx.putImageData(imgData, 0, 0);
+
+  // Step 3: Crispness / Unsharp Mask Overlay Pass
+  if (polishIntensity !== 'off') {
+    const blurCanvas = document.createElement('canvas');
+    blurCanvas.width = w;
+    blurCanvas.height = h;
+    const blurCtx = blurCanvas.getContext('2d');
+    blurCtx.filter = 'blur(1.5px)';
+    blurCtx.drawImage(subjectCanvas, 0, 0);
+
+    const sharpData = ctx.getImageData(0, 0, w, h);
+    const sp = sharpData.data;
+    const bp = blurCtx.getImageData(0, 0, w, h).data;
+    const amount = polishIntensity === 'high' ? 0.42 : 0.25;
+
+    for (let i = 0; i < sp.length; i += 4) {
+      if (sp[i + 3] === 0) continue;
+      sp[i] = Math.max(0, Math.min(255, Math.round(sp[i] + (sp[i] - bp[i]) * amount)));
+      sp[i + 1] = Math.max(0, Math.min(255, Math.round(sp[i + 1] + (sp[i + 1] - bp[i + 1]) * amount)));
+      sp[i + 2] = Math.max(0, Math.min(255, Math.round(sp[i + 2] + (sp[i + 2] - bp[i + 2]) * amount)));
     }
+    ctx.putImageData(sharpData, 0, 0);
   }
 
-  ctx.putImageData(origData, 0, 0);
   return subjectCanvas;
 }
 
@@ -127,9 +201,9 @@ function processStudioSubject(origImg, cutoutImg, cleaningMode = 'product_cutout
 async function buildCatalogOutputs(
   originalFile,
   cutoutBlob,
-  cleaningMode = 'product_cutout',
-  framingMode = 'original',
-  maskProtectLevel = 2
+  cleaningMode = 'cutout_and_polish',
+  framingMode = 'catalog',
+  polishIntensity = 'high'
 ) {
   const origUrl = URL.createObjectURL(originalFile);
   const cutUrl = cutoutBlob ? URL.createObjectURL(cutoutBlob) : null;
@@ -150,7 +224,7 @@ async function buildCatalogOutputs(
       })
     : null;
 
-  const subjectCanvas = processStudioSubject(origImg, cutImg, cleaningMode, maskProtectLevel);
+  const subjectCanvas = processStudioSubject(origImg, cutImg, cleaningMode, polishIntensity);
   const subjectCtx = subjectCanvas.getContext('2d');
 
   const canvasW = 2000;
@@ -158,7 +232,7 @@ async function buildCatalogOutputs(
 
   let bbox, newW, newH, posX, posY;
 
-  if (framingMode === 'catalog' && cleaningMode === 'product_cutout') {
+  if (framingMode === 'catalog' && cleaningMode !== 'polish_only') {
     bbox = getTransparentBoundingBox(subjectCtx, subjectCanvas.width, subjectCanvas.height);
     const maxOccupancy = 0.88;
     const minMargin = 0.06;
@@ -174,7 +248,6 @@ async function buildCatalogOutputs(
     const groundY = Math.floor(canvasH * groundLineRatio);
     posY = Math.max(Math.floor(canvasH * minMargin), groundY - newH);
   } else {
-    // Keep original full-frame proportions fitted cleanly inside 2000x2000 so Before & After never jump
     bbox = { x: 0, y: 0, w: subjectCanvas.width, h: subjectCanvas.height };
     const scale = Math.min(canvasW / bbox.w, canvasH / bbox.h);
     newW = Math.max(1, Math.floor(bbox.w * scale));
@@ -185,7 +258,7 @@ async function buildCatalogOutputs(
 
   // Helper to draw soft studio contact shadow under product
   const drawContactShadow = (ctx) => {
-    if (cleaningMode === 'scene_enhance') return;
+    if (cleaningMode === 'polish_only') return;
     ctx.save();
     const shadowX = canvasW / 2;
     const shadowY = posY + newH - Math.floor(newH * 0.015);
@@ -248,10 +321,10 @@ async function buildCatalogOutputs(
 }
 
 export default function App() {
-  // Cleaning Mode & Framing Controls
-  const [cleaningMode, setCleaningMode] = useState('product_cutout'); // 'product_cutout' or 'scene_enhance'
-  const [framingMode, setFramingMode] = useState('original'); // 'original' keeps exact position; 'catalog' auto-centers 88%
-  const [maskProtectLevel, setMaskProtectLevel] = useState(2); // 2 = Max subject protection + smart scene fallback
+  // Cleaning Mode, Studio Polish & Framing Controls
+  const [cleaningMode, setCleaningMode] = useState('cutout_and_polish'); // 'cutout_and_polish', 'polish_only', 'cutout_only'
+  const [polishIntensity, setPolishIntensity] = useState('high'); // 'high', 'medium', 'off'
+  const [framingMode, setFramingMode] = useState('catalog'); // 'catalog' (88% centered + floor shadow) or 'original'
   const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS • PREVIEW ONLY');
 
   // Queue & History State
@@ -286,9 +359,9 @@ export default function App() {
       aligned_before_url: null,
       status: 'queued',
       model_used:
-        cleaningMode === 'scene_enhance'
-          ? 'Full-Scene Studio Lighting & Clarity Engine'
-          : 'IS-Net High-Detail Product AI (fp16)',
+        cleaningMode === 'polish_only'
+          ? 'Studio Brighten, Color Pop & Crispness Polish'
+          : 'IS-Net Cutout + Studio Brighten & Vinyl Polish',
       catalog_white_url: null,
       transparent_url: null,
       processing_time: null
@@ -300,7 +373,7 @@ export default function App() {
     for (let i = 0; i < newEntries.length; i++) {
       const entry = newEntries[i];
       const t0 = performance.now();
-      setProgressMsg(`Cleaning photo ${i + 1} of ${newEntries.length}: ${entry.original_filename}...`);
+      setProgressMsg(`Polishing & cleaning ${i + 1} of ${newEntries.length}: ${entry.original_filename}...`);
 
       setJobs((prev) =>
         prev.map((j) => (j.job_id === entry.job_id ? { ...j, status: 'processing' } : j))
@@ -310,7 +383,7 @@ export default function App() {
 
       try {
         const buffer = await entry.file.arrayBuffer();
-        const sha256 = `${cleaningMode}_${framingMode}_${maskProtectLevel}_${await hashArrayBuffer(buffer)}`;
+        const sha256 = `${cleaningMode}_${polishIntensity}_${framingMode}_${await hashArrayBuffer(buffer)}`;
 
         // SHA-256 Deduplication
         if (seenHashesRef.current.has(sha256)) {
@@ -330,7 +403,7 @@ export default function App() {
         }
 
         let cutoutBlob = null;
-        if (cleaningMode === 'product_cutout') {
+        if (cleaningMode !== 'polish_only') {
           try {
             cutoutBlob = await removeBackground(entry.file, {
               model: 'isnet_fp16',
@@ -339,29 +412,30 @@ export default function App() {
                 if (total > 0) {
                   const pct = Math.round((current / total) * 100);
                   setProgressMsg(
-                    `Cleaning ${i + 1}/${newEntries.length} (${entry.original_filename}) — AI Model ${pct}%`
+                    `Cleaning & Polishing ${i + 1}/${newEntries.length} (${entry.original_filename}) — AI ${pct}%`
                   );
                 }
               }
             });
           } catch (wasmErr) {
-            // If dynamic module hash changed during a live deployment, prompt a clean reload or fall back to Studio Enhance
             if (String(wasmErr.message || '').includes('Failed to fetch dynamically imported module')) {
               window.location.reload();
               return;
             }
-            console.warn('AI segmentation fell back to full studio enhancement:', wasmErr);
+            console.warn('AI segmentation fell back to full studio polish:', wasmErr);
             cutoutBlob = null;
           }
         }
 
-        // Build 2000x2000 Clean Exports (NO watermark on exports) + Aligned Before/After Preview
+        const effectivePolish = cleaningMode === 'cutout_only' ? 'off' : polishIntensity;
+
+        // Build 2000x2000 Polished & Cleaned Exports (NO watermark on exports) + Aligned Before/After Preview
         const { alignedBeforeUrl, transparentUrl, catalogWhiteUrl } = await buildCatalogOutputs(
           entry.file,
           cutoutBlob,
           cleaningMode,
           framingMode,
-          maskProtectLevel
+          effectivePolish
         );
 
         const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
@@ -414,17 +488,17 @@ export default function App() {
       const base = job.original_filename.replace(/\.[^/.]+$/, '');
       if (job.catalog_white_url) {
         const base64White = job.catalog_white_url.split(',')[1];
-        zip.file(`${base}_clean_white_2000x2000.jpg`, base64White, { base64: true });
+        zip.file(`${base}_polished_white_2000x2000.jpg`, base64White, { base64: true });
       }
       if (job.transparent_url) {
         const base64Trans = job.transparent_url.split(',')[1];
-        zip.file(`${base}_clean_transparent_2000x2000.png`, base64Trans, { base64: true });
+        zip.file(`${base}_polished_transparent_2000x2000.png`, base64Trans, { base64: true });
       }
     });
 
     const content = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(content);
-    downloadImage(url, `CleanSnap_Clean_Catalog_${completed.length}_Photos.zip`);
+    downloadImage(url, `CleanSnap_Polished_Catalog_${completed.length}_Photos.zip`);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
@@ -445,18 +519,18 @@ export default function App() {
       <header>
         <div className="logo-area">
           <h1>CleanSnap AI</h1>
-          <p>Automated Catalog Product Photo Cleaning &amp; Framing Studio</p>
+          <p>Automated Product Photo Cutout, Studio Brightening, Vinyl Polish &amp; 2000×2000 Framing</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="status-badge active">
             <span className="dot"></span>
-            {isProcessingBatch ? 'AI Processing Batch...' : 'AI Engine Ready (1–100+ Photos)'}
+            {isProcessingBatch ? 'AI Polishing Batch...' : 'Studio Polish + Cutout Ready'}
           </div>
         </div>
       </header>
 
       <div className="grid-layout">
-        {/* LEFT COLUMN: Upload Dropzone & Cleaning Mode Controls */}
+        {/* LEFT COLUMN: Upload Dropzone & Studio Polish Controls */}
         <div className="card">
           <div className="card-header">
             <span>1. Drop Product Photos or Select Folder</span>
@@ -509,7 +583,7 @@ export default function App() {
             style={{
               border: '2px dashed rgba(59, 130, 246, 0.5)',
               borderRadius: '12px',
-              padding: '26px 20px',
+              padding: '24px 20px',
               textAlign: 'center',
               background: 'rgba(15, 23, 42, 0.5)',
               cursor: 'pointer'
@@ -518,15 +592,15 @@ export default function App() {
             <Sparkles size={32} style={{ color: '#3b82f6', margin: '0 auto 10px' }} />
             <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>
               {isProcessingBatch
-                ? progressMsg || 'Cleaning photos with AI...'
+                ? progressMsg || 'Polishing & cleaning photos...'
                 : 'Drag & Drop 1 to 100+ Product Photos Here (or Click to Browse)'}
             </div>
             <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
-              Preserves the subject, cleans the background, and exports 100% watermark-free 2000×2000 files.
+              Cuts out background, lifts dark shadows, brightens &amp; polishes colors, sharpens details, and frames to 2000×2000 px.
             </div>
           </div>
 
-          {/* Mode Selection: Product Cutout vs Full-Scene Enhance */}
+          {/* Studio Polish & Cutout Pipeline Settings */}
           <div
             style={{
               background: 'rgba(15, 23, 42, 0.55)',
@@ -539,35 +613,54 @@ export default function App() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600, color: '#60a5fa' }}>
-              <Sliders size={16} /> Cleaning Mode &amp; Subject Preservation
+              <Sun size={16} /> Studio Polish, Brightening &amp; Cutout Pipeline
             </div>
 
             <div className="form-group">
-              <label>Photo Type / Cleaning Mode</label>
+              <label>1. Processing Pipeline Mode</label>
               <select
                 value={cleaningMode}
                 onChange={(e) => setCleaningMode(e.target.value)}
               >
-                <option value="product_cutout">
-                  Product / Bounce House Cutout (Remove Outdoor Lawn/Sky + Smart Scene Protection)
+                <option value="cutout_and_polish">
+                  Full Slide / Product Cleanup (Remove Background + Brighten, Polish &amp; Color Pop)
                 </option>
-                <option value="scene_enhance">
-                  Full-Scene Studio Enhance (Keep Entire Room/Artwork + Boost Lighting &amp; Clarity)
+                <option value="polish_only">
+                  Studio Polish &amp; Brighten Only (Keep Full Scene/Background + Boost Lighting &amp; Crispness)
+                </option>
+                <option value="cutout_only">
+                  Background Cutout Only (Keep Original Raw Lighting)
                 </option>
               </select>
             </div>
 
             <div className="form-group">
-              <label>Alignment &amp; Framing Mode</label>
+              <label>2. Brightening, Vinyl Gloss &amp; Color Pop Intensity</label>
+              <select
+                value={polishIntensity}
+                onChange={(e) => setPolishIntensity(e.target.value)}
+              >
+                <option value="high">
+                  High Studio Polish (Lift Outdoor Shadows + Vibrant Colors + Unsharp Crispness)
+                </option>
+                <option value="medium">
+                  Balanced Natural Polish (Gentle Brightening + Subtle Vibrance)
+                </option>
+                <option value="off">Off (No Color/Brightness Adjustment)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>3. 2000×2000 Catalog Framing</label>
               <select
                 value={framingMode}
                 onChange={(e) => setFramingMode(e.target.value)}
               >
-                <option value="original">
-                  Lock Original Subject Position (Zero Shift Between Before &amp; After)
-                </option>
                 <option value="catalog">
-                  Auto-Center &amp; Scale to 88% Catalog Square (2000×2000 + Floor Shadow)
+                  Standardized 2000×2000 Catalog Square (Auto-Center 88% Occupancy + Floor Shadow)
+                </option>
+                <option value="original">
+                  Lock Original Full-Frame Proportions
                 </option>
               </select>
             </div>
@@ -590,8 +683,8 @@ export default function App() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'rgba(15,23,42,0.5)', borderRadius: '8px' }}>
             <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: '#94a3b8' }}>
               <span>Total: <strong style={{ color: '#fff' }}>{jobs.length}</strong></span>
-              <span>Cleaned: <strong style={{ color: '#10b981' }}>{completedCount}</strong></span>
-              <span>Duplicates Skipped: <strong style={{ color: '#3b82f6' }}>{skippedCount}</strong></span>
+              <span>Polished: <strong style={{ color: '#10b981' }}>{completedCount}</strong></span>
+              <span>Skipped: <strong style={{ color: '#3b82f6' }}>{skippedCount}</strong></span>
             </div>
             {completedCount > 0 && (
               <button className="btn-accent" onClick={downloadAllAsZip} style={{ padding: '8px 14px', fontSize: '13px' }}>
@@ -633,16 +726,16 @@ export default function App() {
                   cursor: 'ew-resize'
                 }}
               >
-                {/* AFTER Layer: Transparent PNG placed over the On-Page Watermarked Backdrop */}
+                {/* AFTER Layer: Polished & Cleaned Transparent PNG placed over the On-Page Watermarked Backdrop */}
                 <img
                   src={selectedJob.transparent_url}
-                  alt="Cleaned Subject"
+                  alt="Polished & Cleaned Subject"
                   className="slider-img"
                   draggable={false}
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
                 />
 
-                {/* BEFORE Layer: Aligned Original Image clipped with hardware-accelerated clipPath (Zero Glitch!) */}
+                {/* BEFORE Layer: Aligned Original Image clipped with hardware-accelerated clipPath */}
                 <img
                   src={selectedJob.aligned_before_url || selectedJob.original_url}
                   alt="Original Before"
@@ -671,14 +764,14 @@ export default function App() {
                     zIndex: 6
                   }}
                 >
-                  BEFORE (Original)
+                  BEFORE (Raw Dull Photo)
                 </span>
                 <span
                   style={{
                     position: 'absolute',
                     bottom: '12px',
                     right: '12px',
-                    background: 'rgba(16, 185, 129, 0.9)',
+                    background: 'rgba(16, 185, 129, 0.92)',
                     color: '#ffffff',
                     padding: '4px 10px',
                     borderRadius: '6px',
@@ -688,7 +781,7 @@ export default function App() {
                     zIndex: 6
                   }}
                 >
-                  AFTER (Preview w/ Backdrop Shield)
+                  AFTER (Polished, Brightened &amp; Cutout)
                 </span>
 
                 {/* Smooth Slider Divider Handle */}
@@ -722,20 +815,20 @@ export default function App() {
                   style={{ flex: 1 }}
                   onClick={() => {
                     const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
-                    downloadImage(selectedJob.catalog_white_url, `${base}_clean_white_2000x2000.jpg`);
+                    downloadImage(selectedJob.catalog_white_url, `${base}_polished_white_2000x2000.jpg`);
                   }}
                 >
-                  <Download size={16} /> Download Clean White JPG (No Watermark)
+                  <Download size={16} /> Download Polished White JPG (No Watermark)
                 </button>
                 <button
                   className="btn-secondary"
                   style={{ flex: 1 }}
                   onClick={() => {
                     const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
-                    downloadImage(selectedJob.transparent_url, `${base}_clean_transparent_2000x2000.png`);
+                    downloadImage(selectedJob.transparent_url, `${base}_polished_transparent_2000x2000.png`);
                   }}
                 >
-                  <Download size={16} /> Download Clean Transparent PNG
+                  <Download size={16} /> Download Polished Transparent PNG
                 </button>
               </div>
             </>
@@ -759,11 +852,11 @@ export default function App() {
               <ImageIcon size={40} style={{ color: '#475569' }} />
               <div style={{ fontSize: '15px', fontWeight: 600, color: '#e2e8f0' }}>
                 {selectedJob?.status === 'processing'
-                  ? `AI is cleaning ${selectedJob.original_filename}...`
-                  : 'Drop a photo on the left to clean & preview it here!'}
+                  ? `AI is cutting out, brightening & polishing ${selectedJob.original_filename}...`
+                  : 'Drop a slide or product photo on the left to clean, brighten & polish it!'}
               </div>
-              <div style={{ fontSize: '12px', maxWidth: '380px' }}>
-                The webpage preview sits over a watermarked backdrop so nobody can right-click/steal it off the page, while your Download buttons give you the 100% clean, watermark-free image!
+              <div style={{ fontSize: '12px', maxWidth: '400px' }}>
+                Automatically removes outdoor backgrounds, lifts dark shadows, boosts vinyl gloss &amp; color vibrance, sharpens details, and centers onto a 2000×2000 catalog canvas.
               </div>
             </div>
           )}
@@ -773,7 +866,7 @@ export default function App() {
       {/* BOTTOM SECTION: Processed Job Queue & Download List */}
       <div className="card">
         <div className="card-header">
-          <span>3. Cleaned Photo Batch Queue ({jobs.length} Files)</span>
+          <span>3. Polished &amp; Cleaned Photo Batch Queue ({jobs.length} Files)</span>
           {completedCount > 0 && (
             <button className="btn-secondary" onClick={downloadAllAsZip}>
               <Archive size={14} /> Download All Clean ZIP
@@ -812,7 +905,7 @@ export default function App() {
                       onClick={(e) => {
                         e.stopPropagation();
                         const base = item.original_filename.replace(/\.[^/.]+$/, '');
-                        downloadImage(item.catalog_white_url, `${base}_clean_white_2000x2000.jpg`);
+                        downloadImage(item.catalog_white_url, `${base}_polished_white_2000x2000.jpg`);
                       }}
                     >
                       <Download size={13} /> Clean JPG
@@ -824,7 +917,7 @@ export default function App() {
                 )}
                 {item.status === 'processing' && (
                   <span style={{ color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-                    <RefreshCw size={14} /> Cleaning...
+                    <RefreshCw size={14} /> Polishing...
                   </span>
                 )}
                 {item.status === 'queued' && (

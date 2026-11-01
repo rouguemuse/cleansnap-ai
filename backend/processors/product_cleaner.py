@@ -70,12 +70,18 @@ class ProductCleanerProcessor(BaseProcessor):
             refined_mask_path = os.path.join(output_dir, f"{prefix}{base_name}_2_refined_mask.png")
             refined_mask.save(refined_mask_path)
 
-            # 3. Color & Vibrance Restrained Enhancement
+            # 3. Studio Polish, Shadow Lift, Brightening, Vibrance & Crispness Enhancement
             if enhance_color:
                 r, g, b, a = rgba_img.split()
                 rgb = Image.merge("RGB", (r, g, b))
-                rgb = ImageEnhance.Contrast(rgb).enhance(1.05)
-                rgb = ImageEnhance.Color(rgb).enhance(1.06)
+                # Lift dark outdoor shadows & brighten vinyl surfaces
+                rgb = ImageEnhance.Brightness(rgb).enhance(1.12)
+                # Studio gloss contrast boost
+                rgb = ImageEnhance.Contrast(rgb).enhance(1.14)
+                # Color pop / vibrance boost
+                rgb = ImageEnhance.Color(rgb).enhance(1.22)
+                # Unsharp mask crispness pass for sharp stitching & graphic details
+                rgb = rgb.filter(ImageFilter.UnsharpMask(radius=1.6, percent=135, threshold=3))
                 r_e, g_e, b_e = rgb.split()
                 rgba_img = Image.merge("RGBA", (r_e, g_e, b_e, a))
 
