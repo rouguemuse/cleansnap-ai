@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Folder,
-  Play,
-  Square,
   RefreshCw,
   CheckCircle2,
   AlertCircle,
@@ -12,18 +10,20 @@ import {
   Shield,
   Sparkles,
   Image as ImageIcon,
-  Archive
+  Archive,
+  Sliders
 } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import JSZip from 'jszip';
 import './App.css';
 
-// Generate repeating diagonal SVG watermark data URL for backdrop & anti-theft overlay
-function createWatermarkPatternUrl(text = 'EDR PARTY RENTALS • DO NOT COPY', opacity = 0.09, color = '#0f172a') {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220">
-    <g transform="rotate(-28 160 110)">
-      <text x="10" y="90" fill="${color}" fill-opacity="${opacity}" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="16" letter-spacing="1.5">${text}</text>
-      <text x="40" y="185" fill="${color}" fill-opacity="${opacity}" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="16" letter-spacing="1.5">${text}</text>
+// Generate repeating diagonal SVG watermark data URL ONLY for the on-page preview backdrop
+function createPreviewBackdropPattern(text = 'EDR PARTY RENTALS • PREVIEW ONLY') {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200">
+    <rect width="300" height="200" fill="#ffffff"/>
+    <g transform="rotate(-26 150 100)">
+      <text x="15" y="75" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="1.5">${text}</text>
+      <text x="35" y="165" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="1.5">${text}</text>
     </g>
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
@@ -36,7 +36,7 @@ async function hashArrayBuffer(buffer) {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Crop transparent bounds of an RGBA canvas
+// Find non-transparent bounding box of an RGBA canvas
 function getTransparentBoundingBox(ctx, width, height) {
   const imgData = ctx.getImageData(0, 0, width, height).data;
   let minX = width, minY = height, maxX = 0, maxY = 0;
@@ -45,7 +45,7 @@ function getTransparentBoundingBox(ctx, width, height) {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const alpha = imgData[(y * width + x) * 4 + 3];
-      if (alpha > 15) {
+      if (alpha > 8) {
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < minY) minY = y;
@@ -58,71 +58,115 @@ function getTransparentBoundingBox(ctx, width, height) {
   return { x: minX, y: minY, w: Math.max(1, maxX - minX + 1), h: Math.max(1, maxY - minY + 1) };
 }
 
-// Render 2000x2000 Catalog Framed outputs:
-// 1. Clean Transparent PNG (with optional subtle background watermark)
-// 2. Clean 2000x2000 Catalog White JPG (with optional subtle background watermark BEHIND the product)
-async function buildCatalogOutputs(cutoutBlob, watermarkText, includeBgWatermarkInDownload) {
-  const imgUrl = URL.createObjectURL(cutoutBlob);
-  const img = await new Promise((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
-    el.src = imgUrl;
-  });
+// Dilate & feather alpha mask slightly so edges or parts of the subject aren't eaten away,
+// and boost product brightness/vibrance slightly for studio quality.
+function refineMaskAndEnhanceSubject(origImg, cutoutImg, maskProtectLevel = 1) {
+  const w = origImg.width;
+  const h = origImg.height;
 
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = img.width;
-  tempCanvas.height = img.height;
-  const tempCtx = tempCanvas.getContext('2d');
-  tempCtx.drawImage(img, 0, 0);
+  // Draw original photo
+  const origCanvas = document.createElement('canvas');
+  origCanvas.width = w;
+  origCanvas.height = h;
+  const origCtx = origCanvas.getContext('2d');
+  origCtx.filter = 'contrast(1.04) saturate(1.06) brightness(1.02)';
+  origCtx.drawImage(origImg, 0, 0, w, h);
+  const origData = origCtx.getImageData(0, 0, w, h);
 
-  const bbox = getTransparentBoundingBox(tempCtx, img.width, img.height);
-  const cw = bbox.w;
-  const ch = bbox.h;
+  // Draw AI cutout to extract its alpha mask
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = w;
+  maskCanvas.height = h;
+  const maskCtx = maskCanvas.getContext('2d');
+  maskCtx.drawImage(cutoutImg, 0, 0, w, h);
+  const maskData = maskCtx.getImageData(0, 0, w, h).data;
+
+  // Boost soft/semi-transparent subject pixels so parts of the product aren't lost
+  const pixels = origData.data;
+  const boostFactor = maskProtectLevel === 2 ? 1.85 : maskProtectLevel === 1 ? 1.35 : 1.0;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    let a = maskData[i + 3];
+    if (a > 12) {
+      a = Math.min(255, Math.round(a * boostFactor));
+    } else {
+      a = 0;
+    }
+    pixels[i + 3] = a;
+  }
+
+  origCtx.putImageData(origData, 0, 0);
+  return origCanvas;
+}
+
+// Render 2000x2000 Catalog Framed outputs AND matched Before/After frames:
+// - Exported downloads have ZERO watermarks (100% pure white JPG & pure transparent PNG).
+// - Aligned Original 2000x2000 frame ensures Before/After slider lines up pixel-for-pixel!
+async function buildCatalogOutputs(originalFile, cutoutBlob, framingMode = 'catalog', maskProtectLevel = 1) {
+  const origUrl = URL.createObjectURL(originalFile);
+  const cutUrl = URL.createObjectURL(cutoutBlob);
+
+  const [origImg, cutImg] = await Promise.all([
+    new Promise((res, rej) => {
+      const el = new Image();
+      el.onload = () => res(el);
+      el.onerror = rej;
+      el.src = origUrl;
+    }),
+    new Promise((res, rej) => {
+      const el = new Image();
+      el.onload = () => res(el);
+      el.onerror = rej;
+      el.src = cutUrl;
+    })
+  ]);
+
+  // Refine subject mask and apply gentle studio color enhancement
+  const subjectCanvas = refineMaskAndEnhanceSubject(origImg, cutImg, maskProtectLevel);
+  const subjectCtx = subjectCanvas.getContext('2d');
 
   const canvasW = 2000;
   const canvasH = 2000;
-  const maxOccupancy = 0.88;
-  const minMargin = 0.06;
-  const groundLineRatio = 0.88;
 
-  const maxAllowedW = Math.floor(canvasW * maxOccupancy);
-  const maxAllowedH = Math.floor(canvasH * (groundLineRatio - minMargin));
-  const scale = Math.min(maxAllowedW / cw, maxAllowedH / ch);
+  let bbox, newW, newH, posX, posY;
 
-  const newW = Math.max(1, Math.floor(cw * scale));
-  const newH = Math.max(1, Math.floor(ch * scale));
-  const posX = Math.floor((canvasW - newW) / 2);
-  const groundY = Math.floor(canvasH * groundLineRatio);
-  const posY = Math.max(Math.floor(canvasH * minMargin), groundY - newH);
+  if (framingMode === 'catalog') {
+    // Auto-crop around the product and center on 2000x2000 canvas (88% max occupancy, 6% min margin)
+    bbox = getTransparentBoundingBox(subjectCtx, subjectCanvas.width, subjectCanvas.height);
+    const maxOccupancy = 0.88;
+    const minMargin = 0.06;
+    const groundLineRatio = 0.88;
 
-  // Helper to draw repeating diagonal watermark BEHIND the product
-  const drawBackgroundWatermark = (ctx, text, opacity = 0.065) => {
-    if (!text) return;
-    ctx.save();
-    ctx.font = '800 38px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = `rgba(15, 23, 42, ${opacity})`;
-    ctx.textAlign = 'center';
-    ctx.rotate((-26 * Math.PI) / 180);
-    for (let y = -1200; y < 3200; y += 260) {
-      for (let x = -1600; x < 3200; x += 680) {
-        ctx.fillText(text.toUpperCase(), x, y);
-      }
-    }
-    ctx.restore();
-  };
+    const maxAllowedW = Math.floor(canvasW * maxOccupancy);
+    const maxAllowedH = Math.floor(canvasH * (groundLineRatio - minMargin));
+    const scale = Math.min(maxAllowedW / bbox.w, maxAllowedH / bbox.h);
 
-  // Helper to draw grounded contact shadow
+    newW = Math.max(1, Math.floor(bbox.w * scale));
+    newH = Math.max(1, Math.floor(bbox.h * scale));
+    posX = Math.floor((canvasW - newW) / 2);
+    const groundY = Math.floor(canvasH * groundLineRatio);
+    posY = Math.max(Math.floor(canvasH * minMargin), groundY - newH);
+  } else {
+    // Keep original full-frame proportions fitted inside 2000x2000
+    bbox = { x: 0, y: 0, w: subjectCanvas.width, h: subjectCanvas.height };
+    const scale = Math.min((canvasW * 0.92) / bbox.w, (canvasH * 0.92) / bbox.h);
+    newW = Math.max(1, Math.floor(bbox.w * scale));
+    newH = Math.max(1, Math.floor(bbox.h * scale));
+    posX = Math.floor((canvasW - newW) / 2);
+    posY = Math.floor((canvasH - newH) / 2);
+  }
+
+  // Helper to draw soft studio contact shadow under product
   const drawContactShadow = (ctx) => {
     ctx.save();
     const shadowX = canvasW / 2;
     const shadowY = posY + newH - Math.floor(newH * 0.015);
-    const radiusX = Math.floor(newW * 0.45);
+    const radiusX = Math.floor(newW * 0.44);
     const radiusY = Math.max(12, Math.floor(newH * 0.025));
 
     const grad = ctx.createRadialGradient(shadowX, shadowY, 5, shadowX, shadowY, radiusX);
-    grad.addColorStop(0, 'rgba(15, 23, 42, 0.28)');
-    grad.addColorStop(0.65, 'rgba(15, 23, 42, 0.10)');
+    grad.addColorStop(0, 'rgba(15, 23, 42, 0.25)');
+    grad.addColorStop(0.65, 'rgba(15, 23, 42, 0.09)');
     grad.addColorStop(1, 'rgba(15, 23, 42, 0)');
 
     ctx.translate(shadowX, shadowY);
@@ -134,47 +178,53 @@ async function buildCatalogOutputs(cutoutBlob, watermarkText, includeBgWatermark
     ctx.restore();
   };
 
-  // 1. Transparent PNG Canvas (2000x2000)
+  // 1. Aligned Original "Before" Canvas (so Before & After line up pixel-for-pixel in the slider!)
+  const beforeCanvas = document.createElement('canvas');
+  beforeCanvas.width = canvasW;
+  beforeCanvas.height = canvasH;
+  const beforeCtx = beforeCanvas.getContext('2d');
+  beforeCtx.fillStyle = '#0f172a';
+  beforeCtx.fillRect(0, 0, canvasW, canvasH);
+  // Compute where the full original image lands when mapped using the same scale & offset
+  const scaleUsed = newW / bbox.w;
+  const fullOrigW = Math.round(origImg.width * scaleUsed);
+  const fullOrigH = Math.round(origImg.height * scaleUsed);
+  const fullOrigX = Math.round(posX - bbox.x * scaleUsed);
+  const fullOrigY = Math.round(posY - bbox.y * scaleUsed);
+  beforeCtx.drawImage(origImg, 0, 0, origImg.width, origImg.height, fullOrigX, fullOrigY, fullOrigW, fullOrigH);
+  const alignedBeforeUrl = beforeCanvas.toDataURL('image/jpeg', 0.9);
+
+  // 2. Clean Transparent PNG (2000x2000) — NO WATERMARK
   const transCanvas = document.createElement('canvas');
   transCanvas.width = canvasW;
   transCanvas.height = canvasH;
   const transCtx = transCanvas.getContext('2d');
   drawContactShadow(transCtx);
-  transCtx.drawImage(tempCanvas, bbox.x, bbox.y, cw, ch, posX, posY, newW, newH);
+  transCtx.drawImage(subjectCanvas, bbox.x, bbox.y, bbox.w, bbox.h, posX, posY, newW, newH);
   const transparentUrl = transCanvas.toDataURL('image/png');
 
-  // 2. Catalog White JPG Canvas (2000x2000) with optional watermark BEHIND the product
+  // 3. Clean Catalog White JPG (2000x2000) — 100% PURE WHITE, NO WATERMARK ON EXPORT
   const whiteCanvas = document.createElement('canvas');
   whiteCanvas.width = canvasW;
   whiteCanvas.height = canvasH;
   const whiteCtx = whiteCanvas.getContext('2d');
   whiteCtx.fillStyle = '#ffffff';
   whiteCtx.fillRect(0, 0, canvasW, canvasH);
-
-  if (includeBgWatermarkInDownload && watermarkText) {
-    drawBackgroundWatermark(whiteCtx, watermarkText, 0.075);
-  }
   drawContactShadow(whiteCtx);
-  whiteCtx.drawImage(tempCanvas, bbox.x, bbox.y, cw, ch, posX, posY, newW, newH);
+  whiteCtx.drawImage(subjectCanvas, bbox.x, bbox.y, bbox.w, bbox.h, posX, posY, newW, newH);
   const catalogWhiteUrl = whiteCanvas.toDataURL('image/jpeg', 0.95);
 
-  URL.revokeObjectURL(imgUrl);
-  return { transparentUrl, catalogWhiteUrl };
+  URL.revokeObjectURL(origUrl);
+  URL.revokeObjectURL(cutUrl);
+
+  return { alignedBeforeUrl, transparentUrl, catalogWhiteUrl };
 }
 
 export default function App() {
-  const [status, setStatus] = useState(null);
-  const [isLocalBackend, setIsLocalBackend] = useState(false);
-  const [config, setConfig] = useState({
-    watch_dir: 'C:\\Users\\rougu\\Downloads\\CleanSnap_Input',
-    output_dir: 'C:\\Users\\rougu\\Downloads\\CleanSnap_Output',
-    model_name: 'isnet-general-use'
-  });
-
-  // Watermark & Anti-Theft Controls
-  const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS');
-  const [protectPagePreview, setProtectPagePreview] = useState(true);
-  const [embedBgWatermarkInDownload, setEmbedBgWatermarkInDownload] = useState(true);
+  // Framing & Segmentation Controls
+  const [framingMode, setFramingMode] = useState('catalog'); // 'catalog' or 'original'
+  const [maskProtectLevel, setMaskProtectLevel] = useState(1); // 0 = strict, 1 = balanced, 2 = preserve soft edges
+  const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS • PREVIEW ONLY');
 
   // Queue & History State
   const [jobs, setJobs] = useState([]);
@@ -182,34 +232,13 @@ export default function App() {
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
   const [sliderPos, setSliderPos] = useState(50);
-  const [isDraggingSlider, setIsDraggingSlider] = useState(false);
 
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
   const sliderRef = useRef(null);
   const seenHashesRef = useRef(new Map());
 
-  // Check if local Python backend is running
-  const checkBackend = async () => {
-    try {
-      const res = await fetch('/api/status');
-      if (!res.ok) throw new Error('No local backend');
-      const ct = res.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) throw new Error('Not JSON');
-      const data = await res.json();
-      setStatus(data);
-      setIsLocalBackend(true);
-      if (data.config) setConfig(data.config);
-    } catch {
-      setIsLocalBackend(false);
-    }
-  };
-
-  useEffect(() => {
-    checkBackend();
-  }, []);
-
-  // Process uploaded files (1 to 100+ photos) directly in the browser with real AI segmentation
+  // Process uploaded files (1 to 100+ photos)
   const handleFilesSelected = async (fileList) => {
     const files = Array.from(fileList).filter((f) =>
       /\.(png|jpe?g|webp|bmp|heic|heif)$/i.test(f.name)
@@ -221,14 +250,14 @@ export default function App() {
 
     setIsProcessingBatch(true);
 
-    // First create queued entries
     const newEntries = files.map((file, idx) => ({
       job_id: `job_${Date.now()}_${idx}`,
       file,
       original_filename: file.name,
       original_url: URL.createObjectURL(file),
+      aligned_before_url: null,
       status: 'queued',
-      model_used: 'IS-Net Browser AI (ONNX)',
+      model_used: 'IS-Net High-Detail AI (fp16)',
       catalog_white_url: null,
       transparent_url: null,
       processing_time: null
@@ -246,17 +275,21 @@ export default function App() {
         prev.map((j) => (j.job_id === entry.job_id ? { ...j, status: 'processing' } : j))
       );
 
+      // Yield a frame so UI stays responsive while batch runs
+      await new Promise((r) => setTimeout(r, 30));
+
       try {
         const buffer = await entry.file.arrayBuffer();
         const sha256 = await hashArrayBuffer(buffer);
 
-        // Check SHA-256 Deduplication
+        // SHA-256 Deduplication
         if (seenHashesRef.current.has(sha256)) {
           const canon = seenHashesRef.current.get(sha256);
           const skippedJob = {
             ...entry,
             status: 'skipped',
             model_used: `SHA-256 Duplicate of ${canon.original_filename} (0.01s)`,
+            aligned_before_url: canon.aligned_before_url,
             catalog_white_url: canon.catalog_white_url,
             transparent_url: canon.transparent_url,
             processing_time: 0.01
@@ -266,8 +299,10 @@ export default function App() {
           continue;
         }
 
-        // Run real AI background removal
+        // Run high-precision IS-Net AI segmentation
         const cutoutBlob = await removeBackground(entry.file, {
+          model: 'isnet_fp16',
+          output: { format: 'image/png', quality: 1.0 },
           progress: (key, current, total) => {
             if (total > 0) {
               const pct = Math.round((current / total) * 100);
@@ -278,17 +313,19 @@ export default function App() {
           }
         });
 
-        // Build 2000x2000 Catalog Framed & Background-Watermarked outputs
-        const { transparentUrl, catalogWhiteUrl } = await buildCatalogOutputs(
+        // Build 2000x2000 Clean Exports (NO watermark on exports) + Aligned Before/After Preview
+        const { alignedBeforeUrl, transparentUrl, catalogWhiteUrl } = await buildCatalogOutputs(
+          entry.file,
           cutoutBlob,
-          watermarkText,
-          embedBgWatermarkInDownload
+          framingMode,
+          maskProtectLevel
         );
 
         const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
         const completedJob = {
           ...entry,
           status: 'completed',
+          aligned_before_url: alignedBeforeUrl,
           catalog_white_url: catalogWhiteUrl,
           transparent_url: transparentUrl,
           processing_time: elapsed
@@ -313,7 +350,7 @@ export default function App() {
     setIsProcessingBatch(false);
   };
 
-  // Download single cleaned image
+  // Download single clean image (Zero Watermarks)
   const downloadImage = (dataUrl, filename) => {
     if (!dataUrl) return;
     const link = document.createElement('a');
@@ -324,7 +361,7 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // Download all completed photos as a ZIP archive
+  // Download all completed photos as a clean ZIP archive
   const downloadAllAsZip = async () => {
     const completed = jobs.filter((j) => j.status === 'completed' || j.status === 'skipped');
     if (completed.length === 0) return;
@@ -344,46 +381,28 @@ export default function App() {
 
     const content = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(content);
-    downloadImage(url, `CleanSnap_Catalog_Batch_${completed.length}_Photos.zip`);
+    downloadImage(url, `CleanSnap_Clean_Catalog_${completed.length}_Photos.zip`);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
-  // Slider drag handlers
-  const handleMouseMove = (e) => {
-    if (!isDraggingSlider || !sliderRef.current) return;
+  // Butter-smooth Pointer Events for Before/After slider
+  const updateSliderFromPointer = (clientX) => {
+    if (!sliderRef.current) return;
     const rect = sliderRef.current.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     setSliderPos((x / rect.width) * 100);
   };
 
-  useEffect(() => {
-    const stopDrag = () => setIsDraggingSlider(false);
-    if (isDraggingSlider) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', stopDrag);
-      window.addEventListener('touchmove', handleMouseMove);
-      window.addEventListener('touchend', stopDrag);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', stopDrag);
-      window.removeEventListener('touchmove', handleMouseMove);
-      window.removeEventListener('touchend', stopDrag);
-    };
-  }, [isDraggingSlider]);
-
   const completedCount = jobs.filter((j) => j.status === 'completed').length;
   const skippedCount = jobs.filter((j) => j.status === 'skipped').length;
-  const bgWatermarkPattern = createWatermarkPatternUrl(`${watermarkText} • CATALOG`, 0.085, '#0f172a');
-  const antiTheftOverlayPattern = createWatermarkPatternUrl(`${watermarkText} • PREVIEW ONLY`, 0.18, '#ef4444');
+  const previewBackdropUrl = createPreviewBackdropPattern(watermarkText);
 
   return (
     <div className="app-container">
       <header>
         <div className="logo-area">
           <h1>CleanSnap AI</h1>
-          <p>Automated Catalog Product Photo Cleaning, Watermarking & Framing Studio</p>
+          <p>Automated Catalog Product Photo Cleaning &amp; Framing Studio</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="status-badge active">
@@ -394,7 +413,7 @@ export default function App() {
       </header>
 
       <div className="grid-layout">
-        {/* LEFT COLUMN: Dropzone Upload, Folder Selection & Watermark Protection */}
+        {/* LEFT COLUMN: Upload Dropzone & Subject Protection Controls */}
         <div className="card">
           <div className="card-header">
             <span>1. Drop Product Photos or Select Folder</span>
@@ -416,7 +435,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Hidden Inputs for Files & Whole Folder */}
           <input
             ref={fileInputRef}
             type="file"
@@ -435,7 +453,7 @@ export default function App() {
             onChange={(e) => handleFilesSelected(e.target.files)}
           />
 
-          {/* Interactive Drag & Drop Zone */}
+          {/* Drag & Drop Zone */}
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
@@ -448,11 +466,10 @@ export default function App() {
             style={{
               border: '2px dashed rgba(59, 130, 246, 0.5)',
               borderRadius: '12px',
-              padding: '28px 20px',
+              padding: '26px 20px',
               textAlign: 'center',
               background: 'rgba(15, 23, 42, 0.5)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              cursor: 'pointer'
             }}
           >
             <Sparkles size={32} style={{ color: '#3b82f6', margin: '0 auto 10px' }} />
@@ -462,11 +479,11 @@ export default function App() {
                 : 'Drag & Drop 1 to 100+ Product Photos Here (or Click to Browse)'}
             </div>
             <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
-              Automatically removes grass/sky/background, frames to 2000×2000 px, and places your watermark behind the product.
+              Preserves the main subject, removes cluttered background, and exports 100% clean unwatermarked 2000×2000 files.
             </div>
           </div>
 
-          {/* Watermark & Anti-Theft Configuration */}
+          {/* Subject Preservation & Preview Protection Settings */}
           <div
             style={{
               background: 'rgba(15, 23, 42, 0.55)',
@@ -479,40 +496,44 @@ export default function App() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600, color: '#60a5fa' }}>
-              <Shield size={16} /> Watermark & Anti-Theft Settings
+              <Sliders size={16} /> Subject Preservation &amp; Framing Settings
             </div>
 
             <div className="form-group">
-              <label>Brand Watermark Text (Placed Behind Product)</label>
+              <label>Main Subject Edge &amp; Detail Recovery (Prevents Cutting Into Product)</label>
+              <select
+                value={maskProtectLevel}
+                onChange={(e) => setMaskProtectLevel(Number(e.target.value))}
+              >
+                <option value={2}>Maximum Subject Protection (Keep All Fine Edges, Netting &amp; Shadows)</option>
+                <option value={1}>Balanced Studio Cutout (Recommended)</option>
+                <option value={0}>Strict Cutout</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Output Framing Mode</label>
+              <select
+                value={framingMode}
+                onChange={(e) => setFramingMode(e.target.value)}
+              >
+                <option value="catalog">Standardized 2000×2000 Catalog Framing (88% Occupancy + Floor Shadow)</option>
+                <option value="original">Keep Original Full-Frame Position (No Auto-Crop Zoom)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Shield size={13} style={{ color: '#10b981' }} />
+                On-Page Anti-Theft Backdrop Text (Shown ONLY on webpage preview — NEVER in downloads)
+              </label>
               <input
                 type="text"
                 value={watermarkText}
                 onChange={(e) => setWatermarkText(e.target.value)}
-                placeholder="e.g. EDR PARTY RENTALS"
+                placeholder="EDR PARTY RENTALS • PREVIEW ONLY"
               />
             </div>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: '#e2e8f0' }}>
-              <input
-                type="checkbox"
-                checked={protectPagePreview}
-                onChange={(e) => setProtectPagePreview(e.target.checked)}
-              />
-              <span>
-                <strong>Anti-Theft Page Shield:</strong> Block right-click saving &amp; show protective watermark over on-page preview
-              </span>
-            </label>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: '#e2e8f0' }}>
-              <input
-                type="checkbox"
-                checked={embedBgWatermarkInDownload}
-                onChange={(e) => setEmbedBgWatermarkInDownload(e.target.checked)}
-              />
-              <span>
-                <strong>Include Background Watermark in Downloaded JPG:</strong> Keeps subtle brand pattern behind the bounce house
-              </span>
-            </label>
           </div>
 
           {/* Batch Summary & Download All Button */}
@@ -524,16 +545,16 @@ export default function App() {
             </div>
             {completedCount > 0 && (
               <button className="btn-accent" onClick={downloadAllAsZip} style={{ padding: '8px 14px', fontSize: '13px' }}>
-                <Archive size={15} /> Download All ({completedCount + skippedCount}) as ZIP
+                <Archive size={15} /> Download All Clean ({completedCount + skippedCount}) ZIP
               </button>
             )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Protected Before / After Split Preview & Official Download Buttons */}
+        {/* RIGHT COLUMN: Smooth Aligned Before / After Slider & Clean Download Buttons */}
         <div className="card">
           <div className="card-header">
-            <span>2. Protected Preview &amp; Official Download</span>
+            <span>2. On-Page Protected Preview (Downloads Are 100% Watermark-Free)</span>
             {selectedJob && (
               <span style={{ fontSize: '12px', color: '#94a3b8' }}>{selectedJob.original_filename}</span>
             )}
@@ -544,83 +565,127 @@ export default function App() {
               <div
                 className="slider-container"
                 ref={sliderRef}
-                onMouseDown={() => setIsDraggingSlider(true)}
-                onTouchStart={() => setIsDraggingSlider(true)}
-                onContextMenu={(e) => {
-                  if (protectPagePreview) e.preventDefault();
+                onPointerDown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  updateSliderFromPointer(e.clientX);
                 }}
+                onPointerMove={(e) => {
+                  if (e.buttons === 1) {
+                    updateSliderFromPointer(e.clientX);
+                  }
+                }}
+                onContextMenu={(e) => e.preventDefault()}
                 style={{
-                  backgroundImage: `url("${bgWatermarkPattern}")`,
-                  backgroundColor: '#ffffff'
+                  backgroundImage: `url("${previewBackdropUrl}")`,
+                  backgroundRepeat: 'repeat',
+                  backgroundColor: '#ffffff',
+                  touchAction: 'none',
+                  cursor: 'ew-resize'
                 }}
               >
-                {/* AFTER: Cleaned Transparent Cutout over Watermarked White Backdrop */}
+                {/* AFTER Layer: Transparent PNG placed over the On-Page Watermarked Backdrop */}
                 <img
-                  src={selectedJob.transparent_url || selectedJob.catalog_white_url}
-                  alt="Cleaned Product"
+                  src={selectedJob.transparent_url}
+                  alt="Cleaned Subject"
                   className="slider-img"
                   draggable={false}
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
                 />
 
-                {/* BEFORE: Raw Original Photo Overlay */}
-                <div
-                  className="slider-overlay"
-                  style={{ width: `${sliderPos}%`, background: '#0f172a' }}
+                {/* BEFORE Layer: Aligned Original Image clipped with hardware-accelerated clipPath (Zero Glitch!) */}
+                <img
+                  src={selectedJob.aligned_before_url || selectedJob.original_url}
+                  alt="Original Before"
+                  className="slider-img"
+                  draggable={false}
+                  style={{
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                    clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
+                  }}
+                />
+
+                {/* Labels */}
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    left: '12px',
+                    background: 'rgba(15, 23, 42, 0.82)',
+                    color: '#f8fafc',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    pointerEvents: 'none',
+                    zIndex: 6
+                  }}
                 >
-                  <img
-                    src={selectedJob.original_url}
-                    alt="Original Raw"
-                    className="slider-img"
-                    draggable={false}
-                    style={{
-                      width: sliderRef.current?.clientWidth || '600px',
-                      pointerEvents: 'none',
-                      userSelect: 'none'
-                    }}
-                  />
-                </div>
+                  BEFORE (Original)
+                </span>
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    right: '12px',
+                    background: 'rgba(16, 185, 129, 0.9)',
+                    color: '#ffffff',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    pointerEvents: 'none',
+                    zIndex: 6
+                  }}
+                >
+                  AFTER (Preview w/ Backdrop Shield)
+                </span>
 
-                {/* Anti-Theft Protective Shield Overlay (prevents right-clicking or screenshotting clean image) */}
-                {protectPagePreview && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      backgroundImage: `url("${antiTheftOverlayPattern}")`,
-                      pointerEvents: 'none',
-                      zIndex: 5
-                    }}
-                  />
-                )}
-
-                {/* Slider Handle */}
-                <div className="slider-handle" style={{ left: `${sliderPos}%`, zIndex: 10 }}>
+                {/* Smooth Slider Divider Handle */}
+                <div
+                  className="slider-handle"
+                  style={{ left: `${sliderPos}%`, zIndex: 10, pointerEvents: 'none' }}
+                >
                   <div className="slider-handle-circle">↔</div>
                 </div>
               </div>
 
-              {/* Official Download Buttons */}
+              {/* Smooth Range Scrubber for Precision Control */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 4px' }}>
+                <span style={{ fontSize: '12px', color: '#94a3b8', minWidth: '45px' }}>Before</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={sliderPos}
+                  onChange={(e) => setSliderPos(Number(e.target.value))}
+                  style={{ flex: 1, cursor: 'pointer', accentColor: '#3b82f6' }}
+                />
+                <span style={{ fontSize: '12px', color: '#94a3b8', minWidth: '38px', textAlign: 'right' }}>After</span>
+              </div>
+
+              {/* Official Clean Download Buttons (Zero Watermark!) */}
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
                 <button
                   className="btn-accent"
                   style={{ flex: 1 }}
                   onClick={() => {
                     const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
-                    downloadImage(selectedJob.catalog_white_url, `${base}_catalog_2000x2000.jpg`);
+                    downloadImage(selectedJob.catalog_white_url, `${base}_clean_white_2000x2000.jpg`);
                   }}
                 >
-                  <Download size={16} /> Download 2000×2000 Catalog JPG
+                  <Download size={16} /> Download Clean White JPG (No Watermark)
                 </button>
                 <button
                   className="btn-secondary"
                   style={{ flex: 1 }}
                   onClick={() => {
                     const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
-                    downloadImage(selectedJob.transparent_url, `${base}_transparent_2000x2000.png`);
+                    downloadImage(selectedJob.transparent_url, `${base}_clean_transparent_2000x2000.png`);
                   }}
                 >
-                  <Download size={16} /> Download Transparent PNG
+                  <Download size={16} /> Download Clean Transparent PNG
                 </button>
               </div>
             </>
@@ -647,8 +712,8 @@ export default function App() {
                   ? `AI is cleaning ${selectedJob.original_filename}...`
                   : 'Drop a photo on the left to clean & preview it here!'}
               </div>
-              <div style={{ fontSize: '12px', maxWidth: '360px' }}>
-                Once cleaned, your bounce house is placed over your custom watermark backdrop with anti-theft page protection enabled, and ready for 1-click download.
+              <div style={{ fontSize: '12px', maxWidth: '380px' }}>
+                The webpage preview sits over a watermarked backdrop so nobody can right-click/steal it off the page, while your Download buttons give you the 100% clean, watermark-free image!
               </div>
             </div>
           )}
@@ -661,7 +726,7 @@ export default function App() {
           <span>3. Cleaned Photo Batch Queue ({jobs.length} Files)</span>
           {completedCount > 0 && (
             <button className="btn-secondary" onClick={downloadAllAsZip}>
-              <Archive size={14} /> Download All ZIP
+              <Archive size={14} /> Download All Clean ZIP
             </button>
           )}
         </div>
@@ -697,10 +762,10 @@ export default function App() {
                       onClick={(e) => {
                         e.stopPropagation();
                         const base = item.original_filename.replace(/\.[^/.]+$/, '');
-                        downloadImage(item.catalog_white_url, `${base}_catalog_2000x2000.jpg`);
+                        downloadImage(item.catalog_white_url, `${base}_clean_white_2000x2000.jpg`);
                       }}
                     >
-                      <Download size={13} /> Download JPG
+                      <Download size={13} /> Clean JPG
                     </button>
                     <span style={{ color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
                       <CheckCircle2 size={14} /> Completed
@@ -732,7 +797,7 @@ export default function App() {
           ))}
           {jobs.length === 0 && (
             <p style={{ color: '#94a3b8', fontSize: '13px', padding: '12px' }}>
-              No photos queued yet. Click <strong>Select Photos</strong>, <strong>Select Whole Folder</strong>, or drag and drop your bounce house photos into the box above!
+              No photos queued yet. Click <strong>Select Photos</strong>, <strong>Select Whole Folder</strong>, or drag and drop your photos into the box above!
             </p>
           )}
         </div>
