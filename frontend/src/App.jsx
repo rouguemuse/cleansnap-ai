@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Folder,
   RefreshCw,
@@ -12,13 +12,13 @@ import {
   Image as ImageIcon,
   Archive,
   Sun,
-  Layers,
   Layout,
   Plus,
   Trash2,
   Type,
   Package,
-  Move
+  Move,
+  FileCode
 } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import JSZip from 'jszip';
@@ -63,6 +63,75 @@ function getTransparentBoundingBox(ctx, width, height) {
   }
   if (!found) return { x: 0, y: 0, w: width, h: height };
   return { x: minX, y: minY, w: Math.max(1, maxX - minX + 1), h: Math.max(1, maxY - minY + 1) };
+}
+
+/**
+ * Trace outer & inner boundary contour of the non-transparent alpha channel
+ * to embed a true mathematical <path id="cutline_contour"> inside the exported .SVG file.
+ */
+function traceAlphaContourSvgPath(ctx, width, height, steps = 72) {
+  const data = ctx.getImageData(0, 0, width, height).data;
+  const cx = width / 2;
+  const cy = height / 2;
+  const maxR = Math.hypot(cx, cy);
+  const points = [];
+
+  for (let i = 0; i < steps; i++) {
+    const angle = (i / steps) * Math.PI * 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    let bestR = 0;
+
+    for (let r = maxR; r >= 0; r -= Math.max(2, Math.floor(maxR / 150))) {
+      const x = Math.round(cx + cos * r);
+      const y = Math.round(cy + sin * r);
+      if (x >= 0 && x < width && y >= 0 && y < height) {
+        const a = data[(y * width + x) * 4 + 3];
+        if (a > 25) {
+          bestR = r;
+          break;
+        }
+      }
+    }
+
+    if (bestR > 0) {
+      const px = Math.max(0, Math.min(width, Math.round(cx + cos * bestR)));
+      const py = Math.max(0, Math.min(height, Math.round(cy + sin * bestR)));
+      points.push(`${px},${py}`);
+    }
+  }
+
+  if (points.length < 3) {
+    return `M 0,0 L ${width},0 L ${width},${height} L 0,${height} Z`;
+  }
+  return `M ${points.join(' L ')} Z`;
+}
+
+/**
+ * Build a standalone, scalable .SVG string containing:
+ * - Scalable viewBox matching the trimmed element dimensions
+ * - Traced mathematical vector <clipPath> & die-cut <path id="cutline"> contour
+ * - High-resolution embedded cutout image
+ */
+function createStandaloneSvgMarkup(stickerCanvas, pngDataUrl) {
+  const w = stickerCanvas.width;
+  const h = stickerCanvas.height;
+  const ctx = stickerCanvas.getContext('2d');
+  const contourPath = traceAlphaContourSvgPath(ctx, w, h, 90);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+  <defs>
+    <path id="element_cutline_contour" d="${contourPath}" />
+    <clipPath id="element_clip">
+      <use href="#element_cutline_contour" />
+    </clipPath>
+  </defs>
+  <g id="visual_sentence_element">
+    <image width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet" href="${pngDataUrl}" />
+    <use href="#element_cutline_contour" fill="none" stroke="none" />
+  </g>
+</svg>`;
 }
 
 /**
@@ -182,7 +251,7 @@ function processStudioSubject(
   return subjectCanvas;
 }
 
-// Render 2000x2000 Catalog Framed outputs + Tightly Cropped Sticker PNG for Banner Builder
+// Render 2000x2000 Catalog Framed outputs + Tightly Cropped Sticker PNG & Scalable SVG
 async function buildCatalogOutputs(
   originalFile,
   cutoutBlob,
@@ -212,7 +281,7 @@ async function buildCatalogOutputs(
   const subjectCanvas = processStudioSubject(origImg, cutImg, cleaningMode, polishIntensity);
   const subjectCtx = subjectCanvas.getContext('2d');
 
-  // Tightly cropped Sticker PNG for Visual Sentences / Banner Element Pack
+  // Tightly cropped Sticker PNG + Standalone Vector-Contour SVG for Element Packs
   const tightBbox = getTransparentBoundingBox(subjectCtx, subjectCanvas.width, subjectCanvas.height);
   const stickerCanvas = document.createElement('canvas');
   stickerCanvas.width = tightBbox.w;
@@ -230,6 +299,7 @@ async function buildCatalogOutputs(
     tightBbox.h
   );
   const trimmedStickerUrl = stickerCanvas.toDataURL('image/png');
+  const svgMarkup = createStandaloneSvgMarkup(stickerCanvas, trimmedStickerUrl);
 
   const canvasW = 2000;
   const canvasH = 2000;
@@ -325,6 +395,7 @@ async function buildCatalogOutputs(
     transparentUrl,
     catalogWhiteUrl,
     trimmedStickerUrl,
+    svgMarkup,
     stickerWidth: tightBbox.w,
     stickerHeight: tightBbox.h
   };
@@ -357,7 +428,7 @@ export default function App() {
   const [framingMode, setFramingMode] = useState('catalog');
   const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS • PREVIEW ONLY');
 
-  // Queue & PNG Vault State
+  // Queue & PNG/SVG Vault State
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
@@ -388,7 +459,7 @@ export default function App() {
   const bannerStageRef = useRef(null);
   const seenHashesRef = useRef(new Map());
 
-  // Process uploaded files (1 to 100+ photos) and automatically log their cutout PNGs into the PNG Element Vault
+  // Process uploaded files (1 to 100+ photos) and automatically log their PNG + SVG into the Vault
   const handleFilesSelected = async (fileList) => {
     const files = Array.from(fileList).filter((f) =>
       /\.(png|jpe?g|webp|bmp|heic|heif)$/i.test(f.name)
@@ -411,10 +482,11 @@ export default function App() {
       model_used:
         cleaningMode === 'polish_only'
           ? 'Studio Brighten, Color Pop & Crispness Polish'
-          : 'IS-Net Cutout + Studio Brighten & Vinyl Polish',
+          : 'IS-Net Cutout + Studio Brighten & SVG/PNG Pack',
       catalog_white_url: null,
       transparent_url: null,
       trimmed_sticker_url: null,
+      svg_markup: null,
       stickerWidth: 500,
       stickerHeight: 500,
       processing_time: null
@@ -426,7 +498,7 @@ export default function App() {
     for (let i = 0; i < newEntries.length; i++) {
       const entry = newEntries[i];
       const t0 = performance.now();
-      setProgressMsg(`Polishing & extracting PNG ${i + 1} of ${newEntries.length}: ${entry.original_filename}...`);
+      setProgressMsg(`Polishing & generating PNG/SVG ${i + 1} of ${newEntries.length}: ${entry.original_filename}...`);
 
       setJobs((prev) =>
         prev.map((j) => (j.job_id === entry.job_id ? { ...j, status: 'processing' } : j))
@@ -448,6 +520,7 @@ export default function App() {
             catalog_white_url: canon.catalog_white_url,
             transparent_url: canon.transparent_url,
             trimmed_sticker_url: canon.trimmed_sticker_url,
+            svg_markup: canon.svg_markup,
             stickerWidth: canon.stickerWidth,
             stickerHeight: canon.stickerHeight,
             processing_time: 0.01
@@ -467,7 +540,7 @@ export default function App() {
                 if (total > 0) {
                   const pct = Math.round((current / total) * 100);
                   setProgressMsg(
-                    `Cleaning & Logging PNG ${i + 1}/${newEntries.length} (${entry.original_filename}) — AI ${pct}%`
+                    `Cleaning & Logging PNG/SVG ${i + 1}/${newEntries.length} (${entry.original_filename}) — AI ${pct}%`
                   );
                 }
               }
@@ -489,6 +562,7 @@ export default function App() {
           transparentUrl,
           catalogWhiteUrl,
           trimmedStickerUrl,
+          svgMarkup,
           stickerWidth,
           stickerHeight
         } = await buildCatalogOutputs(
@@ -507,6 +581,7 @@ export default function App() {
           catalog_white_url: catalogWhiteUrl,
           transparent_url: transparentUrl,
           trimmed_sticker_url: trimmedStickerUrl,
+          svg_markup: svgMarkup,
           stickerWidth,
           stickerHeight,
           processing_time: elapsed
@@ -542,8 +617,18 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // Download all completed photos as a clean ZIP archive (including a /PNG_Element_Pack folder!)
-  const downloadAllAsZip = async (onlyStickerPack = false) => {
+  // 1-Click Download single .SVG file
+  const downloadSingleSvg = (job) => {
+    if (!job?.svg_markup) return;
+    const base = job.original_filename.replace(/\.[^/.]+$/, '');
+    const blob = new Blob([job.svg_markup], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadImage(url, `${base}_element.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
+  // Download ZIP packs: 'svg_only' | 'png_only' | 'all'
+  const downloadPackZip = async (packType = 'svg_only') => {
     const completed = jobs.filter((j) => j.status === 'completed' || j.status === 'skipped');
     if (completed.length === 0) return;
 
@@ -552,11 +637,15 @@ export default function App() {
 
     completed.forEach((job, idx) => {
       const base = job.original_filename.replace(/\.[^/.]+$/, '');
-      if (job.trimmed_sticker_url) {
-        const base64Sticker = job.trimmed_sticker_url.split(',')[1];
-        zip.file(`${packFolderName}_PNG_Elements/${base}_element_${idx + 1}.png`, base64Sticker, { base64: true });
+
+      if ((packType === 'svg_only' || packType === 'all') && job.svg_markup) {
+        zip.file(`${packFolderName}_SVG_Pack/${base}_element_${idx + 1}.svg`, job.svg_markup);
       }
-      if (!onlyStickerPack) {
+      if ((packType === 'png_only' || packType === 'all') && job.trimmed_sticker_url) {
+        const base64Sticker = job.trimmed_sticker_url.split(',')[1];
+        zip.file(`${packFolderName}_PNG_Pack/${base}_element_${idx + 1}.png`, base64Sticker, { base64: true });
+      }
+      if (packType === 'all') {
         if (job.catalog_white_url) {
           const base64White = job.catalog_white_url.split(',')[1];
           zip.file(`Catalog_White_2000x2000/${base}_polished_white.jpg`, base64White, { base64: true });
@@ -570,14 +659,17 @@ export default function App() {
 
     const content = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(content);
-    const zipName = onlyStickerPack
-      ? `${packFolderName}_${completed.length}_PNG_Pack.zip`
-      : `CleanSnap_Full_Bundle_${completed.length}_Assets.zip`;
+    const zipName =
+      packType === 'svg_only'
+        ? `${packFolderName}_${completed.length}_SVG_Pack.zip`
+        : packType === 'png_only'
+        ? `${packFolderName}_${completed.length}_PNG_Pack.zip`
+        : `CleanSnap_Full_SVG_PNG_Catalog_${completed.length}_Assets.zip`;
     downloadImage(url, zipName);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
-  // Add a cleaned PNG element from the Vault onto the Banner Builder canvas
+  // Add a cleaned element from the Vault onto the Banner Builder canvas
   const addElementToBanner = (job) => {
     const id = `layer_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const newLayer = {
@@ -614,14 +706,70 @@ export default function App() {
     setCustomTextInput('');
   };
 
-  // Export High-Resolution Banner (Facebook, Instagram, Website, or Printable Sheet)
-  const exportHighResBanner = async () => {
+  // Export High-Resolution Banner (PNG or Scalable SVG)
+  const exportHighResBanner = async (format = 'png') => {
+    const w = selectedPreset.width;
+    const h = selectedPreset.height;
+
+    if (format === 'svg') {
+      let bgMarkup = '';
+      if (selectedBg.colors) {
+        bgMarkup = `
+  <defs>
+    <linearGradient id="banner_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${selectedBg.colors[0]}" />
+      <stop offset="50%" stop-color="${selectedBg.colors[1]}" />
+      <stop offset="100%" stop-color="${selectedBg.colors[2]}" />
+    </linearGradient>
+  </defs>
+  <rect width="${w}" height="${h}" fill="url(#banner_bg)" />`;
+      }
+
+      const layerMarkups = [];
+      for (const layer of bannerLayers) {
+        const cx = Math.round((layer.x / 100) * w);
+        const cy = Math.round((layer.y / 100) * h);
+        if (layer.type === 'image') {
+          const img = await new Promise((res) => {
+            const el = new Image();
+            el.onload = () => res(el);
+            el.onerror = () => res(null);
+            el.src = layer.src;
+          });
+          if (img) {
+            const targetH = Math.round(h * layer.scale);
+            const targetW = Math.round(targetH * (img.width / img.height));
+            const x = Math.round(cx - targetW / 2);
+            const y = Math.round(cy - targetH / 2);
+            layerMarkups.push(
+              `  <image x="${x}" y="${y}" width="${targetW}" height="${targetH}" href="${layer.src}" />`
+            );
+          }
+        } else if (layer.type === 'text') {
+          const fontSize = Math.round(h * 0.075 * layer.scale);
+          const safeText = layer.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          layerMarkups.push(
+            `  <text x="${cx}" y="${cy}" fill="${layer.color || '#ffffff'}" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle">${safeText}</text>`
+          );
+        }
+      }
+
+      const svgDoc = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${bgMarkup}
+${layerMarkups.join('\n')}
+</svg>`;
+      const blob = new Blob([svgDoc], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      downloadImage(url, `CleanSnap_${selectedPreset.id}_${w}x${h}.svg`);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      return;
+    }
+
     const canvas = document.createElement('canvas');
-    canvas.width = selectedPreset.width;
-    canvas.height = selectedPreset.height;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d');
 
-    // 1. Draw Background
     if (selectedBg.colors) {
       const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
       grad.addColorStop(0, selectedBg.colors[0]);
@@ -631,7 +779,6 @@ export default function App() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // 2. Draw all layers in order
     for (const layer of bannerLayers) {
       const cx = (layer.x / 100) * canvas.width;
       const cy = (layer.y / 100) * canvas.height;
@@ -671,7 +818,7 @@ export default function App() {
     }
 
     const dataUrl = canvas.toDataURL('image/png');
-    downloadImage(dataUrl, `CleanSnap_${selectedPreset.id}_${selectedPreset.width}x${selectedPreset.height}.png`);
+    downloadImage(dataUrl, `CleanSnap_${selectedPreset.id}_${w}x${h}.png`);
   };
 
   // Dragging layers inside the Banner Builder
@@ -703,7 +850,7 @@ export default function App() {
       <header style={{ flexWrap: 'wrap', gap: '16px' }}>
         <div className="logo-area">
           <h1>CleanSnap AI &amp; Visual Sentences Studio</h1>
-          <p>Product Cutout, Studio Polish, PNG Element Pack Vault &amp; Social/Web Banner Builder</p>
+          <p>Product Cutout, Studio Polish, 1-Click SVG/PNG Pack Vault &amp; Social/Web Banner Builder</p>
         </div>
 
         {/* Navigation Tabs */}
@@ -718,7 +865,7 @@ export default function App() {
             className={activeTab === 'vault' ? 'btn-accent' : 'btn-secondary'}
             onClick={() => setActiveTab('vault')}
           >
-            <Package size={16} /> 2. PNG Element Pack Vault ({completedJobs.length})
+            <Package size={16} /> 2. SVG &amp; PNG Element Vault ({completedJobs.length})
           </button>
           <button
             className={activeTab === 'banner' ? 'btn-accent' : 'btn-secondary'}
@@ -735,7 +882,7 @@ export default function App() {
           <div className="grid-layout">
             <div className="card">
               <div className="card-header">
-                <span>1. Drop Photos to Clean, Polish &amp; Log into PNG Vault</span>
+                <span>1. Drop Photos to Clean, Polish &amp; Auto-Log SVG/PNGs</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     className="btn-accent"
@@ -793,11 +940,11 @@ export default function App() {
                 <Sparkles size={32} style={{ color: '#3b82f6', margin: '0 auto 10px' }} />
                 <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>
                   {isProcessingBatch
-                    ? progressMsg || 'Polishing & logging PNGs...'
-                    : 'Drag & Drop 1 to 100+ Photos Here (Auto-Logs into PNG Element Vault)'}
+                    ? progressMsg || 'Polishing & generating SVG/PNGs...'
+                    : 'Drag & Drop 1 to 100+ Photos Here (Auto-Logs into SVG & PNG Vault)'}
                 </div>
                 <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
-                  Every cleaned PNG is automatically trimmed and saved into your PNG Element Pack Vault for banners, web packs, or printables.
+                  Every cleaned item is automatically converted into both a trimmed transparent PNG and a cutline-traced .SVG element!
                 </div>
               </div>
 
@@ -817,7 +964,7 @@ export default function App() {
                 </div>
 
                 <div className="form-group">
-                  <label>PNG Pack / Folder Name (For Logging &amp; ZIP Pack Export)</label>
+                  <label>SVG / PNG Pack Folder Name</label>
                   <input
                     type="text"
                     value={packCategory}
@@ -864,23 +1011,23 @@ export default function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: '#94a3b8' }}>
                   <span>Total: <strong style={{ color: '#fff' }}>{jobs.length}</strong></span>
-                  <span>Logged PNGs: <strong style={{ color: '#10b981' }}>{completedCount + skippedCount}</strong></span>
+                  <span>Ready in Vault: <strong style={{ color: '#10b981' }}>{completedCount + skippedCount}</strong></span>
                 </div>
                 {completedJobs.length > 0 && (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => downloadAllAsZip(true)}
-                      style={{ padding: '8px 12px', fontSize: '12px' }}
-                    >
-                      <Package size={14} /> Export PNG Element Pack ZIP
-                    </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button
                       className="btn-accent"
-                      onClick={() => setActiveTab('banner')}
+                      onClick={() => downloadPackZip('svg_only')}
                       style={{ padding: '8px 12px', fontSize: '12px' }}
                     >
-                      <Layout size={14} /> Open in Banner Builder →
+                      <FileCode size={14} /> 1-Click Export SVG Pack (.ZIP)
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => downloadPackZip('png_only')}
+                      style={{ padding: '8px 12px', fontSize: '12px' }}
+                    >
+                      <Package size={14} /> Export PNG Pack (.ZIP)
                     </button>
                   </div>
                 )}
@@ -999,12 +1146,9 @@ export default function App() {
                     <button
                       className="btn-accent"
                       style={{ flex: 1 }}
-                      onClick={() => {
-                        const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
-                        downloadImage(selectedJob.catalog_white_url, `${base}_polished_white_2000x2000.jpg`);
-                      }}
+                      onClick={() => downloadSingleSvg(selectedJob)}
                     >
-                      <Download size={15} /> Clean White JPG
+                      <FileCode size={15} /> 1-Click Export .SVG
                     </button>
                     <button
                       className="btn-secondary"
@@ -1014,13 +1158,17 @@ export default function App() {
                         downloadImage(selectedJob.trimmed_sticker_url || selectedJob.transparent_url, `${base}_element.png`);
                       }}
                     >
-                      <Download size={15} /> Trimmed Element PNG
+                      <Download size={15} /> Trimmed .PNG
                     </button>
                     <button
                       className="btn-secondary"
-                      onClick={() => addElementToBanner(selectedJob)}
+                      style={{ flex: 1 }}
+                      onClick={() => {
+                        const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
+                        downloadImage(selectedJob.catalog_white_url, `${base}_white_2000x2000.jpg`);
+                      }}
                     >
-                      <Plus size={15} /> Add to Banner
+                      <Download size={15} /> White .JPG
                     </button>
                   </div>
                 </>
@@ -1043,7 +1191,7 @@ export default function App() {
                 >
                   <ImageIcon size={40} style={{ color: '#475569' }} />
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#e2e8f0' }}>
-                    Drop photos on the left to clean, polish, and auto-log them into your PNG Vault!
+                    Drop photos on the left to clean, polish, and auto-generate 1-Click .SVG &amp; .PNG packs!
                   </div>
                 </div>
               )}
@@ -1052,22 +1200,25 @@ export default function App() {
         </>
       )}
 
-      {/* ==================== TAB 2: PNG ELEMENT PACK VAULT ==================== */}
+      {/* ==================== TAB 2: SVG & PNG ELEMENT PACK VAULT ==================== */}
       {activeTab === 'vault' && (
         <div className="card">
           <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <span>PNG Element Vault — "{packCategory}" ({completedJobs.length} Cutout Elements)</span>
+              <span>SVG &amp; PNG Element Vault — "{packCategory}" ({completedJobs.length} Elements)</span>
               <p style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'normal', marginTop: '2px' }}>
-                All cutout PNGs are automatically trimmed and logged here. Export them as a downloadable PNG Pack or click any element to add it to your Banner Builder!
+                Every cutout has a traced vector contour path and is ready for 1-Click .SVG export or full SVG Pack ZIP download.
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button className="btn-accent" onClick={() => downloadAllAsZip(true)} disabled={completedJobs.length === 0}>
-                <Package size={16} /> Export Trimmed PNG Pack (.ZIP)
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button className="btn-accent" onClick={() => downloadPackZip('svg_only')} disabled={completedJobs.length === 0}>
+                <FileCode size={16} /> 1-Click Export SVG Pack (.ZIP)
               </button>
-              <button className="btn-secondary" onClick={() => downloadAllAsZip(false)} disabled={completedJobs.length === 0}>
-                <Archive size={16} /> Export Full Catalog + PNGs (.ZIP)
+              <button className="btn-secondary" onClick={() => downloadPackZip('png_only')} disabled={completedJobs.length === 0}>
+                <Package size={16} /> Export PNG Pack (.ZIP)
+              </button>
+              <button className="btn-secondary" onClick={() => downloadPackZip('all')} disabled={completedJobs.length === 0}>
+                <Archive size={16} /> Export Complete SVG + PNG Bundle (.ZIP)
               </button>
             </div>
           </div>
@@ -1076,7 +1227,7 @@ export default function App() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
                 gap: '16px',
                 marginTop: '8px'
               }}
@@ -1122,19 +1273,27 @@ export default function App() {
                     <button
                       className="btn-accent"
                       style={{ flex: 1, padding: '6px 8px', fontSize: '11px' }}
-                      onClick={() => addElementToBanner(job)}
+                      onClick={() => downloadSingleSvg(job)}
                     >
-                      <Plus size={13} /> Use in Banner
+                      <FileCode size={13} /> .SVG
                     </button>
                     <button
                       className="btn-secondary"
-                      style={{ padding: '6px 8px', fontSize: '11px' }}
+                      style={{ flex: 1, padding: '6px 8px', fontSize: '11px' }}
                       onClick={() => {
                         const base = job.original_filename.replace(/\.[^/.]+$/, '');
                         downloadImage(job.trimmed_sticker_url || job.transparent_url, `${base}_element.png`);
                       }}
                     >
-                      <Download size={13} /> PNG
+                      <Download size={13} /> .PNG
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: '6px 8px', fontSize: '11px' }}
+                      title="Use in Banner Builder"
+                      onClick={() => addElementToBanner(job)}
+                    >
+                      <Plus size={13} />
                     </button>
                   </div>
                 </div>
@@ -1142,7 +1301,7 @@ export default function App() {
             </div>
           ) : (
             <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-              Your PNG Element Vault is empty. Drop photos in <strong>Tab 1 (Photo Cleaner)</strong> to automatically extract and log transparent PNG elements here!
+              Your SVG &amp; PNG Vault is empty. Drop photos in <strong>Tab 1 (Photo Cleaner)</strong> to automatically generate and log SVG + PNG elements here!
             </div>
           )}
         </div>
@@ -1151,13 +1310,17 @@ export default function App() {
       {/* ==================== TAB 3: SOCIAL / WEB BANNER & VISUAL SENTENCE BUILDER ==================== */}
       {activeTab === 'banner' && (
         <div className="grid-layout">
-          {/* LEFT CONTROLS: Format Preset, Background, Add Elements & Layer Controls */}
           <div className="card">
-            <div className="card-header">
+            <div className="card-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
               <span>Banner &amp; Printable Scene Controls</span>
-              <button className="btn-accent" onClick={exportHighResBanner}>
-                <Download size={16} /> Export High-Res Banner PNG
-              </button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button className="btn-accent" onClick={() => exportHighResBanner('svg')} style={{ padding: '8px 12px', fontSize: '12px' }}>
+                  <FileCode size={15} /> Export Banner .SVG
+                </button>
+                <button className="btn-secondary" onClick={() => exportHighResBanner('png')} style={{ padding: '8px 12px', fontSize: '12px' }}>
+                  <Download size={15} /> Export .PNG
+                </button>
+              </div>
             </div>
 
             <div className="form-group">
@@ -1209,7 +1372,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Selected Layer Scale & Delete Controls */}
             {activeLayer && (
               <div
                 style={{
@@ -1271,9 +1433,8 @@ export default function App() {
               </div>
             )}
 
-            {/* Quick-Add Vault PNGs Strip */}
             <div className="form-group">
-              <label>4. Click Any Logged PNG Element Below to Drop Onto Banner ({completedJobs.length} Available)</label>
+              <label>4. Click Any Logged Element Below to Drop Onto Banner ({completedJobs.length} Available)</label>
               {completedJobs.length > 0 ? (
                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '8px 0' }}>
                   {completedJobs.map((job) => (
@@ -1310,7 +1471,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Interactive Drag-and-Drop Banner Stage */}
           <div className="card">
             <div className="card-header">
               <span>Interactive Banner Canvas ({selectedPreset.name})</span>
@@ -1406,11 +1566,16 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#94a3b8' }}>
-              <span>Tip: Click any PNG or text on the canvas to drag it or resize it with the slider on the left.</span>
-              <button className="btn-accent" onClick={exportHighResBanner}>
-                <Download size={15} /> Download {selectedPreset.width}×{selectedPreset.height} Banner
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#94a3b8', flexWrap: 'wrap', gap: '8px' }}>
+              <span>Click any element on the canvas to drag or resize it.</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn-accent" onClick={() => exportHighResBanner('svg')}>
+                  <FileCode size={15} /> 1-Click Export Banner .SVG
+                </button>
+                <button className="btn-secondary" onClick={() => exportHighResBanner('png')}>
+                  <Download size={15} /> Download .PNG
+                </button>
+              </div>
             </div>
           </div>
         </div>
