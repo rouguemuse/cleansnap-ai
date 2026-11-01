@@ -1,12 +1,114 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Folder, Play, Square, RefreshCw, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Folder, Play, Square, RefreshCw, CheckCircle2, AlertCircle, Clock, Cloud } from 'lucide-react';
 import './App.css';
+
+const DEMO_HISTORY = [
+  {
+    job_id: 'job_9f8a12b4c3d1',
+    original_filename: 'princess12.12.png',
+    model_used: 'isnet-general-use',
+    source_path: 'C:\\Users\\rougu\\Downloads\\CleanSnap_Input\\princess12.12.png',
+    catalog_white_path: 'demo_princess',
+    status: 'completed',
+    color: '#ec4899'
+  },
+  {
+    job_id: 'job_4e2c89d1a0b7',
+    original_filename: 'greenslide28.14.png',
+    model_used: 'isnet-general-use',
+    source_path: 'C:\\Users\\rougu\\Downloads\\CleanSnap_Input\\greenslide28.14.png',
+    catalog_white_path: 'demo_greenslide',
+    status: 'completed',
+    color: '#10b981'
+  },
+  {
+    job_id: 'job_7b3f65c9e1a2',
+    original_filename: 'sunshine20.16.20.png',
+    model_used: 'isnet-general-use',
+    source_path: 'C:\\Users\\rougu\\Downloads\\CleanSnap_Input\\sunshine20.16.20.png',
+    catalog_white_path: 'demo_sunshine',
+    status: 'completed',
+    color: '#f59e0b'
+  },
+  {
+    job_id: 'job_2d1a08f4b6c9',
+    original_filename: 'renamed_princess_copy.png',
+    model_used: 'SHA-256 Deduplicated (0.01s)',
+    source_path: 'C:\\Users\\rougu\\Downloads\\CleanSnap_Input\\renamed_princess_copy.png',
+    catalog_white_path: 'demo_princess',
+    status: 'skipped',
+    color: '#ec4899'
+  }
+];
+
+function DemoInflatableSvg({ color = '#ec4899', isCleaned = true }) {
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: isCleaned
+          ? '#ffffff'
+          : 'linear-gradient(180deg, #38bdf8 0%, #0284c7 55%, #15803d 55%, #166534 100%)',
+        position: 'relative'
+      }}
+    >
+      <svg viewBox="0 0 240 240" style={{ width: '82%', height: '82%' }}>
+        {!isCleaned && (
+          <>
+            <circle cx="30" cy="125" r="28" fill="#14532d" opacity="0.85" />
+            <circle cx="210" cy="120" r="32" fill="#14532d" opacity="0.85" />
+            <rect x="0" y="132" width="240" height="4" fill="#78350f" opacity="0.5" />
+          </>
+        )}
+        {isCleaned && (
+          <ellipse cx="120" cy="205" rx="82" ry="12" fill="rgba(15, 23, 42, 0.2)" />
+        )}
+        {/* Left & Right Pillars */}
+        <path d="M50 200 L50 95 L72 60 L94 95 L94 200 Z" fill={color} />
+        <path d="M146 200 L146 95 L168 60 L190 95 L190 200 Z" fill={color} />
+        {/* Center Bounce Wall */}
+        <rect x="84" y="105" width="72" height="95" rx="6" fill="#6366f1" />
+        {/* Mesh Netting Window */}
+        <rect x="94" y="116" width="52" height="32" rx="4" fill="#1e1b4b" />
+        <line x1="94" y1="126" x2="146" y2="126" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+        <line x1="94" y1="136" x2="146" y2="136" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+        <line x1="110" y1="116" x2="110" y2="148" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+        <line x1="130" y1="116" x2="130" y2="148" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+        {/* Entrance Arch */}
+        <path d="M100 200 C100 162, 140 162, 140 200 Z" fill="#0f172a" />
+        {/* Top Emblem */}
+        <circle cx="120" cy="58" r="16" fill="#f43f5e" />
+      </svg>
+      <span
+        style={{
+          position: 'absolute',
+          bottom: '12px',
+          right: isCleaned ? '14px' : 'auto',
+          left: isCleaned ? 'auto' : '14px',
+          background: 'rgba(15, 23, 42, 0.78)',
+          color: '#f8fafc',
+          padding: '4px 10px',
+          borderRadius: '6px',
+          fontSize: '11px',
+          fontWeight: 600
+        }}
+      >
+        {isCleaned ? 'AFTER: 2000×2000 Catalog White' : 'BEFORE: Raw Outdoor Photo'}
+      </span>
+    </div>
+  );
+}
 
 export default function App() {
   const [status, setStatus] = useState(null);
+  const [isCloudDemo, setIsCloudDemo] = useState(false);
   const [config, setConfig] = useState({
-    watch_dir: '',
-    output_dir: '',
+    watch_dir: 'C:\\Users\\rougu\\Downloads\\CleanSnap_Input',
+    output_dir: 'C:\\Users\\rougu\\Downloads\\CleanSnap_Output',
     model_name: 'isnet-general-use',
     enhance_color: true,
     add_shadow: true
@@ -19,26 +121,45 @@ export default function App() {
   const fetchStatus = async () => {
     try {
       const res = await fetch('/api/status');
+      if (!res.ok) throw new Error('No local backend');
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) throw new Error('Not JSON');
       const data = await res.json();
       setStatus(data);
+      setIsCloudDemo(false);
       if (data.config) {
         setConfig(data.config);
       }
-    } catch (err) {
-      console.error('Failed to fetch status:', err);
+    } catch {
+      if (!isCloudDemo) {
+        setIsCloudDemo(true);
+        setStatus({
+          watcher_running: true,
+          stats: { total_processed: 4, completed: 3, skipped: 1, failed: 0 }
+        });
+      }
     }
   };
 
   const fetchHistory = async () => {
     try {
       const res = await fetch('/api/history');
+      if (!res.ok) throw new Error('No local backend');
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) throw new Error('Not JSON');
       const data = await res.json();
       setHistory(data);
       if (data.length > 0 && !selectedItem) {
         setSelectedItem(data[0]);
       }
-    } catch (err) {
-      console.error('Failed to fetch history:', err);
+    } catch {
+      setHistory((prev) => {
+        if (prev.length === 0) {
+          setSelectedItem(DEMO_HISTORY[0]);
+          return DEMO_HISTORY;
+        }
+        return prev;
+      });
     }
   };
 
@@ -46,13 +167,19 @@ export default function App() {
     fetchStatus();
     fetchHistory();
     const interval = setInterval(() => {
-      fetchStatus();
-      fetchHistory();
+      if (!isCloudDemo) {
+        fetchStatus();
+        fetchHistory();
+      }
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isCloudDemo]);
 
   const handleBrowseFolder = async (field) => {
+    if (isCloudDemo) {
+      alert('In Local Desktop Mode (start_app.bat), this button opens the native Windows Folder Picker Dialog.');
+      return;
+    }
     try {
       const initial = config[field] || '';
       const res = await fetch('/api/dialog/browse-folder', {
@@ -72,6 +199,7 @@ export default function App() {
   };
 
   const saveConfig = async (cfgToSave) => {
+    if (isCloudDemo) return;
     try {
       await fetch('/api/watcher/config', {
         method: 'POST',
@@ -85,6 +213,13 @@ export default function App() {
   };
 
   const toggleWatcher = async () => {
+    if (isCloudDemo) {
+      setStatus((prev) => ({
+        ...prev,
+        watcher_running: !prev?.watcher_running
+      }));
+      return;
+    }
     try {
       const enable = !status?.watcher_running;
       await fetch(`/api/watcher/toggle?enable=${enable}`, { method: 'POST' });
@@ -99,7 +234,8 @@ export default function App() {
   const handleMouseMove = (e) => {
     if (!isDraggingSlider || !sliderRef.current) return;
     const rect = sliderRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     const percent = (x / rect.width) * 100;
     setSliderPos(percent);
   };
@@ -112,12 +248,18 @@ export default function App() {
     if (isDraggingSlider) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleMouseMove);
+      window.addEventListener('touchend', handleMouseUp);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
     };
   }, [isDraggingSlider]);
+
+  const isDemoItem = selectedItem?.catalog_white_path?.startsWith('demo_');
 
   return (
     <div className="app-container">
@@ -126,9 +268,29 @@ export default function App() {
           <h1>CleanSnap AI</h1>
           <p>Automated Catalog Product Photo Cleaning & Framing Studio</p>
         </div>
-        <div className={`status-badge ${status?.watcher_running ? 'active' : 'stopped'}`}>
-          <span className="dot"></span>
-          {status?.watcher_running ? 'Watcher ACTIVE (Set & Forget)' : 'Watcher PAUSED'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {isCloudDemo && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '9999px',
+                fontSize: '12px',
+                fontWeight: 600,
+                background: 'rgba(59, 130, 246, 0.15)',
+                color: '#60a5fa',
+                border: '1px solid rgba(59, 130, 246, 0.3)'
+              }}
+            >
+              <Cloud size={14} /> Interactive Cloud Demo
+            </div>
+          )}
+          <div className={`status-badge ${status?.watcher_running ? 'active' : 'stopped'}`}>
+            <span className="dot"></span>
+            {status?.watcher_running ? 'Watcher ACTIVE (Set & Forget)' : 'Watcher PAUSED'}
+          </div>
         </div>
       </header>
 
@@ -204,7 +366,7 @@ export default function App() {
         {/* RIGHT COLUMN: Interactive Before / After Split Slider */}
         <div className="card">
           <div className="card-header">
-            <span>Before / After Catalog Preview</span>
+            <span>Before / After Catalog Preview (Drag Slider)</span>
             {selectedItem && <span style={{ fontSize: '12px', color: '#94a3b8' }}>{selectedItem.original_filename}</span>}
           </div>
 
@@ -213,23 +375,42 @@ export default function App() {
               className="slider-container"
               ref={sliderRef}
               onMouseDown={() => setIsDraggingSlider(true)}
+              onTouchStart={() => setIsDraggingSlider(true)}
             >
-              {/* After: Catalog White Output */}
-              <img
-                src={`/api/image-preview?path=${encodeURIComponent(selectedItem.catalog_white_path)}`}
-                alt="Catalog White"
-                className="slider-img"
-              />
-              
-              {/* Before: Original Source Image Overlay */}
-              <div className="slider-overlay" style={{ width: `${sliderPos}%` }}>
-                <img
-                  src={`/api/image-preview?path=${encodeURIComponent(selectedItem.source_path)}`}
-                  alt="Original"
-                  className="slider-img"
-                  style={{ width: sliderRef.current?.clientWidth || '100%' }}
-                />
-              </div>
+              {isDemoItem ? (
+                <>
+                  <div className="slider-img">
+                    <DemoInflatableSvg color={selectedItem.color} isCleaned={true} />
+                  </div>
+                  <div className="slider-overlay" style={{ width: `${sliderPos}%` }}>
+                    <div
+                      className="slider-img"
+                      style={{ width: sliderRef.current?.clientWidth || '600px' }}
+                    >
+                      <DemoInflatableSvg color={selectedItem.color} isCleaned={false} />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* After: Catalog White Output */}
+                  <img
+                    src={`/api/image-preview?path=${encodeURIComponent(selectedItem.catalog_white_path)}`}
+                    alt="Catalog White"
+                    className="slider-img"
+                  />
+
+                  {/* Before: Original Source Image Overlay */}
+                  <div className="slider-overlay" style={{ width: `${sliderPos}%` }}>
+                    <img
+                      src={`/api/image-preview?path=${encodeURIComponent(selectedItem.source_path)}`}
+                      alt="Original"
+                      className="slider-img"
+                      style={{ width: sliderRef.current?.clientWidth || '100%' }}
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Slider Handle */}
               <div className="slider-handle" style={{ left: `${sliderPos}%` }}>

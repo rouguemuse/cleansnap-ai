@@ -25,3 +25,5 @@ test_stage3_workspace*/
 Thumbs.db
 .vscode/
 .idea/
+
+.vercel
