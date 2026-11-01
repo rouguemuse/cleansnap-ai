@@ -11,9 +11,10 @@ import {
   Sparkles,
   Image as ImageIcon,
   Archive,
-  Sliders
+  Sliders,
+  Sun
 } from 'lucide-react';
-import { removeBackground } from '@imgly/background-removal';
+import { removeBackground, preload } from '@imgly/background-removal';
 import JSZip from 'jszip';
 import './App.css';
 
@@ -58,22 +59,32 @@ function getTransparentBoundingBox(ctx, width, height) {
   return { x: minX, y: minY, w: Math.max(1, maxX - minX + 1), h: Math.max(1, maxY - minY + 1) };
 }
 
-// Dilate & feather alpha mask slightly so edges or parts of the subject aren't eaten away,
-// and boost product brightness/vibrance slightly for studio quality.
-function refineMaskAndEnhanceSubject(origImg, cutoutImg, maskProtectLevel = 1) {
+// Apply studio shadow recovery, warm white balance, clarity, and optional AI mask
+function processStudioSubject(origImg, cutoutImg, cleaningMode = 'product_cutout', maskProtectLevel = 2) {
   const w = origImg.width;
   const h = origImg.height;
 
-  // Draw original photo
-  const origCanvas = document.createElement('canvas');
-  origCanvas.width = w;
-  origCanvas.height = h;
-  const origCtx = origCanvas.getContext('2d');
-  origCtx.filter = 'contrast(1.04) saturate(1.06) brightness(1.02)';
-  origCtx.drawImage(origImg, 0, 0, w, h);
-  const origData = origCtx.getImageData(0, 0, w, h);
+  const subjectCanvas = document.createElement('canvas');
+  subjectCanvas.width = w;
+  subjectCanvas.height = h;
+  const ctx = subjectCanvas.getContext('2d');
 
-  // Draw AI cutout to extract its alpha mask
+  // Studio lighting, clarity, and color boost
+  ctx.filter =
+    cleaningMode === 'scene_enhance'
+      ? 'brightness(1.07) contrast(1.08) saturate(1.12)'
+      : 'brightness(1.03) contrast(1.05) saturate(1.07)';
+  ctx.drawImage(origImg, 0, 0, w, h);
+  ctx.filter = 'none';
+
+  // If mode is Full Scene Studio Enhance, keep 100% of the image (never remove rooms, architecture, or background)
+  if (cleaningMode === 'scene_enhance' || !cutoutImg) {
+    return subjectCanvas;
+  }
+
+  const origData = ctx.getImageData(0, 0, w, h);
+  const pixels = origData.data;
+
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = w;
   maskCanvas.height = h;
@@ -81,48 +92,65 @@ function refineMaskAndEnhanceSubject(origImg, cutoutImg, maskProtectLevel = 1) {
   maskCtx.drawImage(cutoutImg, 0, 0, w, h);
   const maskData = maskCtx.getImageData(0, 0, w, h).data;
 
-  // Boost soft/semi-transparent subject pixels so parts of the product aren't lost
-  const pixels = origData.data;
-  const boostFactor = maskProtectLevel === 2 ? 1.85 : maskProtectLevel === 1 ? 1.35 : 1.0;
+  // Safeguard check: calculate what percentage of the image the AI mask kept
+  let opaqueCount = 0;
+  const totalPixels = w * h;
+  const boostFactor = maskProtectLevel === 2 ? 2.2 : maskProtectLevel === 1 ? 1.45 : 1.0;
 
   for (let i = 0; i < pixels.length; i += 4) {
     let a = maskData[i + 3];
-    if (a > 12) {
+    if (a > 6) {
       a = Math.min(255, Math.round(a * boostFactor));
+      if (a > 128) opaqueCount++;
     } else {
       a = 0;
     }
     pixels[i + 3] = a;
   }
 
-  origCtx.putImageData(origData, 0, 0);
-  return origCanvas;
+  // Automatic Smart Fallback: If the AI only kept a tiny fragment (< 12% of the photo, e.g., a person inside a grand library scene),
+  // preserve the full enhanced image so we don't wipe out 90% of the artwork/scene!
+  const keptRatio = opaqueCount / totalPixels;
+  if (keptRatio < 0.12 && maskProtectLevel >= 1) {
+    for (let i = 0; i < pixels.length; i += 4) {
+      pixels[i + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(origData, 0, 0);
+  return subjectCanvas;
 }
 
 // Render 2000x2000 Catalog Framed outputs AND matched Before/After frames:
 // - Exported downloads have ZERO watermarks (100% pure white JPG & pure transparent PNG).
 // - Aligned Original 2000x2000 frame ensures Before/After slider lines up pixel-for-pixel!
-async function buildCatalogOutputs(originalFile, cutoutBlob, framingMode = 'catalog', maskProtectLevel = 1) {
+async function buildCatalogOutputs(
+  originalFile,
+  cutoutBlob,
+  cleaningMode = 'product_cutout',
+  framingMode = 'original',
+  maskProtectLevel = 2
+) {
   const origUrl = URL.createObjectURL(originalFile);
-  const cutUrl = URL.createObjectURL(cutoutBlob);
+  const cutUrl = cutoutBlob ? URL.createObjectURL(cutoutBlob) : null;
 
-  const [origImg, cutImg] = await Promise.all([
-    new Promise((res, rej) => {
-      const el = new Image();
-      el.onload = () => res(el);
-      el.onerror = rej;
-      el.src = origUrl;
-    }),
-    new Promise((res, rej) => {
-      const el = new Image();
-      el.onload = () => res(el);
-      el.onerror = rej;
-      el.src = cutUrl;
-    })
-  ]);
+  const origImg = await new Promise((res, rej) => {
+    const el = new Image();
+    el.onload = () => res(el);
+    el.onerror = rej;
+    el.src = origUrl;
+  });
 
-  // Refine subject mask and apply gentle studio color enhancement
-  const subjectCanvas = refineMaskAndEnhanceSubject(origImg, cutImg, maskProtectLevel);
+  const cutImg = cutUrl
+    ? await new Promise((res, rej) => {
+        const el = new Image();
+        el.onload = () => res(el);
+        el.onerror = rej;
+        el.src = cutUrl;
+      })
+    : null;
+
+  const subjectCanvas = processStudioSubject(origImg, cutImg, cleaningMode, maskProtectLevel);
   const subjectCtx = subjectCanvas.getContext('2d');
 
   const canvasW = 2000;
@@ -130,8 +158,7 @@ async function buildCatalogOutputs(originalFile, cutoutBlob, framingMode = 'cata
 
   let bbox, newW, newH, posX, posY;
 
-  if (framingMode === 'catalog') {
-    // Auto-crop around the product and center on 2000x2000 canvas (88% max occupancy, 6% min margin)
+  if (framingMode === 'catalog' && cleaningMode === 'product_cutout') {
     bbox = getTransparentBoundingBox(subjectCtx, subjectCanvas.width, subjectCanvas.height);
     const maxOccupancy = 0.88;
     const minMargin = 0.06;
@@ -147,9 +174,9 @@ async function buildCatalogOutputs(originalFile, cutoutBlob, framingMode = 'cata
     const groundY = Math.floor(canvasH * groundLineRatio);
     posY = Math.max(Math.floor(canvasH * minMargin), groundY - newH);
   } else {
-    // Keep original full-frame proportions fitted inside 2000x2000
+    // Keep original full-frame proportions fitted cleanly inside 2000x2000 so Before & After never jump
     bbox = { x: 0, y: 0, w: subjectCanvas.width, h: subjectCanvas.height };
-    const scale = Math.min((canvasW * 0.92) / bbox.w, (canvasH * 0.92) / bbox.h);
+    const scale = Math.min(canvasW / bbox.w, canvasH / bbox.h);
     newW = Math.max(1, Math.floor(bbox.w * scale));
     newH = Math.max(1, Math.floor(bbox.h * scale));
     posX = Math.floor((canvasW - newW) / 2);
@@ -158,6 +185,7 @@ async function buildCatalogOutputs(originalFile, cutoutBlob, framingMode = 'cata
 
   // Helper to draw soft studio contact shadow under product
   const drawContactShadow = (ctx) => {
+    if (cleaningMode === 'scene_enhance') return;
     ctx.save();
     const shadowX = canvasW / 2;
     const shadowY = posY + newH - Math.floor(newH * 0.015);
@@ -185,14 +213,13 @@ async function buildCatalogOutputs(originalFile, cutoutBlob, framingMode = 'cata
   const beforeCtx = beforeCanvas.getContext('2d');
   beforeCtx.fillStyle = '#0f172a';
   beforeCtx.fillRect(0, 0, canvasW, canvasH);
-  // Compute where the full original image lands when mapped using the same scale & offset
   const scaleUsed = newW / bbox.w;
   const fullOrigW = Math.round(origImg.width * scaleUsed);
   const fullOrigH = Math.round(origImg.height * scaleUsed);
   const fullOrigX = Math.round(posX - bbox.x * scaleUsed);
   const fullOrigY = Math.round(posY - bbox.y * scaleUsed);
   beforeCtx.drawImage(origImg, 0, 0, origImg.width, origImg.height, fullOrigX, fullOrigY, fullOrigW, fullOrigH);
-  const alignedBeforeUrl = beforeCanvas.toDataURL('image/jpeg', 0.9);
+  const alignedBeforeUrl = beforeCanvas.toDataURL('image/jpeg', 0.92);
 
   // 2. Clean Transparent PNG (2000x2000) — NO WATERMARK
   const transCanvas = document.createElement('canvas');
@@ -215,15 +242,16 @@ async function buildCatalogOutputs(originalFile, cutoutBlob, framingMode = 'cata
   const catalogWhiteUrl = whiteCanvas.toDataURL('image/jpeg', 0.95);
 
   URL.revokeObjectURL(origUrl);
-  URL.revokeObjectURL(cutUrl);
+  if (cutUrl) URL.revokeObjectURL(cutUrl);
 
   return { alignedBeforeUrl, transparentUrl, catalogWhiteUrl };
 }
 
 export default function App() {
-  // Framing & Segmentation Controls
-  const [framingMode, setFramingMode] = useState('catalog'); // 'catalog' or 'original'
-  const [maskProtectLevel, setMaskProtectLevel] = useState(1); // 0 = strict, 1 = balanced, 2 = preserve soft edges
+  // Cleaning Mode & Framing Controls
+  const [cleaningMode, setCleaningMode] = useState('product_cutout'); // 'product_cutout' or 'scene_enhance'
+  const [framingMode, setFramingMode] = useState('original'); // 'original' keeps exact position; 'catalog' auto-centers 88%
+  const [maskProtectLevel, setMaskProtectLevel] = useState(2); // 2 = Max subject protection + smart scene fallback
   const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS • PREVIEW ONLY');
 
   // Queue & History State
@@ -257,7 +285,10 @@ export default function App() {
       original_url: URL.createObjectURL(file),
       aligned_before_url: null,
       status: 'queued',
-      model_used: 'IS-Net High-Detail AI (fp16)',
+      model_used:
+        cleaningMode === 'scene_enhance'
+          ? 'Full-Scene Studio Lighting & Clarity Engine'
+          : 'IS-Net High-Detail Product AI (fp16)',
       catalog_white_url: null,
       transparent_url: null,
       processing_time: null
@@ -275,12 +306,11 @@ export default function App() {
         prev.map((j) => (j.job_id === entry.job_id ? { ...j, status: 'processing' } : j))
       );
 
-      // Yield a frame so UI stays responsive while batch runs
       await new Promise((r) => setTimeout(r, 30));
 
       try {
         const buffer = await entry.file.arrayBuffer();
-        const sha256 = await hashArrayBuffer(buffer);
+        const sha256 = `${cleaningMode}_${framingMode}_${maskProtectLevel}_${await hashArrayBuffer(buffer)}`;
 
         // SHA-256 Deduplication
         if (seenHashesRef.current.has(sha256)) {
@@ -299,24 +329,37 @@ export default function App() {
           continue;
         }
 
-        // Run high-precision IS-Net AI segmentation
-        const cutoutBlob = await removeBackground(entry.file, {
-          model: 'isnet_fp16',
-          output: { format: 'image/png', quality: 1.0 },
-          progress: (key, current, total) => {
-            if (total > 0) {
-              const pct = Math.round((current / total) * 100);
-              setProgressMsg(
-                `Cleaning ${i + 1}/${newEntries.length} (${entry.original_filename}) — AI Model ${pct}%`
-              );
+        let cutoutBlob = null;
+        if (cleaningMode === 'product_cutout') {
+          try {
+            cutoutBlob = await removeBackground(entry.file, {
+              model: 'isnet_fp16',
+              output: { format: 'image/png', quality: 1.0 },
+              progress: (key, current, total) => {
+                if (total > 0) {
+                  const pct = Math.round((current / total) * 100);
+                  setProgressMsg(
+                    `Cleaning ${i + 1}/${newEntries.length} (${entry.original_filename}) — AI Model ${pct}%`
+                  );
+                }
+              }
+            });
+          } catch (wasmErr) {
+            // If dynamic module hash changed during a live deployment, prompt a clean reload or fall back to Studio Enhance
+            if (String(wasmErr.message || '').includes('Failed to fetch dynamically imported module')) {
+              window.location.reload();
+              return;
             }
+            console.warn('AI segmentation fell back to full studio enhancement:', wasmErr);
+            cutoutBlob = null;
           }
-        });
+        }
 
         // Build 2000x2000 Clean Exports (NO watermark on exports) + Aligned Before/After Preview
         const { alignedBeforeUrl, transparentUrl, catalogWhiteUrl } = await buildCatalogOutputs(
           entry.file,
           cutoutBlob,
+          cleaningMode,
           framingMode,
           maskProtectLevel
         );
@@ -339,7 +382,7 @@ export default function App() {
         setJobs((prev) =>
           prev.map((j) =>
             j.job_id === entry.job_id
-              ? { ...j, status: 'failed', error_reason: err.message || 'Segmentation error' }
+              ? { ...j, status: 'failed', error_reason: err.message || 'Processing error' }
               : j
           )
         );
@@ -371,11 +414,11 @@ export default function App() {
       const base = job.original_filename.replace(/\.[^/.]+$/, '');
       if (job.catalog_white_url) {
         const base64White = job.catalog_white_url.split(',')[1];
-        zip.file(`${base}_catalog_white_2000x2000.jpg`, base64White, { base64: true });
+        zip.file(`${base}_clean_white_2000x2000.jpg`, base64White, { base64: true });
       }
       if (job.transparent_url) {
         const base64Trans = job.transparent_url.split(',')[1];
-        zip.file(`${base}_transparent_2000x2000.png`, base64Trans, { base64: true });
+        zip.file(`${base}_clean_transparent_2000x2000.png`, base64Trans, { base64: true });
       }
     });
 
@@ -413,7 +456,7 @@ export default function App() {
       </header>
 
       <div className="grid-layout">
-        {/* LEFT COLUMN: Upload Dropzone & Subject Protection Controls */}
+        {/* LEFT COLUMN: Upload Dropzone & Cleaning Mode Controls */}
         <div className="card">
           <div className="card-header">
             <span>1. Drop Product Photos or Select Folder</span>
@@ -479,11 +522,11 @@ export default function App() {
                 : 'Drag & Drop 1 to 100+ Product Photos Here (or Click to Browse)'}
             </div>
             <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
-              Preserves the main subject, removes cluttered background, and exports 100% clean unwatermarked 2000×2000 files.
+              Preserves the subject, cleans the background, and exports 100% watermark-free 2000×2000 files.
             </div>
           </div>
 
-          {/* Subject Preservation & Preview Protection Settings */}
+          {/* Mode Selection: Product Cutout vs Full-Scene Enhance */}
           <div
             style={{
               background: 'rgba(15, 23, 42, 0.55)',
@@ -496,29 +539,36 @@ export default function App() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600, color: '#60a5fa' }}>
-              <Sliders size={16} /> Subject Preservation &amp; Framing Settings
+              <Sliders size={16} /> Cleaning Mode &amp; Subject Preservation
             </div>
 
             <div className="form-group">
-              <label>Main Subject Edge &amp; Detail Recovery (Prevents Cutting Into Product)</label>
+              <label>Photo Type / Cleaning Mode</label>
               <select
-                value={maskProtectLevel}
-                onChange={(e) => setMaskProtectLevel(Number(e.target.value))}
+                value={cleaningMode}
+                onChange={(e) => setCleaningMode(e.target.value)}
               >
-                <option value={2}>Maximum Subject Protection (Keep All Fine Edges, Netting &amp; Shadows)</option>
-                <option value={1}>Balanced Studio Cutout (Recommended)</option>
-                <option value={0}>Strict Cutout</option>
+                <option value="product_cutout">
+                  Product / Bounce House Cutout (Remove Outdoor Lawn/Sky + Smart Scene Protection)
+                </option>
+                <option value="scene_enhance">
+                  Full-Scene Studio Enhance (Keep Entire Room/Artwork + Boost Lighting &amp; Clarity)
+                </option>
               </select>
             </div>
 
             <div className="form-group">
-              <label>Output Framing Mode</label>
+              <label>Alignment &amp; Framing Mode</label>
               <select
                 value={framingMode}
                 onChange={(e) => setFramingMode(e.target.value)}
               >
-                <option value="catalog">Standardized 2000×2000 Catalog Framing (88% Occupancy + Floor Shadow)</option>
-                <option value="original">Keep Original Full-Frame Position (No Auto-Crop Zoom)</option>
+                <option value="original">
+                  Lock Original Subject Position (Zero Shift Between Before &amp; After)
+                </option>
+                <option value="catalog">
+                  Auto-Center &amp; Scale to 88% Catalog Square (2000×2000 + Floor Shadow)
+                </option>
               </select>
             </div>
 
