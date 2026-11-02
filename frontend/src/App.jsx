@@ -117,14 +117,14 @@ const EDR_SHOWCASE_SAMPLES = [
     use_dynamic_backdrops: true
   },
   {
-    job_id: 'user_crimson_envelope',
-    original_filename: 'Cord_Bound_Crimson_Envelope.png',
-    title: 'Cord-Bound Crimson Envelope',
-    dimensions: 'CONCEPT ART',
-    subtitle: 'Dark timber tabletop, gold-tooled books, fountain pen & berries removed → Crisp cord-bound envelope',
-    before_url: '/samples/crimson_envelope_before.jpg',
-    after_park_url: '/samples/crimson_envelope_after.jpg',
-    cutout_url: '/samples/crimson_envelope_cutout.webp',
+    job_id: 'user_graphic_umbrella',
+    original_filename: 'Graphic_Novel_Umbrella_Forest.png',
+    title: 'Graphic Novel Umbrella Forest',
+    dimensions: 'GRAPHIC NOVEL',
+    subtitle: 'Dark twilight forest canopy & undergrowth removed → Girl with umbrella & rain-cloud figure isolated',
+    before_url: '/samples/graphic_umbrella_before.jpg',
+    after_park_url: '/samples/graphic_umbrella_after.jpg',
+    cutout_url: '/samples/graphic_umbrella_cutout.webp',
     is_showcase: true,
     use_dynamic_backdrops: true
   },
@@ -1172,14 +1172,6 @@ ${layerMarkups.join('\n')}
             <Package size={15} />
             <span>Vector .SVG Vault ({completedJobs.length})</span>
           </button>
-          <button
-            className={`nav-pill ${activeTab === 'banner' ? 'active' : ''}`}
-            onClick={() => setActiveTab('banner')}
-          >
-            <span className="nav-pill-index">03</span>
-            <Layout size={15} />
-            <span>Scene &amp; Banner Composer</span>
-          </button>
         </nav>
       </header>
 
@@ -1665,14 +1657,6 @@ ${layerMarkups.join('\n')}
                     >
                       <FileCode size={14} /> 1-Click .SVG
                     </button>
-                    <button
-                      className="btn-secondary"
-                      style={{ padding: '8px 10px', fontSize: '12px' }}
-                      title="Send to Banner Composer"
-                      onClick={() => addElementToBanner(job)}
-                    >
-                      <Plus size={14} /> Scene
-                    </button>
                   </div>
                 </div>
               ))}
@@ -1682,273 +1666,6 @@ ${layerMarkups.join('\n')}
               No assets in Vault yet. Drop photos in Stage 01 to generate cutouts and vector .SVGs.
             </div>
           )}
-        </div>
-      )}
-
-      {/* ==================== TAB 3: SCENE & BANNER COMPOSER ==================== */}
-      {activeTab === 'banner' && (
-        <div className="grid-layout">
-          <div className="card">
-            <div className="card-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
-              <div className="card-title-group">
-                <span className="card-step-label">STAGE 03 · VISUAL SENTENCE COMPOSER</span>
-                <h2 className="card-title">Scene &amp; Banner Parameters</h2>
-              </div>
-              <button className="btn-gold" onClick={exportHighResBannerSvg} style={{ padding: '8px 14px', fontSize: '12px' }}>
-                <FileCode size={14} /> Export Scene .SVG
-              </button>
-            </div>
-
-            <div className="control-panel">
-              <div className="form-group">
-                <label>01 · Format &amp; Aspect Ratio</label>
-                <select
-                  value={selectedPreset.id}
-                  onChange={(e) => {
-                    const found = BANNER_PRESETS.find((p) => p.id === e.target.value);
-                    if (found) setSelectedPreset(found);
-                  }}
-                >
-                  {BANNER_PRESETS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>02 · Studio Environment Backdrop</label>
-                <select
-                  value={selectedBg.id}
-                  onChange={(e) => {
-                    const found = BANNER_BACKGROUNDS.find((b) => b.id === e.target.value);
-                    if (found) setSelectedBg(found);
-                  }}
-                >
-                  {BANNER_BACKGROUNDS.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>03 · Add Editorial Headline Layer</label>
-                <div className="input-with-button">
-                  <input
-                    type="text"
-                    value={customTextInput}
-                    onChange={(e) => setCustomTextInput(e.target.value)}
-                    placeholder="Enter headline or visual sentence..."
-                  />
-                  <button className="btn-secondary" onClick={addTextToBanner}>
-                    <Type size={14} /> Add
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {activeLayer && (
-              <div className="control-panel" style={{ borderColor: 'rgba(229, 193, 88, 0.35)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--gold)' }}>
-                    ACTIVE LAYER · {activeLayer.type === 'text' ? activeLayer.text : activeLayer.name}
-                  </span>
-                  <button
-                    className="btn-danger"
-                    style={{ padding: '4px 10px', fontSize: '11px' }}
-                    onClick={() => {
-                      setBannerLayers((prev) => prev.filter((l) => l.id !== activeLayer.id));
-                      setActiveLayerId(null);
-                    }}
-                  >
-                    <Trash2 size={12} /> Remove
-                  </button>
-                </div>
-
-                {activeLayer.type === 'text' && (
-                  <input
-                    type="text"
-                    value={activeLayer.text}
-                    onChange={(e) =>
-                      setBannerLayers((prev) =>
-                        prev.map((l) => (l.id === activeLayer.id ? { ...l, text: e.target.value } : l))
-                      )
-                    }
-                  />
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    SCALE
-                  </span>
-                  <input
-                    type="range"
-                    min="0.15"
-                    max="1.6"
-                    step="0.02"
-                    value={activeLayer.scale}
-                    onChange={(e) =>
-                      setBannerLayers((prev) =>
-                        prev.map((l) =>
-                          l.id === activeLayer.id ? { ...l, scale: Number(e.target.value) } : l
-                        )
-                      )
-                    }
-                    style={{ flex: 1, cursor: 'pointer' }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="form-group">
-              <label>04 · Click Any Vault Cutout to Place in Scene ({completedJobs.length})</label>
-              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '6px 0' }}>
-                {completedJobs.map((job) => (
-                  <div
-                    key={job.job_id}
-                    onClick={() => addElementToBanner(job)}
-                    title={`Place ${job.title || job.original_filename}`}
-                    style={{
-                      minWidth: '84px',
-                      height: '68px',
-                      background: 'rgba(7, 8, 12, 0.85)',
-                      borderRadius: '8px',
-                      padding: '6px',
-                      cursor: 'pointer',
-                      border: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <img
-                      src={job.trimmed_sticker_url}
-                      alt={job.original_filename}
-                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title-group">
-                <span className="card-step-label">INTERACTIVE ARTBOARD · {selectedPreset.width}×{selectedPreset.height} PX</span>
-                <h2 className="card-title">{selectedPreset.name}</h2>
-              </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                <Move size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                DRAG TO POSITION
-              </span>
-            </div>
-
-            <div
-              style={{
-                width: '100%',
-                minHeight: '390px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#050609',
-                borderRadius: '12px',
-                padding: '18px',
-                border: '1px solid var(--border-subtle)',
-                overflow: 'hidden'
-              }}
-            >
-              <div
-                ref={bannerStageRef}
-                onPointerMove={handleBannerPointerMove}
-                style={{
-                  position: 'relative',
-                  width: '100%',
-                  aspectRatio: `${selectedPreset.width} / ${selectedPreset.height}`,
-                  maxHeight: '420px',
-                  background: selectedBg.css,
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  boxShadow: '0 20px 50px rgba(0,0,0,0.65)',
-                  userSelect: 'none',
-                  touchAction: 'none'
-                }}
-              >
-                {bannerLayers.map((layer) => {
-                  const isSelected = layer.id === activeLayerId;
-                  return (
-                    <div
-                      key={layer.id}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        e.currentTarget.setPointerCapture(e.pointerId);
-                        setActiveLayerId(layer.id);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        left: `${layer.x}%`,
-                        top: `${layer.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        cursor: 'grab',
-                        border: isSelected ? '1.5px dashed var(--gold)' : '1.5px solid transparent',
-                        borderRadius: '6px',
-                        padding: '4px'
-                      }}
-                    >
-                      {layer.type === 'image' ? (
-                        <img
-                          src={layer.src}
-                          alt={layer.name}
-                          draggable={false}
-                          style={{
-                            height: `${Math.round(240 * layer.scale)}px`,
-                            width: 'auto',
-                            objectFit: 'contain',
-                            filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.45))',
-                            pointerEvents: 'none'
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            fontFamily: 'var(--font-display)',
-                            fontSize: `${Math.round(22 * layer.scale)}px`,
-                            fontWeight: 800,
-                            letterSpacing: '-0.02em',
-                            color:
-                              selectedBg.id === 'whiteboard' || selectedBg.id === 'studio_white'
-                                ? '#0f172a'
-                                : layer.color || '#ffffff',
-                            textShadow:
-                              selectedBg.id === 'whiteboard' || selectedBg.id === 'studio_white'
-                                ? 'none'
-                                : '0 4px 16px rgba(0,0,0,0.75)',
-                            whiteSpace: 'nowrap',
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {layer.text}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-secondary)', flexWrap: 'wrap', gap: '8px' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
-                ENVIRONMENT: <strong style={{ color: 'var(--gold)' }}>{selectedBg.name}</strong>
-              </span>
-              <button className="btn-gold" onClick={exportHighResBannerSvg}>
-                <FileCode size={15} /> 1-Click Export Banner .SVG
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
