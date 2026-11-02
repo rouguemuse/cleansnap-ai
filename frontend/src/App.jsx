@@ -6,7 +6,7 @@ import {
   Sparkles,
   Image as ImageIcon,
   Archive,
-  Sun,
+  Sliders,
   Layout,
   Plus,
   Trash2,
@@ -14,7 +14,7 @@ import {
   Package,
   Move,
   FileCode,
-  Trees
+  Layers
 } from 'lucide-react';
 import JSZip from 'jszip';
 import {
@@ -23,47 +23,58 @@ import {
 } from './lib/mitSegmentationEngine';
 import './App.css';
 
-// The 5 Official Background Options
+// The 5 Official Studio Backdrops (Zero Emojis — Clean Tactile Material Swatches & Monospace Indices)
 const FIVE_BACKDROP_OPTIONS = [
   {
     id: 'grass_yard',
-    label: '🌳 Grass Yard (Bounce Houses)',
-    shortLabel: '🌳 Grass Yard',
-    description: 'Sunny green grass yard, lush summer trees & blue sky with natural turf contact shadow'
+    index: '01',
+    label: 'Sunny Grass Yard',
+    shortLabel: 'Grass Yard',
+    swatchBg: 'linear-gradient(180deg, #38bdf8 0%, #4d7c0f 100%)',
+    description: 'Photorealistic manicured park turf, summer tree canopy & natural ground occlusion shadow'
   },
   {
     id: 'whiteboard',
-    label: '📋 Whiteboard (Dry-Erase Board)',
-    shortLabel: '📋 Whiteboard',
-    description: 'Glossy dry-erase whiteboard with aluminum frame, marker tray & soft board shadow'
+    index: '02',
+    label: 'Architectural Whiteboard',
+    shortLabel: 'Whiteboard',
+    swatchBg: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)',
+    description: 'Loft-studio porcelain dry-erase board with brushed champagne aluminum bezel & tray'
   },
   {
     id: 'chalkboard',
-    label: '🖍️ Chalkboard (Classic Slate)',
-    shortLabel: '🖍️ Chalkboard',
-    description: 'Textured dark green/charcoal slate chalkboard with chalk-dust rub & oak wood frame'
+    index: '03',
+    label: 'Belgian Slate Chalkboard',
+    shortLabel: 'Chalkboard',
+    swatchBg: 'linear-gradient(135deg, #27272a 0%, #090d10 100%)',
+    description: 'Museum-grade dark mineral slate with organic chalk-dust patina & American walnut frame'
   },
   {
     id: 'studio_white',
-    label: '⬜ Studio White (Catalog Square)',
-    shortLabel: '⬜ Studio White',
-    description: 'Pure #FFFFFF e-commerce catalog background with soft floor contact shadow'
+    index: '04',
+    label: 'Pure Studio White',
+    shortLabel: 'Studio White',
+    swatchBg: '#ffffff',
+    description: 'Seamless #FFFFFF commercial catalog cyclorama with soft floor contact shadow'
   },
   {
     id: 'transparent',
-    label: '🏁 Transparent Cutout (.SVG / .PNG)',
-    shortLabel: '🏁 Transparent',
-    description: 'Clean transparent alpha cutout for 1-Click .SVG export, .SVG Pack ZIP & banners'
+    index: '05',
+    label: 'Alpha Cutout (.SVG / .PNG)',
+    shortLabel: 'Alpha Cutout',
+    swatchBg: 'repeating-conic-gradient(#cbd5e1 0% 25%, #f8fafc 0% 50%) 50% / 8px 8px',
+    description: 'Zero-background die-cut alpha master for 1-Click .SVG export & scene layering'
   }
 ];
 
-// Pre-loaded Real EDR Bounce House Before/After Showcase Pairs (with transparent cutouts for all 5 backgrounds!)
+// Pre-loaded Real EDR Bounce House Before/After Showcase Pairs
 const EDR_SHOWCASE_SAMPLES = [
   {
     job_id: 'edr_tropical_slide',
     original_filename: 'Tropical_Water_Slide_28x14.png',
-    title: 'Tropical Water Slide (28×14)',
-    subtitle: 'Removed wet concrete driveway, yellow bucket, fence, house & red "18 / 28×14" badges → Polished & brightened',
+    title: 'Tropical Water Slide',
+    dimensions: '28×14 FT',
+    subtitle: 'Wet concrete driveway, yellow bucket, fence & red badges removed → Vinyl polished & graded',
     before_url: '/samples/tropical_slide_before.jpg',
     after_park_url: '/samples/tropical_slide_after.jpg',
     cutout_url: '/samples/tropical_slide_cutout.webp',
@@ -72,8 +83,9 @@ const EDR_SHOWCASE_SAMPLES = [
   {
     job_id: 'edr_ninja_turtles',
     original_filename: 'Ninja_Turtles_Bounce_18x15x20.png',
-    title: 'Ninja Turtles Bounce (18×15×20)',
-    subtitle: 'Removed winter driveway, dead overhanging branches, fence, cords & "10 18x15x20" text → Polished purple/green vinyl',
+    title: 'TMNT Bounce House',
+    dimensions: '18×15×20 FT',
+    subtitle: 'Winter driveway, overhanging branches, fence & sky text removed → Polished purple/green vinyl',
     before_url: '/samples/ninja_turtles_before.jpg',
     after_park_url: '/samples/ninja_turtles_after.jpg',
     cutout_url: '/samples/ninja_turtles_cutout.webp',
@@ -82,8 +94,9 @@ const EDR_SHOWCASE_SAMPLES = [
   {
     job_id: 'edr_princess_castle',
     original_filename: 'Princess_Castle_12x12.png',
-    title: 'Princess Castle (12×12)',
-    subtitle: 'Removed blue ground tarp, asphalt driveway, garage, fence & lens glare → Polished pink/purple/teal vinyl',
+    title: 'Royal Princess Castle',
+    dimensions: '12×12 FT',
+    subtitle: 'Blue ground tarp, asphalt driveway, garage & lens flare removed → Polished pink/teal vinyl',
     before_url: '/samples/princess_castle_before.jpg',
     after_park_url: '/samples/princess_castle_after.jpg',
     cutout_url: '/samples/princess_castle_cutout.webp',
@@ -92,8 +105,9 @@ const EDR_SHOWCASE_SAMPLES = [
   {
     job_id: 'edr_toy_story',
     original_filename: 'Toy_Story_Bounce_14x12.png',
-    title: 'Toy Story Bounce House (14×12)',
-    subtitle: 'Removed concrete driveway, Ford truck, carport, rolled tarps, orange cord & "14 14×12" text → Polished vinyl',
+    title: 'Toy Story Playland',
+    dimensions: '14×12 FT',
+    subtitle: 'Concrete driveway, pickup truck, carport & rolled tarps removed → Crisp artwork & vinyl polish',
     before_url: '/samples/toy_story_before.jpg',
     after_park_url: '/samples/toy_story_after.jpg',
     cutout_url: '/samples/toy_story_cutout.webp',
@@ -102,8 +116,9 @@ const EDR_SHOWCASE_SAMPLES = [
   {
     job_id: 'edr_bungy_run',
     original_filename: 'Bungy_Run_Dual_Lane_20ft.png',
-    title: 'Bungy Run Dual Lane (20ft)',
-    subtitle: 'Removed asphalt street, parked cars, person blur, shoes, fence & "20 bungy Run" text → Polished primary vinyl',
+    title: 'Dual-Lane Bungy Run',
+    dimensions: '20 FT',
+    subtitle: 'Asphalt street, parked cars, person blur & shoes removed → Primary red/yellow/blue vinyl polish',
     before_url: '/samples/bungy_run_before.jpg',
     after_park_url: '/samples/bungy_run_after.jpg',
     cutout_url: '/samples/bungy_run_cutout.webp',
@@ -112,8 +127,9 @@ const EDR_SHOWCASE_SAMPLES = [
   {
     job_id: 'edr_rainbow_palace',
     original_filename: 'Rainbow_Palace_Slide.png',
-    title: 'Rainbow Palace Combo Slide',
-    subtitle: 'Removed patchy dry field, white tarp, horse trailer & barn → Polished vibrant rainbow vinyl',
+    title: 'Rainbow Palace Combo',
+    dimensions: '26×14 FT',
+    subtitle: 'Patchy dry field, white tarp, horse trailer & barn removed → High-vibrance rainbow domes',
     before_url: '/samples/rainbow_palace_before.jpg',
     after_park_url: '/samples/rainbow_palace_after.jpg',
     cutout_url: '/samples/rainbow_palace_cutout.webp',
@@ -176,141 +192,35 @@ function createStandaloneSvgMarkup(stickerCanvas, pngDataUrl) {
 </svg>`;
 }
 
-// Cache the loaded Sunny Grass Yard backdrop image
-let cachedParkBackdropImg = null;
-async function loadSunnyParkBackdrop() {
-  if (cachedParkBackdropImg) return cachedParkBackdropImg;
-  cachedParkBackdropImg = await new Promise((resolve) => {
+// Cache the 3 Photorealistic Studio Backdrop Photographs (Grass Yard, Architectural Whiteboard, Belgian Slate Chalkboard)
+const cachedBackdrops = {
+  grass: null,
+  whiteboard: null,
+  chalkboard: null
+};
+
+async function loadImageSafe(src) {
+  return await new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.src = '/backdrops/sunny_park_lawn.jpg';
-  });
-  return cachedParkBackdropImg;
-}
-
-/**
- * Draw Realistic Classroom / Studio Dry-Erase Whiteboard Background onto a 2D Canvas
- */
-function drawWhiteboardBackground(ctx, w, h) {
-  // 1. Outer anodized brushed aluminum frame
-  const frameGrad = ctx.createLinearGradient(0, 0, w, h);
-  frameGrad.addColorStop(0, '#cbd5e1');
-  frameGrad.addColorStop(0.5, '#f1f5f9');
-  frameGrad.addColorStop(1, '#94a3b8');
-  ctx.fillStyle = frameGrad;
-  ctx.fillRect(0, 0, w, h);
-
-  const border = Math.round(Math.min(w, h) * 0.028);
-  // Inner bezel shadow
-  ctx.fillStyle = '#64748b';
-  ctx.fillRect(border - 3, border - 3, w - (border - 3) * 2, h - (border - 3) * 2);
-
-  // 2. Glossy porcelain dry-erase surface
-  const boardGrad = ctx.createLinearGradient(0, border, w, h - border);
-  boardGrad.addColorStop(0, '#ffffff');
-  boardGrad.addColorStop(0.35, '#f8fafc');
-  boardGrad.addColorStop(0.65, '#ffffff');
-  boardGrad.addColorStop(1, '#f1f5f9');
-  ctx.fillStyle = boardGrad;
-  ctx.fillRect(border, border, w - border * 2, h - border * 2);
-
-  // 3. Subtle dot-matrix alignment grid (faint dry-erase studio grid)
-  ctx.fillStyle = 'rgba(148, 163, 184, 0.22)';
-  const step = Math.round(w / 28);
-  for (let y = border + step; y < h - border - step * 0.6; y += step) {
-    for (let x = border + step; x < w - border; x += step) {
-      ctx.fillRect(x, y, 2, 2);
-    }
-  }
-
-  // 4. Soft diagonal glass specular reflection
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(border + w * 0.08, border);
-  ctx.lineTo(border + w * 0.36, border);
-  ctx.lineTo(border, border + h * 0.52);
-  ctx.lineTo(border, border + h * 0.16);
-  ctx.closePath();
-  const sheenGrad = ctx.createLinearGradient(0, border, w * 0.4, h * 0.5);
-  sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
-  sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
-  ctx.fillStyle = sheenGrad;
-  ctx.fill();
-  ctx.restore();
-
-  // 5. Bottom aluminum marker tray with dry-erase markers & eraser
-  const trayH = Math.round(border * 0.65);
-  const trayY = h - border - trayH * 0.3;
-  ctx.fillStyle = '#94a3b8';
-  ctx.fillRect(w * 0.22, trayY, w * 0.56, trayH);
-  // Dry-erase markers (Red, Blue, Green, Black)
-  const markerColors = ['#ef4444', '#2563eb', '#16a34a', '#1e293b'];
-  markerColors.forEach((col, i) => {
-    const mx = w * 0.28 + i * (w * 0.09);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(mx, trayY - 8, w * 0.055, 8);
-    ctx.fillStyle = col;
-    ctx.fillRect(mx, trayY - 8, w * 0.018, 8);
+    img.src = src;
   });
 }
 
-/**
- * Draw Realistic Classic Slate Chalkboard Background onto a 2D Canvas
- */
-function drawChalkboardBackground(ctx, w, h) {
-  // 1. Warm oak wood frame border
-  const woodGrad = ctx.createLinearGradient(0, 0, w, h);
-  woodGrad.addColorStop(0, '#78350f');
-  woodGrad.addColorStop(0.5, '#92400e');
-  woodGrad.addColorStop(1, '#451a03');
-  ctx.fillStyle = woodGrad;
-  ctx.fillRect(0, 0, w, h);
-
-  const border = Math.round(Math.min(w, h) * 0.032);
-  // Inner wood bevel
-  ctx.fillStyle = '#290f02';
-  ctx.fillRect(border - 4, border - 4, w - (border - 4) * 2, h - (border - 4) * 2);
-
-  // 2. Deep slate green/charcoal chalkboard surface
-  const slateGrad = ctx.createRadialGradient(w * 0.5, h * 0.48, w * 0.08, w * 0.5, h * 0.5, w * 0.72);
-  slateGrad.addColorStop(0, '#233b2e');
-  slateGrad.addColorStop(0.65, '#192b21');
-  slateGrad.addColorStop(1, '#0f1c15');
-  ctx.fillStyle = slateGrad;
-  ctx.fillRect(border, border, w - border * 2, h - border * 2);
-
-  // 3. Procedural erased chalk-dust clouds & slate grain
-  ctx.save();
-  for (let i = 0; i < 38; i++) {
-    const cx = border + ((i * 197) % (w - border * 2));
-    const cy = border + ((i * 131) % (h - border * 2));
-    const rx = (w * 0.08) + ((i * 43) % Math.round(w * 0.14));
-    const dustGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, rx);
-    dustGrad.addColorStop(0, 'rgba(255, 255, 255, 0.045)');
-    dustGrad.addColorStop(0.6, 'rgba(255, 255, 255, 0.018)');
-    dustGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = dustGrad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, rx, 0, Math.PI * 2);
-    ctx.fill();
+async function loadAllStudioBackdrops() {
+  if (!cachedBackdrops.grass) {
+    const [g, wb, cb] = await Promise.all([
+      loadImageSafe('/backdrops/sunny_park_lawn.jpg'),
+      loadImageSafe('/backdrops/studio_whiteboard.jpg'),
+      loadImageSafe('/backdrops/slate_chalkboard.jpg')
+    ]);
+    cachedBackdrops.grass = g;
+    cachedBackdrops.whiteboard = wb;
+    cachedBackdrops.chalkboard = cb;
   }
-
-  // Subtle hand-drawn chalk inner border line
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-  ctx.lineWidth = 2.5;
-  ctx.setLineDash([14, 6, 8, 4]);
-  ctx.strokeRect(border + 18, border + 18, w - (border + 18) * 2, h - (border + 18) * 2);
-  ctx.restore();
-
-  // 4. Chalk pieces resting on bottom wood ledge
-  const ledgeY = h - border - 6;
-  const chalkColors = ['#f8fafc', '#fde047', '#f9a8d4', '#93c5fd'];
-  chalkColors.forEach((col, i) => {
-    ctx.fillStyle = col;
-    ctx.fillRect(w * 0.32 + i * (w * 0.08), ledgeY, w * 0.038, 6);
-  });
+  return cachedBackdrops;
 }
 
 /**
@@ -318,18 +228,18 @@ function drawChalkboardBackground(ctx, w, h) {
  * so that inspecting browser DOM or Network images NEVER exposes an unwatermarked master.
  */
 function createWatermarkedPreviewDataUrl(sourceCanvas, watermarkText = 'EDR PARTY RENTALS • PREVIEW ONLY') {
-  const prevW = 960;
+  const prevW = 1040;
   const prevH = Math.round((sourceCanvas.height / sourceCanvas.width) * prevW);
   const c = document.createElement('canvas');
   c.width = prevW;
   c.height = prevH;
   const ctx = c.getContext('2d');
 
-  // Checkerboard behind transparent previews
-  ctx.fillStyle = '#e2e8f0';
+  // Subtle dark obsidian checkerboard behind transparent previews
+  ctx.fillStyle = '#0d0f17';
   ctx.fillRect(0, 0, prevW, prevH);
-  const tile = 20;
-  ctx.fillStyle = '#cbd5e1';
+  const tile = 22;
+  ctx.fillStyle = '#151926';
   for (let y = 0; y < prevH; y += tile) {
     for (let x = 0; x < prevW; x += tile) {
       if (((x / tile) + (y / tile)) % 2 === 0) {
@@ -340,27 +250,27 @@ function createWatermarkedPreviewDataUrl(sourceCanvas, watermarkText = 'EDR PART
 
   ctx.drawImage(sourceCanvas, 0, 0, prevW, prevH);
 
-  // Destructively rasterize diagonal watermark text across the preview pixels
+  // Destructively rasterize refined diagonal watermark text across the preview pixels
   if (watermarkText && watermarkText.trim()) {
     ctx.save();
     ctx.translate(prevW / 2, prevH / 2);
-    ctx.rotate((-25 * Math.PI) / 180);
-    ctx.font = '800 18px "Segoe UI", Arial, sans-serif';
+    ctx.rotate((-24 * Math.PI) / 180);
+    ctx.font = '600 15px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
 
-    for (let y = -prevH; y <= prevH; y += 110) {
-      for (let x = -prevW; x <= prevW; x += 360) {
-        ctx.strokeStyle = 'rgba(15, 23, 42, 0.30)';
-        ctx.lineWidth = 3;
+    for (let y = -prevH; y <= prevH; y += 118) {
+      for (let x = -prevW; x <= prevW; x += 380) {
+        ctx.strokeStyle = 'rgba(7, 8, 12, 0.28)';
+        ctx.lineWidth = 2.5;
         ctx.strokeText(watermarkText, x, y);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.36)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.30)';
         ctx.fillText(watermarkText, x, y);
       }
     }
     ctx.restore();
   }
 
-  return c.toDataURL('image/jpeg', 0.88);
+  return c.toDataURL('image/jpeg', 0.90);
 }
 
 /**
@@ -443,7 +353,6 @@ function processBounceHouseVinylPolish(origImg, cutoutImg, polishIntensity = 'hi
         data[i + 3] = 0;
         continue;
       }
-      // Preserve natural semi-transparency on mesh/hair while cleaning outer driveway halo
       data[i + 3] = a > 225 ? 255 : a;
     } else {
       data[i + 3] = 255;
@@ -523,7 +432,7 @@ function processBounceHouseVinylPolish(origImg, cutoutImg, polishIntensity = 'hi
 }
 
 /**
- * Build All 5 Background Options + Baked Watermarked Previews + True Marching Squares .SVG
+ * Build All 5 Photorealistic Studio Backdrop Composites + Baked Watermarked Previews + Marching Squares .SVG
  */
 async function buildAllFiveBackdropsAndSvg(
   originalFileOrUrl,
@@ -543,27 +452,10 @@ async function buildAllFiveBackdropsAndSvg(
       ? cutoutBlobOrUrl
       : URL.createObjectURL(cutoutBlobOrUrl);
 
-  const origImg = await new Promise((res, rej) => {
-    const el = new Image();
-    el.crossOrigin = 'anonymous';
-    el.onload = () => res(el);
-    el.onerror = rej;
-    el.src = origUrl;
-  });
+  const origImg = await loadImageSafe(origUrl);
+  const cutImg = cutUrl ? await loadImageSafe(cutUrl) : null;
+  const backdrops = await loadAllStudioBackdrops();
 
-  const cutImg = cutUrl
-    ? await new Promise((res, rej) => {
-        const el = new Image();
-        el.crossOrigin = 'anonymous';
-        el.onload = () => res(el);
-        el.onerror = rej;
-        el.src = cutUrl;
-      })
-    : null;
-
-  const parkBackdropImg = await loadSunnyParkBackdrop();
-
-  // For pre-baked showcase items, extract the polished subject from the cutout image directly
   const subjectSourceImg = prebakedGrassYardUrl && cutImg ? cutImg : origImg;
   const effectivePolish = prebakedGrassYardUrl ? 'off' : polishIntensity;
   const subjectCanvas = processBounceHouseVinylPolish(subjectSourceImg, cutImg, effectivePolish);
@@ -589,39 +481,32 @@ async function buildAllFiveBackdropsAndSvg(
   const trimmedStickerUrl = stickerCanvas.toDataURL('image/png');
   const svgMarkup = createStandaloneSvgMarkup(stickerCanvas, trimmedStickerUrl);
 
-  // Standard 4:3 Scene Dimensions (1448×1086) for Grass Yard, Whiteboard & Chalkboard
   const sceneW = 1448;
   const sceneH = 1086;
 
-  const maxOccW = Math.floor(sceneW * 0.82);
-  const maxOccH = Math.floor(sceneH * 0.80);
+  const maxOccW = Math.floor(sceneW * 0.78);
+  const maxOccH = Math.floor(sceneH * 0.76);
   const sceneScale = Math.min(maxOccW / tightBbox.w, maxOccH / tightBbox.h);
   const drawW = Math.max(1, Math.floor(tightBbox.w * sceneScale));
   const drawH = Math.max(1, Math.floor(tightBbox.h * sceneScale));
   const drawX = Math.floor((sceneW - drawW) / 2);
-  const groundLineY = Math.floor(sceneH * 0.90);
-  const drawY = Math.max(Math.floor(sceneH * 0.07), groundLineY - drawH);
+  const groundLineY = Math.floor(sceneH * 0.89);
+  const drawY = Math.max(Math.floor(sceneH * 0.08), groundLineY - drawH);
 
-  // --- OPTION 1: GRASS YARD (Sunny Park Lawn & Sky) ---
+  // --- OPTION 01: SUNNY GRASS YARD ---
   const grassCanvas = document.createElement('canvas');
   grassCanvas.width = sceneW;
   grassCanvas.height = sceneH;
   const grassCtx = grassCanvas.getContext('2d');
 
   if (prebakedGrassYardUrl) {
-    const preImg = await new Promise((res) => {
-      const el = new Image();
-      el.crossOrigin = 'anonymous';
-      el.onload = () => res(el);
-      el.onerror = () => res(null);
-      el.src = prebakedGrassYardUrl;
-    });
+    const preImg = await loadImageSafe(prebakedGrassYardUrl);
     if (preImg) {
       grassCtx.drawImage(preImg, 0, 0, sceneW, sceneH);
     }
   } else {
-    if (parkBackdropImg) {
-      grassCtx.drawImage(parkBackdropImg, 0, 0, sceneW, sceneH);
+    if (backdrops.grass) {
+      grassCtx.drawImage(backdrops.grass, 0, 0, sceneW, sceneH);
     } else {
       grassCtx.fillStyle = '#3b82f6';
       grassCtx.fillRect(0, 0, sceneW, sceneH * 0.58);
@@ -629,7 +514,6 @@ async function buildAllFiveBackdropsAndSvg(
       grassCtx.fillRect(0, sceneH * 0.58, sceneW, sceneH * 0.42);
     }
 
-    // Dual-layer grass contact shadow
     grassCtx.save();
     const shadowCenterX = drawX + Math.floor(drawW * 0.52);
     const shadowCenterY = drawY + drawH - Math.floor(drawH * 0.02);
@@ -669,57 +553,65 @@ async function buildAllFiveBackdropsAndSvg(
   const grassYardUrl = prebakedGrassYardUrl || grassCanvas.toDataURL('image/jpeg', 0.94);
   const grassYardPreviewUrl = createWatermarkedPreviewDataUrl(grassCanvas, watermarkText);
 
-  // --- OPTION 2: WHITEBOARD (Classroom / Studio Dry-Erase Board) ---
+  // --- OPTION 02: ARCHITECTURAL STUDIO WHITEBOARD (Photorealistic Studio Backdrop) ---
   const wbCanvas = document.createElement('canvas');
   wbCanvas.width = sceneW;
   wbCanvas.height = sceneH;
   const wbCtx = wbCanvas.getContext('2d');
-  drawWhiteboardBackground(wbCtx, sceneW, sceneH);
+  if (backdrops.whiteboard) {
+    wbCtx.drawImage(backdrops.whiteboard, 0, 0, sceneW, sceneH);
+  } else {
+    wbCtx.fillStyle = '#f8fafc';
+    wbCtx.fillRect(0, 0, sceneW, sceneH);
+  }
+  const boardOccW = Math.floor(sceneW * 0.72);
+  const boardOccH = Math.floor(sceneH * 0.68);
+  const boardScale = Math.min(boardOccW / tightBbox.w, boardOccH / tightBbox.h);
+  const bW = Math.max(1, Math.floor(tightBbox.w * boardScale));
+  const bH = Math.max(1, Math.floor(tightBbox.h * boardScale));
+  const bX = Math.floor((sceneW - bW) / 2);
+  const bY = Math.floor((sceneH - bH) * 0.48);
+
   wbCtx.save();
-  wbCtx.shadowColor = 'rgba(15, 23, 42, 0.24)';
-  wbCtx.shadowBlur = 24;
-  wbCtx.shadowOffsetY = 10;
-  wbCtx.drawImage(
-    subjectCanvas,
-    tightBbox.x,
-    tightBbox.y,
-    tightBbox.w,
-    tightBbox.h,
-    drawX,
-    Math.floor((sceneH - drawH) / 2),
-    drawW,
-    drawH
-  );
+  wbCtx.shadowColor = 'rgba(15, 23, 42, 0.22)';
+  wbCtx.shadowBlur = 26;
+  wbCtx.shadowOffsetY = 12;
+  wbCtx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, bX, bY, bW, bH);
   wbCtx.restore();
   const whiteboardUrl = wbCanvas.toDataURL('image/jpeg', 0.94);
   const whiteboardPreviewUrl = createWatermarkedPreviewDataUrl(wbCanvas, watermarkText);
 
-  // --- OPTION 3: CHALKBOARD (Classic Slate Chalkboard) ---
+  // --- OPTION 03: BELGIAN SLATE CHALKBOARD (Photorealistic Walnut-Framed Slate) ---
   const cbCanvas = document.createElement('canvas');
   cbCanvas.width = sceneW;
   cbCanvas.height = sceneH;
   const cbCtx = cbCanvas.getContext('2d');
-  drawChalkboardBackground(cbCtx, sceneW, sceneH);
+  if (backdrops.chalkboard) {
+    cbCtx.drawImage(backdrops.chalkboard, 0, 0, sceneW, sceneH);
+  } else {
+    cbCtx.fillStyle = '#18181b';
+    cbCtx.fillRect(0, 0, sceneW, sceneH);
+  }
   cbCtx.save();
-  cbCtx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-  cbCtx.shadowBlur = 28;
-  cbCtx.shadowOffsetY = 12;
+  cbCtx.shadowColor = 'rgba(0, 0, 0, 0.62)';
+  cbCtx.shadowBlur = 32;
+  cbCtx.shadowOffsetY = 14;
   cbCtx.drawImage(
     subjectCanvas,
     tightBbox.x,
     tightBbox.y,
     tightBbox.w,
     tightBbox.h,
-    drawX,
-    Math.floor((sceneH - drawH) / 2),
-    drawW,
-    drawH
+    bX,
+    Math.floor((sceneH - bH) * 0.5),
+    bW,
+    bH
   );
   cbCtx.restore();
   const chalkboardUrl = cbCanvas.toDataURL('image/jpeg', 0.94);
   const chalkboardPreviewUrl = createWatermarkedPreviewDataUrl(cbCanvas, watermarkText);
 
-  // --- OPTION 4: STUDIO WHITE (Pure White Catalog) ---
+  // --- OPTION 04: PURE STUDIO WHITE CYCLORAMA ---
   const swCanvas = document.createElement('canvas');
   swCanvas.width = sceneW;
   swCanvas.height = sceneH;
@@ -727,9 +619,9 @@ async function buildAllFiveBackdropsAndSvg(
   swCtx.fillStyle = '#ffffff';
   swCtx.fillRect(0, 0, sceneW, sceneH);
   swCtx.save();
-  swCtx.shadowColor = 'rgba(15, 23, 42, 0.18)';
-  swCtx.shadowBlur = 20;
-  swCtx.shadowOffsetY = 12;
+  swCtx.shadowColor = 'rgba(15, 23, 42, 0.16)';
+  swCtx.shadowBlur = 24;
+  swCtx.shadowOffsetY = 14;
   swCtx.drawImage(
     subjectCanvas,
     tightBbox.x,
@@ -745,7 +637,7 @@ async function buildAllFiveBackdropsAndSvg(
   const studioWhiteUrl = swCanvas.toDataURL('image/jpeg', 0.95);
   const studioWhitePreviewUrl = createWatermarkedPreviewDataUrl(swCanvas, watermarkText);
 
-  // --- OPTION 5: TRANSPARENT CUTOUT ---
+  // --- OPTION 05: ALPHA CUTOUT ---
   const trCanvas = document.createElement('canvas');
   trCanvas.width = sceneW;
   trCanvas.height = sceneH;
@@ -769,7 +661,7 @@ async function buildAllFiveBackdropsAndSvg(
   beforeCanvas.width = sceneW;
   beforeCanvas.height = sceneH;
   const beforeCtx = beforeCanvas.getContext('2d');
-  beforeCtx.fillStyle = '#0f172a';
+  beforeCtx.fillStyle = '#07080c';
   beforeCtx.fillRect(0, 0, sceneW, sceneH);
 
   if (prebakedGrassYardUrl) {
@@ -810,18 +702,18 @@ async function buildAllFiveBackdropsAndSvg(
 // Presets for Banner & Visual Sentences Builder
 const BANNER_PRESETS = [
   { id: 'fb_cover', name: 'Facebook Cover Banner (1640 × 624)', width: 1640, height: 624 },
-  { id: 'ig_square', name: 'Instagram Square Post / Ad (1080 × 1080)', width: 1080, height: 1080 },
-  { id: 'ig_story', name: 'Instagram Story / Reel Cover (1080 × 1920)', width: 1080, height: 1920 },
-  { id: 'web_hero', name: 'Website Hero Banner (1920 × 700)', width: 1920, height: 700 },
-  { id: 'print_sheet', name: 'Printable Classroom / Puzzle Sheet (2400 × 1800)', width: 2400, height: 1800 }
+  { id: 'ig_square', name: 'Instagram Square Post (1080 × 1080)', width: 1080, height: 1080 },
+  { id: 'ig_story', name: 'Instagram Story / Reel (1080 × 1920)', width: 1080, height: 1920 },
+  { id: 'web_hero', name: 'Editorial Web Hero (1920 × 700)', width: 1920, height: 700 },
+  { id: 'print_sheet', name: 'Printable Visual Sentence Sheet (2400 × 1800)', width: 2400, height: 1800 }
 ];
 
 const BANNER_BACKGROUNDS = [
-  { id: 'grass_yard', name: '1. 🌳 Grass Yard (Sunny Park & Sky)', css: 'url("/backdrops/sunny_park_lawn.jpg") center/cover no-repeat', colors: ['#2563eb', '#60a5fa', '#4d7c0f'] },
-  { id: 'whiteboard', name: '2. 📋 Whiteboard (Dry-Erase Studio)', css: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #e2e8f0 100%)', colors: ['#ffffff', '#f8fafc', '#e2e8f0'], textColor: '#0f172a' },
-  { id: 'chalkboard', name: '3. 🖍️ Chalkboard (Classic Slate)', css: 'radial-gradient(circle, #233b2e 0%, #192b21 65%, #0f1c15 100%)', colors: ['#233b2e', '#192b21', '#0f1c15'] },
-  { id: 'studio_white', name: '4. ⬜ Studio White', css: '#ffffff', colors: ['#ffffff', '#ffffff', '#f8fafc'], textColor: '#0f172a' },
-  { id: 'sunset_party', name: '5. 🌅 Sunset Party Gradient', css: 'linear-gradient(135deg, #f97316 0%, #ec4899 50%, #6366f1 100%)', colors: ['#f97316', '#ec4899', '#6366f1'] }
+  { id: 'grass_yard', name: '01 · Sunny Grass Yard', css: 'url("/backdrops/sunny_park_lawn.jpg") center/cover no-repeat', colors: ['#2563eb', '#60a5fa', '#4d7c0f'] },
+  { id: 'whiteboard', name: '02 · Architectural Whiteboard', css: 'url("/backdrops/studio_whiteboard.jpg") center/cover no-repeat', colors: ['#ffffff', '#f8fafc', '#e2e8f0'], textColor: '#0f172a' },
+  { id: 'chalkboard', name: '03 · Belgian Slate Chalkboard', css: 'url("/backdrops/slate_chalkboard.jpg") center/cover no-repeat', colors: ['#233b2e', '#192b21', '#0f1c15'] },
+  { id: 'studio_white', name: '04 · Pure Studio White', css: '#ffffff', colors: ['#ffffff', '#ffffff', '#f8fafc'], textColor: '#0f172a' },
+  { id: 'obsidian_gold', name: '05 · Obsidian Editorial Gold', css: 'linear-gradient(135deg, #07080c 0%, #151824 55%, #272214 100%)', colors: ['#07080c', '#151824', '#272214'] }
 ];
 
 export default function App() {
@@ -863,7 +755,7 @@ export default function App() {
   const bannerStageRef = useRef(null);
   const seenHashesRef = useRef(new Map());
 
-  // Initialize the 6 Real EDR Bounce House Showcase items with all 5 Background Options & Marching Squares SVGs
+  // Initialize the 6 Real EDR Bounce House Showcase items with all 5 Photorealistic Backdrops & Marching Squares SVGs
   useEffect(() => {
     let mounted = true;
     async function initShowcase() {
@@ -871,6 +763,7 @@ export default function App() {
         job_id: s.job_id,
         original_filename: s.original_filename,
         title: s.title,
+        dimensions: s.dimensions,
         subtitle: s.subtitle,
         pack_name: 'EDR_Visual_Sentences_SVG_Pack',
         original_url: s.before_url,
@@ -900,7 +793,6 @@ export default function App() {
       setJobs(placeholderJobs);
       setSelectedJob(placeholderJobs[0]);
 
-      // Build all 5 backdrops (Grass Yard, Whiteboard, Chalkboard, Studio White, Transparent) + Marching Squares SVG for each showcase item
       for (const sample of EDR_SHOWCASE_SAMPLES) {
         if (!mounted) return;
         try {
@@ -966,7 +858,8 @@ export default function App() {
       file,
       original_filename: file.name,
       title: file.name.replace(/\.[^/.]+$/, ''),
-      subtitle: 'Cleaned, Polished & Rendered Across All 5 Background Options + Vector-Clipped .SVG',
+      dimensions: 'CUSTOM',
+      subtitle: 'Cleaned, Polished & Rendered Across All 5 Studio Backdrops + Vector-Clipped .SVG',
       pack_name: packCategory,
       original_url: URL.createObjectURL(file),
       aligned_before_url: null,
@@ -1148,7 +1041,7 @@ export default function App() {
     setCustomTextInput('');
   };
 
-  // Export High-Resolution Banner (.SVG) with accurate background rendering for all 5 styles
+  // Export High-Resolution Banner (.SVG) with photorealistic background rendering
   const exportHighResBannerSvg = async () => {
     const w = selectedPreset.width;
     const h = selectedPreset.height;
@@ -1157,16 +1050,14 @@ export default function App() {
     bgCanvas.width = w;
     bgCanvas.height = h;
     const bgCtx = bgCanvas.getContext('2d');
+    const backdrops = await loadAllStudioBackdrops();
 
-    if (selectedBg.id === 'grass_yard') {
-      const parkImg = await loadSunnyParkBackdrop();
-      if (parkImg) {
-        bgCtx.drawImage(parkImg, 0, 0, w, h);
-      }
-    } else if (selectedBg.id === 'whiteboard') {
-      drawWhiteboardBackground(bgCtx, w, h);
-    } else if (selectedBg.id === 'chalkboard') {
-      drawChalkboardBackground(bgCtx, w, h);
+    if (selectedBg.id === 'grass_yard' && backdrops.grass) {
+      bgCtx.drawImage(backdrops.grass, 0, 0, w, h);
+    } else if (selectedBg.id === 'whiteboard' && backdrops.whiteboard) {
+      bgCtx.drawImage(backdrops.whiteboard, 0, 0, w, h);
+    } else if (selectedBg.id === 'chalkboard' && backdrops.chalkboard) {
+      bgCtx.drawImage(backdrops.chalkboard, 0, 0, w, h);
     } else if (selectedBg.colors) {
       const grad = bgCtx.createLinearGradient(0, 0, w, h);
       grad.addColorStop(0, selectedBg.colors[0]);
@@ -1182,13 +1073,7 @@ export default function App() {
       const cx = Math.round((layer.x / 100) * w);
       const cy = Math.round((layer.y / 100) * h);
       if (layer.type === 'image') {
-        const img = await new Promise((res) => {
-          const el = new Image();
-          el.crossOrigin = 'anonymous';
-          el.onload = () => res(el);
-          el.onerror = () => res(null);
-          el.src = layer.src;
-        });
+        const img = await loadImageSafe(layer.src);
         if (img) {
           const targetH = Math.round(h * layer.scale);
           const targetW = Math.round(targetH * (img.width / img.height));
@@ -1205,7 +1090,7 @@ export default function App() {
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;');
         layerMarkups.push(
-          `  <text x="${cx}" y="${cy}" fill="${layer.color || '#ffffff'}" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle">${safeText}</text>`
+          `  <text x="${cx}" y="${cy}" fill="${layer.color || '#ffffff'}" font-family="Syne, Segoe UI, Arial, sans-serif" font-weight="800" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle">${safeText}</text>`
         );
       }
     }
@@ -1221,7 +1106,6 @@ ${layerMarkups.join('\n')}
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 
-  // Dragging layers inside the Banner Builder
   const handleBannerPointerMove = (e) => {
     if (e.buttons !== 1 || !activeLayerId || !bannerStageRef.current) return;
     const rect = bannerStageRef.current.getBoundingClientRect();
@@ -1242,7 +1126,6 @@ ${layerMarkups.join('\n')}
   const completedJobs = jobs.filter((j) => j.status === 'completed' || j.status === 'skipped');
   const activeLayer = bannerLayers.find((l) => l.id === activeLayerId);
 
-  // On-page preview uses the watermark-baked image; official downloads use the 100% clean master
   const activePreviewUrl = selectedJob?.previewByStyle?.[backdropStyle] || null;
   const activeCleanDownloadUrl = selectedJob?.cleanByStyle?.[backdropStyle] || null;
   const activeBackdropInfo =
@@ -1250,134 +1133,121 @@ ${layerMarkups.join('\n')}
 
   return (
     <div className="app-container">
-      <header style={{ flexWrap: 'wrap', gap: '16px' }}>
-        <div className="logo-area">
-          <h1>CleanSnap AI &amp; Visual Sentences Studio</h1>
-          <p>
-            5 Instant Backdrops (🌳 Grass Yard • 📋 Whiteboard • 🖍️ Chalkboard • ⬜ Studio White • 🏁 Transparent) + 1-Click .SVG &amp; .SVG Pack Export
+      {/* ==================== TOP EDITORIAL STUDIO HEADER ==================== */}
+      <header className="studio-header">
+        <div className="brand-lockup">
+          <div className="brand-eyebrow">
+            <span className="brand-eyebrow-dot" />
+            <span>CONTEXT &amp; MUSE · COMMERCIAL ASSET LAB</span>
+          </div>
+          <h1 className="brand-title">
+            <span>CleanSnap</span>
+            <span className="brand-title-serif">Studio</span>
+          </h1>
+          <p className="brand-subtitle">
+            Automated Vinyl Polish, 5-Stage Environmental Compositing &amp; Marching-Squares Vector Cutline Engine
           </p>
         </div>
 
-        {/* Navigation Tabs */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Segmented Navigation Bar */}
+        <nav className="nav-pill-group" aria-label="Workspace Mode">
           <button
-            className={activeTab === 'cleaner' ? 'btn-accent' : 'btn-secondary'}
+            className={`nav-pill ${activeTab === 'cleaner' ? 'active' : ''}`}
             onClick={() => setActiveTab('cleaner')}
           >
-            <Sparkles size={16} /> 1. Photo Cleaner &amp; 5 Backdrops
+            <span className="nav-pill-index">01</span>
+            <Sparkles size={15} />
+            <span>Studio Cleaner &amp; 5 Backdrops</span>
           </button>
           <button
-            className={activeTab === 'vault' ? 'btn-accent' : 'btn-secondary'}
+            className={`nav-pill ${activeTab === 'vault' ? 'active' : ''}`}
             onClick={() => setActiveTab('vault')}
           >
-            <Package size={16} /> 2. 1-Click .SVG Pack Vault ({completedJobs.length})
+            <span className="nav-pill-index">02</span>
+            <Package size={15} />
+            <span>Vector .SVG Vault ({completedJobs.length})</span>
           </button>
           <button
-            className={activeTab === 'banner' ? 'btn-accent' : 'btn-secondary'}
+            className={`nav-pill ${activeTab === 'banner' ? 'active' : ''}`}
             onClick={() => setActiveTab('banner')}
           >
-            <Layout size={16} /> 3. Banner &amp; Scene Builder
+            <span className="nav-pill-index">03</span>
+            <Layout size={15} />
+            <span>Scene &amp; Banner Composer</span>
           </button>
-        </div>
+        </nav>
       </header>
 
-      {/* ==================== TAB 1: CLEANER, POLISH & 5 BACKGROUND OPTIONS ==================== */}
+      {/* ==================== TAB 1: STUDIO CLEANER & 5 BACKDROPS ==================== */}
       {activeTab === 'cleaner' && (
         <>
-          {/* Real EDR Bounce House Showcase Strip */}
-          <div
-            className="card"
-            style={{
-              marginBottom: '20px',
-              padding: '16px 20px',
-              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88))',
-              border: '1px solid rgba(56, 189, 248, 0.28)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Trees size={18} style={{ color: '#22c55e' }} />
-                  Interactive Showcase — Test Any Item Across All 5 Background Options (Grass Yard, Whiteboard, Chalkboard, Studio White, Transparent)
-                </div>
-                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
-                  Click any bounce house below, then click the 5 Background Option buttons above the slider to switch backdrops instantaneously!
-                </div>
+          {/* Capture-One Style Contact Sheet Filmstrip */}
+          <section className="filmstrip-panel">
+            <div className="filmstrip-header">
+              <div className="filmstrip-title-row">
+                <span className="filmstrip-tag">MASTER CONTACT SHEET</span>
+                <span className="filmstrip-title">
+                  Select an Inventory Asset to Inspect Across All 5 Studio Environments
+                </span>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn-accent" onClick={downloadSvgPackZip} style={{ padding: '8px 14px', fontSize: '12px' }}>
-                  <FileCode size={15} /> 1-Click Export SVG Pack (.ZIP)
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button className="btn-gold" onClick={downloadSvgPackZip} style={{ padding: '8px 14px', fontSize: '12px' }}>
+                  <FileCode size={14} /> Export Complete .SVG Pack (.ZIP)
                 </button>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(175px, 1fr))', gap: '10px' }}>
-              {jobs.slice(0, 6).map((job) => {
+            <div className="filmstrip-grid">
+              {jobs.slice(0, 6).map((job, idx) => {
                 const isSelected = selectedJob?.job_id === job.job_id;
                 const thumbSrc = job.cleanByStyle?.[backdropStyle] || job.cleanByStyle?.grass_yard;
                 return (
                   <div
                     key={job.job_id}
                     onClick={() => setSelectedJob(job)}
-                    style={{
-                      cursor: 'pointer',
-                      borderRadius: '10px',
-                      padding: '8px',
-                      background: isSelected ? 'rgba(37, 99, 235, 0.25)' : 'rgba(15, 23, 42, 0.65)',
-                      border: isSelected ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
-                      transition: 'all 0.15s ease'
-                    }}
+                    className={`contact-card ${isSelected ? 'selected' : ''}`}
                   >
-                    <div style={{ position: 'relative', height: '96px', borderRadius: '6px', overflow: 'hidden', marginBottom: '6px', background: '#0f172a' }}>
+                    <div className="contact-thumb-wrap">
                       <img
                         src={thumbSrc}
                         alt={job.title || job.original_filename}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: '6px',
-                          right: '6px',
-                          background: 'rgba(22, 163, 74, 0.92)',
-                          color: '#fff',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          padding: '2px 6px',
-                          borderRadius: '4px'
-                        }}
-                      >
-                        {activeBackdropInfo.shortLabel}
-                      </span>
+                      <span className="contact-badge">{job.dimensions || `0${idx + 1}`}</span>
                     </div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {job.title || job.original_filename}
+                    <div className="contact-meta">
+                      <span className="contact-name">{job.title || job.original_filename}</span>
+                      <span className="contact-index">0{idx + 1}</span>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </section>
 
           <div className="grid-layout">
-            {/* LEFT COLUMN: Upload & 5 Background Options Controls */}
+            {/* LEFT COLUMN: Ingest & Optical Grading Controls */}
             <div className="card">
               <div className="card-header">
-                <span>1. Drop Photos to Clean, Polish &amp; Place on 5 Backdrops</span>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="card-title-group">
+                  <span className="card-step-label">STAGE 01 · ASSET INGEST &amp; GRADING</span>
+                  <h2 className="card-title">Batch Ingest &amp; Optical Polish</h2>
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
                   <button
-                    className="btn-accent"
+                    className="btn-gold"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isProcessingBatch}
+                    style={{ padding: '8px 13px', fontSize: '12px' }}
                   >
-                    <Upload size={16} /> Select Photos
+                    <Upload size={14} /> Add Photos
                   </button>
                   <button
                     className="btn-secondary"
                     onClick={() => folderInputRef.current?.click()}
                     disabled={isProcessingBatch}
+                    style={{ padding: '8px 13px', fontSize: '12px' }}
                   >
-                    <Folder size={16} /> Select Folder
+                    <Folder size={14} /> Folder
                   </button>
                 </div>
               </div>
@@ -1401,6 +1271,7 @@ ${layerMarkups.join('\n')}
               />
 
               <div
+                className="studio-dropzone"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -1409,75 +1280,72 @@ ${layerMarkups.join('\n')}
                   }
                 }}
                 onClick={() => fileInputRef.current?.click()}
-                style={{
-                  border: '2px dashed rgba(34, 197, 94, 0.55)',
-                  borderRadius: '12px',
-                  padding: '22px 18px',
-                  textAlign: 'center',
-                  background: 'rgba(15, 23, 42, 0.55)',
-                  cursor: 'pointer'
-                }}
               >
-                <Sparkles size={30} style={{ color: '#22c55e', margin: '0 auto 8px' }} />
-                <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>
-                  {isProcessingBatch
-                    ? progressMsg || 'Cleaning, polishing & rendering 5 backgrounds...'
-                    : 'Drag & Drop Bounce House or Visual Sentence Photos Here'}
+                <div className="dropzone-icon-ring">
+                  <Sparkles size={20} />
                 </div>
-                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
-                  100% AGPL-Free Permissive Engine • Generates Grass Yard, Whiteboard, Chalkboard, Studio White &amp; Transparent .SVG/.PNG!
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>
+                  {isProcessingBatch
+                    ? progressMsg || 'Running Neural Cutout & 5-Stage Compositor...'
+                    : 'Drop Raw Inventory or Visual Sentence Photos'}
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '6px', maxWidth: '330px', marginInline: 'auto' }}>
+                  Removes driveways, tarps &amp; clutter · Lifts shadows · Renders all 5 studio environments &amp; vector-clipped .SVG
                 </div>
               </div>
 
-              <div
-                style={{
-                  background: 'rgba(15, 23, 42, 0.55)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '10px',
-                  padding: '14px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600, color: '#4ade80' }}>
-                  <Sun size={16} /> 5 Background Options &amp; Studio Polish Settings
+              <div className="control-panel">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.1em' }}>
+                    OPTICAL &amp; ENVIRONMENT PARAMETERS
+                  </span>
+                  <Sliders size={14} style={{ color: 'var(--gold)' }} />
                 </div>
 
                 <div className="form-group">
-                  <label>Choose Background Option (5 Studio Backdrops)</label>
+                  <label>Active Studio Environment (5 Presets)</label>
                   <select
                     value={backdropStyle}
                     onChange={(e) => setBackdropStyle(e.target.value)}
                   >
-                    {FIVE_BACKDROP_OPTIONS.map((opt, idx) => (
+                    {FIVE_BACKDROP_OPTIONS.map((opt) => (
                       <option key={opt.id} value={opt.id}>
-                        {idx + 1}. {opt.label}
+                        {opt.index} — {opt.label}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label>Vinyl De-Wrinkle, Sunlight Brightening &amp; Color Pop Intensity</label>
+                  <label>Specular Vinyl Polish &amp; Shadow Recovery</label>
                   <select
                     value={polishIntensity}
                     onChange={(e) => setPolishIntensity(e.target.value)}
                   >
                     <option value="high">
-                      ✨ High Polish (Deep Shadow Lift + Warm Sunlight + Vivid Color Pop + Gloss Sheen)
+                      High Commercial Grade (Deep Shadow Lift + Daylight Warmth + Specular Sheen)
                     </option>
                     <option value="medium">
-                      ☀️ Balanced Polish (Moderate Shadow Lift + Natural Color Boost)
+                      Balanced Studio Grade (Natural Shadow Recovery + Subtle Vibrance)
                     </option>
                     <option value="off">
-                      Off (Cutout &amp; Backdrop Placement Only — Keep Raw Lighting)
+                      Linear Bypass (Cutout &amp; Environment Composite Only)
                     </option>
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label>SVG Pack Folder Name</label>
+                  <label>Preview Security Watermark (Never Injected Into Exports)</label>
+                  <input
+                    type="text"
+                    value={watermarkText}
+                    onChange={(e) => setWatermarkText(e.target.value)}
+                    placeholder="EDR PARTY RENTALS • PREVIEW ONLY"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Vector .SVG Archive Identifier</label>
                   <input
                     type="text"
                     value={packCategory}
@@ -1487,61 +1355,89 @@ ${layerMarkups.join('\n')}
                 </div>
               </div>
 
-              {/* 1-Click SVG Export & SVG Pack Bar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'rgba(15,23,42,0.5)', borderRadius: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: '#94a3b8' }}>
-                  <span>Logged in Vault: <strong style={{ color: '#22c55e' }}>{completedJobs.length}</strong></span>
+              {/* Telemetry & 1-Click Vector Export Footer */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 14px',
+                  background: 'rgba(7, 8, 12, 0.7)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '10px',
+                  flexWrap: 'wrap',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                  VAULT READY: <strong style={{ color: 'var(--gold)' }}>{completedJobs.length} ASSETS</strong>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '6px' }}>
                   <button
-                    className="btn-accent"
+                    className="btn-gold"
                     onClick={() => selectedJob && downloadSingleSvg(selectedJob)}
                     disabled={!selectedJob?.svg_markup}
-                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                    style={{ padding: '7px 12px', fontSize: '12px' }}
                   >
-                    <FileCode size={14} /> 1-Click Export .SVG
+                    <FileCode size={13} /> 1-Click .SVG
                   </button>
                   <button
                     className="btn-secondary"
                     onClick={downloadSvgPackZip}
                     disabled={completedJobs.length === 0}
-                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                    style={{ padding: '7px 12px', fontSize: '12px' }}
                   >
-                    <Archive size={14} /> 1-Click SVG Pack (.ZIP)
+                    <Archive size={13} /> .SVG Pack (.ZIP)
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* RIGHT COLUMN: 5-Backdrop Quick Switcher + Smooth Aligned Before / After Slider */}
+            {/* RIGHT COLUMN: 5-Environment Swatch Selector + Precision Split Loupe */}
             <div className="card">
-              <div className="card-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
-                <div>
-                  <span>2. Protected Preview (Watermark Baked Into Preview Pixels Only)</span>
-                  <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 400, marginTop: '2px' }}>
-                    Active Backdrop: <strong style={{ color: '#38bdf8' }}>{activeBackdropInfo.label}</strong> — {activeBackdropInfo.description}
-                  </div>
+              <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                <div className="card-title-group">
+                  <span className="card-step-label">
+                    STAGE 02 · ENVIRONMENT COMPOSITOR ({activeBackdropInfo.index} / 05)
+                  </span>
+                  <h2 className="card-title">
+                    {selectedJob?.title || 'Select an Asset'} —{' '}
+                    <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--gold)', fontSize: '21px' }}>
+                      {activeBackdropInfo.label}
+                    </span>
+                  </h2>
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-secondary)'
+                  }}
+                >
+                  SPLIT CURTAIN · <strong style={{ color: 'var(--gold)' }}>{Math.round(sliderPos)}%</strong>
                 </div>
               </div>
 
-              {/* 5 Background Option Pill Buttons */}
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {/* 5 Tactile Material Swatch Buttons */}
+              <div className="backdrop-swatch-bar" role="radiogroup" aria-label="5 Studio Backdrops">
                 {FIVE_BACKDROP_OPTIONS.map((opt) => {
                   const active = backdropStyle === opt.id;
                   return (
                     <button
                       key={opt.id}
+                      type="button"
                       onClick={() => setBackdropStyle(opt.id)}
-                      className={active ? 'btn-accent' : 'btn-secondary'}
-                      style={{
-                        flex: '1 1 auto',
-                        padding: '7px 10px',
-                        fontSize: '12px',
-                        justifyContent: 'center',
-                        border: active ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)'
-                      }}
+                      className={`backdrop-swatch-btn ${active ? 'active' : ''}`}
                     >
-                      {opt.shortLabel}
+                      <div className="swatch-top-row">
+                        <span className="swatch-dot" style={{ background: opt.swatchBg }} />
+                        <span className="swatch-index">{opt.index}</span>
+                      </div>
+                      <span className="swatch-name">{opt.shortLabel}</span>
                     </button>
                   );
                 })}
@@ -1562,84 +1458,33 @@ ${layerMarkups.join('\n')}
                       }
                     }}
                     onContextMenu={(e) => e.preventDefault()}
-                    style={{
-                      position: 'relative',
-                      aspectRatio: '4 / 3',
-                      height: 'auto',
-                      maxHeight: '420px',
-                      backgroundColor: '#0f172a',
-                      touchAction: 'none',
-                      cursor: 'ew-resize',
-                      borderRadius: '10px',
-                      overflow: 'hidden'
-                    }}
+                    style={{ touchAction: 'none', cursor: 'ew-resize' }}
                   >
-                    {/* AFTER Layer: Watermark is rasterized directly into the preview image pixels! */}
+                    {/* AFTER Layer: Watermark is rasterized directly into the preview image pixels */}
                     <img
                       src={activePreviewUrl}
                       alt={`AFTER: ${activeBackdropInfo.label}`}
                       className="slider-img"
                       draggable={false}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                        pointerEvents: 'none',
-                        userSelect: 'none'
-                      }}
+                      style={{ pointerEvents: 'none', userSelect: 'none' }}
                     />
 
                     {/* BEFORE Layer: Raw Driveway / Tarp / Cluttered Photo clipped cleanly */}
                     <img
                       src={selectedJob.aligned_before_url || selectedJob.original_url}
-                      alt="BEFORE: Raw Photo"
+                      alt="BEFORE: Raw Capture"
                       className="slider-img"
                       draggable={false}
                       style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
                         pointerEvents: 'none',
                         userSelect: 'none',
                         clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
                       }}
                     />
 
-                    <span
-                      style={{
-                        position: 'absolute',
-                        bottom: '12px',
-                        left: '12px',
-                        background: 'rgba(15, 23, 42, 0.88)',
-                        color: '#f8fafc',
-                        padding: '5px 12px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        pointerEvents: 'none',
-                        zIndex: 6,
-                        border: '1px solid rgba(255,255,255,0.15)'
-                      }}
-                    >
-                      BEFORE (Raw Photo)
-                    </span>
-                    <span
-                      style={{
-                        position: 'absolute',
-                        bottom: '12px',
-                        right: '12px',
-                        background: 'rgba(22, 163, 74, 0.95)',
-                        color: '#ffffff',
-                        padding: '5px 12px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        pointerEvents: 'none',
-                        zIndex: 6,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                      }}
-                    >
-                      AFTER ({activeBackdropInfo.shortLabel})
+                    <span className="stage-pill before">RAW CAPTURE</span>
+                    <span className="stage-pill after">
+                      {activeBackdropInfo.index} · {activeBackdropInfo.shortLabel}
                     </span>
 
                     <div
@@ -1650,8 +1495,11 @@ ${layerMarkups.join('\n')}
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '2px 4px' }}>
-                    <span style={{ fontSize: '12px', color: '#94a3b8', minWidth: '50px' }}>Before</span>
+                  {/* Precision Scrubber Bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '2px 4px' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)', minWidth: '82px' }}>
+                      RAW BEFORE
+                    </span>
                     <input
                       type="range"
                       min="0"
@@ -1659,25 +1507,25 @@ ${layerMarkups.join('\n')}
                       step="0.5"
                       value={sliderPos}
                       onChange={(e) => setSliderPos(Number(e.target.value))}
-                      style={{ flex: 1, cursor: 'pointer', accentColor: '#22c55e' }}
+                      style={{ flex: 1, cursor: 'pointer' }}
                     />
-                    <span style={{ fontSize: '12px', color: '#4ade80', minWidth: '55px', textAlign: 'right', fontWeight: 600 }}>
-                      {activeBackdropInfo.shortLabel}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--gold)', minWidth: '95px', textAlign: 'right' }}>
+                      {activeBackdropInfo.shortLabel.toUpperCase()}
                     </span>
                   </div>
 
-                  {/* Clean Watermark-Free Download Buttons */}
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                  {/* Clean Watermark-Free Master Export Bar */}
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '2px' }}>
                     <button
-                      className="btn-accent"
-                      style={{ flex: 1.2, background: '#16a34a' }}
+                      className="btn-gold"
+                      style={{ flex: 1.4 }}
                       onClick={() => {
                         const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
                         const ext = backdropStyle === 'transparent' ? 'png' : 'jpg';
-                        downloadImage(activeCleanDownloadUrl, `${base}_${backdropStyle}_clean.${ext}`);
+                        downloadImage(activeCleanDownloadUrl, `${base}_${backdropStyle}_master.${ext}`);
                       }}
                     >
-                      <Download size={15} /> Download {activeBackdropInfo.shortLabel} ({backdropStyle === 'transparent' ? '.PNG' : '.JPG'})
+                      <Download size={15} /> Export Clean {activeBackdropInfo.shortLabel} ({backdropStyle === 'transparent' ? '.PNG' : '.JPG'})
                     </button>
                     <button
                       className="btn-accent"
@@ -1705,17 +1553,17 @@ ${layerMarkups.join('\n')}
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '12px',
-                    color: '#94a3b8',
-                    background: 'rgba(15, 23, 42, 0.4)',
-                    borderRadius: '8px',
-                    border: '1px dashed rgba(255,255,255,0.1)',
+                    color: 'var(--text-secondary)',
+                    background: 'rgba(7, 8, 12, 0.5)',
+                    borderRadius: '12px',
+                    border: '1px dashed var(--border-subtle)',
                     padding: '24px',
                     textAlign: 'center'
                   }}
                 >
-                  <ImageIcon size={40} style={{ color: '#475569' }} />
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#e2e8f0' }}>
-                    Select a showcase item above or drop raw photos on the left!
+                  <ImageIcon size={36} style={{ color: 'var(--gold)' }} />
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Select an Inventory Asset Above or Drop Photos on the Left
                   </div>
                 </div>
               )}
@@ -1724,33 +1572,36 @@ ${layerMarkups.join('\n')}
         </>
       )}
 
-      {/* ==================== TAB 2: 1-CLICK .SVG & ELEMENT PACK VAULT ==================== */}
+      {/* ==================== TAB 2: VECTOR .SVG & ELEMENT PACK VAULT ==================== */}
       {activeTab === 'vault' && (
         <div className="card">
           <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <span>1-Click .SVG &amp; Element Vault — "{packCategory}" ({completedJobs.length} Elements)</span>
-              <p style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'normal', marginTop: '2px' }}>
-                Every element features a Marching Squares + Douglas-Peucker vector cutline path (`fill-rule="evenodd"`) and can be previewed across all 5 backdrops.
-              </p>
+            <div className="card-title-group">
+              <span className="card-step-label">STAGE 02 · DIE-CUT VECTOR ARCHIVE</span>
+              <h2 className="card-title">
+                1-Click .SVG &amp; Element Vault — "{packCategory}" ({completedJobs.length} Assets)
+              </h2>
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button className="btn-accent" onClick={downloadSvgPackZip} disabled={completedJobs.length === 0}>
-                <FileCode size={16} /> 1-Click Export SVG Pack (.ZIP)
+              <button className="btn-gold" onClick={downloadSvgPackZip} disabled={completedJobs.length === 0}>
+                <FileCode size={15} /> 1-Click Export Complete .SVG Pack (.ZIP)
               </button>
             </div>
           </div>
 
-          {/* 5-Backdrop Switcher inside Vault */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+          <div className="backdrop-swatch-bar">
             {FIVE_BACKDROP_OPTIONS.map((opt) => (
               <button
                 key={opt.id}
+                type="button"
                 onClick={() => setBackdropStyle(opt.id)}
-                className={backdropStyle === opt.id ? 'btn-accent' : 'btn-secondary'}
-                style={{ padding: '6px 12px', fontSize: '12px' }}
+                className={`backdrop-swatch-btn ${backdropStyle === opt.id ? 'active' : ''}`}
               >
-                Preview on {opt.shortLabel}
+                <div className="swatch-top-row">
+                  <span className="swatch-dot" style={{ background: opt.swatchBg }} />
+                  <span className="swatch-index">{opt.index}</span>
+                </div>
+                <span className="swatch-name">Preview: {opt.shortLabel}</span>
               </button>
             ))}
           </div>
@@ -1759,18 +1610,18 @@ ${layerMarkups.join('\n')}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
                 gap: '16px',
-                marginTop: '8px'
+                marginTop: '6px'
               }}
             >
-              {completedJobs.map((job) => (
+              {completedJobs.map((job, idx) => (
                 <div
                   key={job.job_id}
                   style={{
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
+                    background: 'rgba(10, 12, 18, 0.78)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '12px',
                     padding: '12px',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1780,13 +1631,13 @@ ${layerMarkups.join('\n')}
                   <div
                     style={{
                       position: 'relative',
-                      height: '165px',
+                      aspectRatio: '4 / 3',
                       borderRadius: '8px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       overflow: 'hidden',
-                      background: '#0f172a'
+                      background: '#050609'
                     }}
                     onContextMenu={(e) => e.preventDefault()}
                   >
@@ -1796,125 +1647,119 @@ ${layerMarkups.join('\n')}
                       draggable={false}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
                     />
+                    <span className="contact-badge">0{idx + 1}</span>
                   </div>
                   <div style={{ fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {job.title || job.original_filename}
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
-                      className="btn-accent"
-                      style={{ flex: 1, padding: '7px 10px', fontSize: '12px' }}
+                      className="btn-gold"
+                      style={{ flex: 1, padding: '8px 10px', fontSize: '12px' }}
                       onClick={() => downloadSingleSvg(job)}
                     >
                       <FileCode size={14} /> 1-Click .SVG
                     </button>
                     <button
                       className="btn-secondary"
-                      style={{ padding: '7px 10px', fontSize: '12px' }}
-                      title="Use in Banner Builder"
+                      style={{ padding: '8px 10px', fontSize: '12px' }}
+                      title="Send to Banner Composer"
                       onClick={() => addElementToBanner(job)}
                     >
-                      <Plus size={14} /> Banner
+                      <Plus size={14} /> Scene
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-              Your SVG Vault is empty. Drop photos in <strong>Tab 1</strong> to automatically generate and log SVG elements here!
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              No assets in Vault yet. Drop photos in Stage 01 to generate cutouts and vector .SVGs.
             </div>
           )}
         </div>
       )}
 
-      {/* ==================== TAB 3: SOCIAL / WEB BANNER & VISUAL SENTENCE BUILDER ==================== */}
+      {/* ==================== TAB 3: SCENE & BANNER COMPOSER ==================== */}
       {activeTab === 'banner' && (
         <div className="grid-layout">
           <div className="card">
             <div className="card-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
-              <span>Banner &amp; Visual Sentence Controls</span>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button className="btn-accent" onClick={exportHighResBannerSvg} style={{ padding: '8px 12px', fontSize: '12px' }}>
-                  <FileCode size={15} /> 1-Click Export Banner .SVG
-                </button>
+              <div className="card-title-group">
+                <span className="card-step-label">STAGE 03 · VISUAL SENTENCE COMPOSER</span>
+                <h2 className="card-title">Scene &amp; Banner Parameters</h2>
               </div>
+              <button className="btn-gold" onClick={exportHighResBannerSvg} style={{ padding: '8px 14px', fontSize: '12px' }}>
+                <FileCode size={14} /> Export Scene .SVG
+              </button>
             </div>
 
-            <div className="form-group">
-              <label>1. Choose Banner / Printable Size Preset</label>
-              <select
-                value={selectedPreset.id}
-                onChange={(e) => {
-                  const found = BANNER_PRESETS.find((p) => p.id === e.target.value);
-                  if (found) setSelectedPreset(found);
-                }}
-              >
-                {BANNER_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="control-panel">
+              <div className="form-group">
+                <label>01 · Format &amp; Aspect Ratio</label>
+                <select
+                  value={selectedPreset.id}
+                  onChange={(e) => {
+                    const found = BANNER_PRESETS.find((p) => p.id === e.target.value);
+                    if (found) setSelectedPreset(found);
+                  }}
+                >
+                  {BANNER_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="form-group">
-              <label>2. Choose Banner Backdrop (Grass Yard, Whiteboard, Chalkboard, etc.)</label>
-              <select
-                value={selectedBg.id}
-                onChange={(e) => {
-                  const found = BANNER_BACKGROUNDS.find((b) => b.id === e.target.value);
-                  if (found) setSelectedBg(found);
-                }}
-              >
-                {BANNER_BACKGROUNDS.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="form-group">
+                <label>02 · Studio Environment Backdrop</label>
+                <select
+                  value={selectedBg.id}
+                  onChange={(e) => {
+                    const found = BANNER_BACKGROUNDS.find((b) => b.id === e.target.value);
+                    if (found) setSelectedBg(found);
+                  }}
+                >
+                  {BANNER_BACKGROUNDS.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="form-group">
-              <label>3. Add Headline / Visual Sentence Text</label>
-              <div className="input-with-button">
-                <input
-                  type="text"
-                  value={customTextInput}
-                  onChange={(e) => setCustomTextInput(e.target.value)}
-                  placeholder="Type banner headline or visual sentence..."
-                />
-                <button className="btn-secondary" onClick={addTextToBanner}>
-                  <Type size={15} /> Add Text
-                </button>
+              <div className="form-group">
+                <label>03 · Add Editorial Headline Layer</label>
+                <div className="input-with-button">
+                  <input
+                    type="text"
+                    value={customTextInput}
+                    onChange={(e) => setCustomTextInput(e.target.value)}
+                    placeholder="Enter headline or visual sentence..."
+                  />
+                  <button className="btn-secondary" onClick={addTextToBanner}>
+                    <Type size={14} /> Add
+                  </button>
+                </div>
               </div>
             </div>
 
             {activeLayer && (
-              <div
-                style={{
-                  background: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid rgba(59, 130, 246, 0.4)',
-                  borderRadius: '10px',
-                  padding: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px'
-                }}
-              >
+              <div className="control-panel" style={{ borderColor: 'rgba(229, 193, 88, 0.35)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#60a5fa' }}>
-                    Selected Layer: {activeLayer.type === 'text' ? activeLayer.text : activeLayer.name}
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--gold)' }}>
+                    ACTIVE LAYER · {activeLayer.type === 'text' ? activeLayer.text : activeLayer.name}
                   </span>
                   <button
                     className="btn-danger"
-                    style={{ padding: '4px 10px', fontSize: '12px' }}
+                    style={{ padding: '4px 10px', fontSize: '11px' }}
                     onClick={() => {
                       setBannerLayers((prev) => prev.filter((l) => l.id !== activeLayer.id));
                       setActiveLayerId(null);
                     }}
                   >
-                    <Trash2 size={13} /> Remove
+                    <Trash2 size={12} /> Remove
                   </button>
                 </div>
 
@@ -1931,7 +1776,9 @@ ${layerMarkups.join('\n')}
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>Size / Scale:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    SCALE
+                  </span>
                   <input
                     type="range"
                     min="0.15"
@@ -1945,28 +1792,28 @@ ${layerMarkups.join('\n')}
                         )
                       )
                     }
-                    style={{ flex: 1, cursor: 'pointer', accentColor: '#3b82f6' }}
+                    style={{ flex: 1, cursor: 'pointer' }}
                   />
                 </div>
               </div>
             )}
 
             <div className="form-group">
-              <label>4. Click Any Cutout Element Below to Drop Onto Banner ({completedJobs.length} Available)</label>
-              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '8px 0' }}>
+              <label>04 · Click Any Vault Cutout to Place in Scene ({completedJobs.length})</label>
+              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '6px 0' }}>
                 {completedJobs.map((job) => (
                   <div
                     key={job.job_id}
                     onClick={() => addElementToBanner(job)}
-                    title={`Click to add ${job.title || job.original_filename}`}
+                    title={`Place ${job.title || job.original_filename}`}
                     style={{
                       minWidth: '84px',
                       height: '68px',
-                      background: '#0f172a',
+                      background: 'rgba(7, 8, 12, 0.85)',
                       borderRadius: '8px',
-                      padding: '4px',
+                      padding: '6px',
                       cursor: 'pointer',
-                      border: '1px solid rgba(255,255,255,0.15)',
+                      border: '1px solid var(--border-subtle)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1986,23 +1833,27 @@ ${layerMarkups.join('\n')}
 
           <div className="card">
             <div className="card-header">
-              <span>Interactive Banner Canvas ({selectedPreset.name})</span>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+              <div className="card-title-group">
+                <span className="card-step-label">INTERACTIVE ARTBOARD · {selectedPreset.width}×{selectedPreset.height} PX</span>
+                <h2 className="card-title">{selectedPreset.name}</h2>
+              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)' }}>
                 <Move size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                Click &amp; Drag Elements to Arrange
+                DRAG TO POSITION
               </span>
             </div>
 
             <div
               style={{
                 width: '100%',
-                minHeight: '380px',
+                minHeight: '390px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: '#090d16',
-                borderRadius: '10px',
-                padding: '16px',
+                background: '#050609',
+                borderRadius: '12px',
+                padding: '18px',
+                border: '1px solid var(--border-subtle)',
                 overflow: 'hidden'
               }}
             >
@@ -2017,15 +1868,9 @@ ${layerMarkups.join('\n')}
                   background: selectedBg.css,
                   borderRadius: '8px',
                   overflow: 'hidden',
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                  boxShadow: '0 20px 50px rgba(0,0,0,0.65)',
                   userSelect: 'none',
-                  touchAction: 'none',
-                  border:
-                    selectedBg.id === 'whiteboard'
-                      ? '8px solid #cbd5e1'
-                      : selectedBg.id === 'chalkboard'
-                      ? '10px solid #78350f'
-                      : 'none'
+                  touchAction: 'none'
                 }}
               >
                 {bannerLayers.map((layer) => {
@@ -2044,7 +1889,7 @@ ${layerMarkups.join('\n')}
                         top: `${layer.y}%`,
                         transform: 'translate(-50%, -50%)',
                         cursor: 'grab',
-                        border: isSelected ? '2px dashed #38bdf8' : '2px solid transparent',
+                        border: isSelected ? '1.5px dashed var(--gold)' : '1.5px solid transparent',
                         borderRadius: '6px',
                         padding: '4px'
                       }}
@@ -2058,15 +1903,17 @@ ${layerMarkups.join('\n')}
                             height: `${Math.round(240 * layer.scale)}px`,
                             width: 'auto',
                             objectFit: 'contain',
-                            filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.35))',
+                            filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.45))',
                             pointerEvents: 'none'
                           }}
                         />
                       ) : (
                         <div
                           style={{
+                            fontFamily: 'var(--font-display)',
                             fontSize: `${Math.round(22 * layer.scale)}px`,
                             fontWeight: 800,
+                            letterSpacing: '-0.02em',
                             color:
                               selectedBg.id === 'whiteboard' || selectedBg.id === 'studio_white'
                                 ? '#0f172a'
@@ -2074,7 +1921,7 @@ ${layerMarkups.join('\n')}
                             textShadow:
                               selectedBg.id === 'whiteboard' || selectedBg.id === 'studio_white'
                                 ? 'none'
-                                : '0 4px 12px rgba(0,0,0,0.65)',
+                                : '0 4px 16px rgba(0,0,0,0.75)',
                             whiteSpace: 'nowrap',
                             pointerEvents: 'none'
                           }}
@@ -2088,13 +1935,13 @@ ${layerMarkups.join('\n')}
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#94a3b8', flexWrap: 'wrap', gap: '8px' }}>
-              <span>Click any element on the canvas to drag or resize it.</span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn-accent" onClick={exportHighResBannerSvg}>
-                  <FileCode size={15} /> 1-Click Export Banner .SVG
-                </button>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-secondary)', flexWrap: 'wrap', gap: '8px' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
+                ENVIRONMENT: <strong style={{ color: 'var(--gold)' }}>{selectedBg.name}</strong>
+              </span>
+              <button className="btn-gold" onClick={exportHighResBannerSvg}>
+                <FileCode size={15} /> 1-Click Export Banner .SVG
+              </button>
             </div>
           </div>
         </div>
