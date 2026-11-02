@@ -17,9 +17,9 @@
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
 
-  --font-display: 'Syne', sans-serif;
-  --font-serif: 'Instrument Serif', Georgia, serif;
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Syne', 'Space Grotesk', sans-serif;
+  --font-serif: 'Syne', 'Space Grotesk', sans-serif;
+  --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -103,12 +103,12 @@ body {
 }
 
 .brand-title-serif {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 34px;
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 30px;
   color: var(--gold);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .brand-subtitle {
@@ -480,9 +480,11 @@ body {
 }
 
 .swatch-name {
-  font-size: 12.5px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: inherit;
 }
 
@@ -520,16 +522,24 @@ body {
 input[type="text"],
 select {
   width: 100%;
-  background: rgba(7, 8, 12, 0.85);
+  background: rgba(7, 8, 12, 0.92);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 10px 13px;
   color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
   font-weight: 500;
+  letter-spacing: 0.01em;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select option {
+  background-color: #0b0d14;
+  color: #f8fafc;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
 }
 
 input[type="text"]:focus,

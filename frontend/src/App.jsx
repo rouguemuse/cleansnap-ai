@@ -26,20 +26,20 @@ import './App.css';
 // The 5 Official Studio Backdrops (Zero Emojis — Clean Tactile Material Swatches & Monospace Indices)
 const FIVE_BACKDROP_OPTIONS = [
   {
-    id: 'grass_yard',
+    id: 'green_screen',
     index: '01',
-    label: 'Sunny Grass Yard',
-    shortLabel: 'Grass Yard',
-    swatchBg: 'linear-gradient(180deg, #38bdf8 0%, #4d7c0f 100%)',
-    description: 'Photorealistic manicured park turf, summer tree canopy & natural ground occlusion shadow'
+    label: 'Figure on Green Screen',
+    shortLabel: 'Green Screen',
+    swatchBg: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+    description: 'Studio chroma-key green screen cyclorama with key-light falloff & floor contact shadow'
   },
   {
-    id: 'whiteboard',
+    id: 'corkboard',
     index: '02',
-    label: 'Architectural Whiteboard',
-    shortLabel: 'Whiteboard',
-    swatchBg: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)',
-    description: 'Loft-studio porcelain dry-erase board with brushed champagne aluminum bezel & tray'
+    label: 'Cork Bulletin Board',
+    shortLabel: 'Corkboard',
+    swatchBg: 'linear-gradient(135deg, #d99b66 0%, #9a5b2c 100%)',
+    description: 'Natural fine-grain honey cork bulletin board with warm oak hardwood frame'
   },
   {
     id: 'chalkboard',
@@ -50,12 +50,12 @@ const FIVE_BACKDROP_OPTIONS = [
     description: 'Museum-grade dark mineral slate with organic chalk-dust patina & American walnut frame'
   },
   {
-    id: 'studio_white',
+    id: 'grass_yard',
     index: '04',
-    label: 'Pure Studio White',
-    shortLabel: 'Studio White',
-    swatchBg: '#ffffff',
-    description: 'Seamless #FFFFFF commercial catalog cyclorama with soft floor contact shadow'
+    label: 'Sunny Grass Yard',
+    shortLabel: 'Grass Yard',
+    swatchBg: 'linear-gradient(180deg, #38bdf8 0%, #4d7c0f 100%)',
+    description: 'Photorealistic manicured park turf, summer tree canopy & natural ground occlusion shadow'
   },
   {
     id: 'transparent',
@@ -67,8 +67,20 @@ const FIVE_BACKDROP_OPTIONS = [
   }
 ];
 
-// Pre-loaded Real EDR Bounce House Before/After Showcase Pairs
+// Pre-loaded Showcase Pairs: #01 is Figure on Green Screen + 5 Real EDR Bounce Houses
 const EDR_SHOWCASE_SAMPLES = [
+  {
+    job_id: 'vs_figure_greenscreen',
+    original_filename: 'Explorer_Figure_GreenScreen.png',
+    title: 'Figure on Green Screen',
+    dimensions: 'STUDIO 4:3',
+    subtitle: 'Raw studio C-stands, softboxes, floor tape & green screen keyed out → Clean figure cutout',
+    before_url: '/samples/figure_greenscreen_before.jpg',
+    after_park_url: '/samples/figure_greenscreen_after.jpg',
+    cutout_url: '/samples/figure_greenscreen_cutout.webp',
+    is_showcase: true,
+    use_dynamic_backdrops: true
+  },
   {
     job_id: 'edr_tropical_slide',
     original_filename: 'Tropical_Water_Slide_28x14.png',
@@ -111,17 +123,6 @@ const EDR_SHOWCASE_SAMPLES = [
     before_url: '/samples/toy_story_before.jpg',
     after_park_url: '/samples/toy_story_after.jpg',
     cutout_url: '/samples/toy_story_cutout.webp',
-    is_showcase: true
-  },
-  {
-    job_id: 'edr_bungy_run',
-    original_filename: 'Bungy_Run_Dual_Lane_20ft.png',
-    title: 'Dual-Lane Bungy Run',
-    dimensions: '20 FT',
-    subtitle: 'Asphalt street, parked cars, person blur & shoes removed → Primary red/yellow/blue vinyl polish',
-    before_url: '/samples/bungy_run_before.jpg',
-    after_park_url: '/samples/bungy_run_after.jpg',
-    cutout_url: '/samples/bungy_run_cutout.webp',
     is_showcase: true
   },
   {
@@ -192,11 +193,12 @@ function createStandaloneSvgMarkup(stickerCanvas, pngDataUrl) {
 </svg>`;
 }
 
-// Cache the 3 Photorealistic Studio Backdrop Photographs (Grass Yard, Architectural Whiteboard, Belgian Slate Chalkboard)
+// Cache the 4 Photorealistic Studio Backdrop Photographs (Green Screen Studio, Cork Bulletin Board, Belgian Slate Chalkboard, Sunny Grass Yard)
 const cachedBackdrops = {
-  grass: null,
-  whiteboard: null,
-  chalkboard: null
+  greenScreen: null,
+  corkboard: null,
+  chalkboard: null,
+  grass: null
 };
 
 async function loadImageSafe(src) {
@@ -210,15 +212,17 @@ async function loadImageSafe(src) {
 }
 
 async function loadAllStudioBackdrops() {
-  if (!cachedBackdrops.grass) {
-    const [g, wb, cb] = await Promise.all([
-      loadImageSafe('/backdrops/sunny_park_lawn.jpg'),
-      loadImageSafe('/backdrops/studio_whiteboard.jpg'),
-      loadImageSafe('/backdrops/slate_chalkboard.jpg')
+  if (!cachedBackdrops.corkboard) {
+    const [gs, cork, cb, g] = await Promise.all([
+      loadImageSafe('/backdrops/green_screen_studio.jpg'),
+      loadImageSafe('/backdrops/cork_bulletin_board.jpg'),
+      loadImageSafe('/backdrops/slate_chalkboard.jpg'),
+      loadImageSafe('/backdrops/sunny_park_lawn.jpg')
     ]);
-    cachedBackdrops.grass = g;
-    cachedBackdrops.whiteboard = wb;
+    cachedBackdrops.greenScreen = gs;
+    cachedBackdrops.corkboard = cork;
     cachedBackdrops.chalkboard = cb;
+    cachedBackdrops.grass = g;
   }
   return cachedBackdrops;
 }
@@ -484,16 +488,95 @@ async function buildAllFiveBackdropsAndSvg(
   const sceneW = 1448;
   const sceneH = 1086;
 
-  const maxOccW = Math.floor(sceneW * 0.78);
-  const maxOccH = Math.floor(sceneH * 0.76);
+  const maxOccW = Math.floor(sceneW * 0.74);
+  const maxOccH = Math.floor(sceneH * 0.74);
   const sceneScale = Math.min(maxOccW / tightBbox.w, maxOccH / tightBbox.h);
   const drawW = Math.max(1, Math.floor(tightBbox.w * sceneScale));
   const drawH = Math.max(1, Math.floor(tightBbox.h * sceneScale));
   const drawX = Math.floor((sceneW - drawW) / 2);
-  const groundLineY = Math.floor(sceneH * 0.89);
-  const drawY = Math.max(Math.floor(sceneH * 0.08), groundLineY - drawH);
+  const drawY = Math.floor((sceneH - drawH) * 0.50);
 
-  // --- OPTION 01: SUNNY GRASS YARD ---
+  // --- OPTION 01: FIGURE ON GREEN SCREEN (Studio Chroma Key Cyclorama) ---
+  const gsCanvas = document.createElement('canvas');
+  gsCanvas.width = sceneW;
+  gsCanvas.height = sceneH;
+  const gsCtx = gsCanvas.getContext('2d');
+  if (backdrops.greenScreen) {
+    gsCtx.drawImage(backdrops.greenScreen, 0, 0, sceneW, sceneH);
+  } else {
+    gsCtx.fillStyle = '#16a34a';
+    gsCtx.fillRect(0, 0, sceneW, sceneH);
+  }
+  gsCtx.save();
+  gsCtx.shadowColor = 'rgba(5, 46, 22, 0.42)';
+  gsCtx.shadowBlur = 26;
+  gsCtx.shadowOffsetY = 14;
+  gsCtx.drawImage(
+    subjectCanvas,
+    tightBbox.x,
+    tightBbox.y,
+    tightBbox.w,
+    tightBbox.h,
+    drawX,
+    drawY,
+    drawW,
+    drawH
+  );
+  gsCtx.restore();
+  const greenScreenUrl = gsCanvas.toDataURL('image/jpeg', 0.95);
+  const greenScreenPreviewUrl = createWatermarkedPreviewDataUrl(gsCanvas, watermarkText);
+
+  // --- OPTION 02: CORK BULLETIN BOARD (Photorealistic Honey Cork + Warm Oak Frame) ---
+  const corkCanvas = document.createElement('canvas');
+  corkCanvas.width = sceneW;
+  corkCanvas.height = sceneH;
+  const corkCtx = corkCanvas.getContext('2d');
+  if (backdrops.corkboard) {
+    corkCtx.drawImage(backdrops.corkboard, 0, 0, sceneW, sceneH);
+  } else {
+    corkCtx.fillStyle = '#c88d55';
+    corkCtx.fillRect(0, 0, sceneW, sceneH);
+  }
+  corkCtx.save();
+  corkCtx.shadowColor = 'rgba(42, 22, 8, 0.44)';
+  corkCtx.shadowBlur = 24;
+  corkCtx.shadowOffsetY = 12;
+  corkCtx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
+  corkCtx.restore();
+  const corkboardUrl = corkCanvas.toDataURL('image/jpeg', 0.94);
+  const corkboardPreviewUrl = createWatermarkedPreviewDataUrl(corkCanvas, watermarkText);
+
+  // --- OPTION 03: BELGIAN SLATE CHALKBOARD (Photorealistic Walnut-Framed Slate) ---
+  const cbCanvas = document.createElement('canvas');
+  cbCanvas.width = sceneW;
+  cbCanvas.height = sceneH;
+  const cbCtx = cbCanvas.getContext('2d');
+  if (backdrops.chalkboard) {
+    cbCtx.drawImage(backdrops.chalkboard, 0, 0, sceneW, sceneH);
+  } else {
+    cbCtx.fillStyle = '#18181b';
+    cbCtx.fillRect(0, 0, sceneW, sceneH);
+  }
+  cbCtx.save();
+  cbCtx.shadowColor = 'rgba(0, 0, 0, 0.62)';
+  cbCtx.shadowBlur = 32;
+  cbCtx.shadowOffsetY = 14;
+  cbCtx.drawImage(
+    subjectCanvas,
+    tightBbox.x,
+    tightBbox.y,
+    tightBbox.w,
+    tightBbox.h,
+    drawX,
+    drawY,
+    drawW,
+    drawH
+  );
+  cbCtx.restore();
+  const chalkboardUrl = cbCanvas.toDataURL('image/jpeg', 0.94);
+  const chalkboardPreviewUrl = createWatermarkedPreviewDataUrl(cbCanvas, watermarkText);
+
+  // --- OPTION 04: SUNNY GRASS YARD ---
   const grassCanvas = document.createElement('canvas');
   grassCanvas.width = sceneW;
   grassCanvas.height = sceneH;
@@ -553,90 +636,6 @@ async function buildAllFiveBackdropsAndSvg(
   const grassYardUrl = prebakedGrassYardUrl || grassCanvas.toDataURL('image/jpeg', 0.94);
   const grassYardPreviewUrl = createWatermarkedPreviewDataUrl(grassCanvas, watermarkText);
 
-  // --- OPTION 02: ARCHITECTURAL STUDIO WHITEBOARD (Photorealistic Studio Backdrop) ---
-  const wbCanvas = document.createElement('canvas');
-  wbCanvas.width = sceneW;
-  wbCanvas.height = sceneH;
-  const wbCtx = wbCanvas.getContext('2d');
-  if (backdrops.whiteboard) {
-    wbCtx.drawImage(backdrops.whiteboard, 0, 0, sceneW, sceneH);
-  } else {
-    wbCtx.fillStyle = '#f8fafc';
-    wbCtx.fillRect(0, 0, sceneW, sceneH);
-  }
-  const boardOccW = Math.floor(sceneW * 0.72);
-  const boardOccH = Math.floor(sceneH * 0.68);
-  const boardScale = Math.min(boardOccW / tightBbox.w, boardOccH / tightBbox.h);
-  const bW = Math.max(1, Math.floor(tightBbox.w * boardScale));
-  const bH = Math.max(1, Math.floor(tightBbox.h * boardScale));
-  const bX = Math.floor((sceneW - bW) / 2);
-  const bY = Math.floor((sceneH - bH) * 0.48);
-
-  wbCtx.save();
-  wbCtx.shadowColor = 'rgba(15, 23, 42, 0.22)';
-  wbCtx.shadowBlur = 26;
-  wbCtx.shadowOffsetY = 12;
-  wbCtx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, bX, bY, bW, bH);
-  wbCtx.restore();
-  const whiteboardUrl = wbCanvas.toDataURL('image/jpeg', 0.94);
-  const whiteboardPreviewUrl = createWatermarkedPreviewDataUrl(wbCanvas, watermarkText);
-
-  // --- OPTION 03: BELGIAN SLATE CHALKBOARD (Photorealistic Walnut-Framed Slate) ---
-  const cbCanvas = document.createElement('canvas');
-  cbCanvas.width = sceneW;
-  cbCanvas.height = sceneH;
-  const cbCtx = cbCanvas.getContext('2d');
-  if (backdrops.chalkboard) {
-    cbCtx.drawImage(backdrops.chalkboard, 0, 0, sceneW, sceneH);
-  } else {
-    cbCtx.fillStyle = '#18181b';
-    cbCtx.fillRect(0, 0, sceneW, sceneH);
-  }
-  cbCtx.save();
-  cbCtx.shadowColor = 'rgba(0, 0, 0, 0.62)';
-  cbCtx.shadowBlur = 32;
-  cbCtx.shadowOffsetY = 14;
-  cbCtx.drawImage(
-    subjectCanvas,
-    tightBbox.x,
-    tightBbox.y,
-    tightBbox.w,
-    tightBbox.h,
-    bX,
-    Math.floor((sceneH - bH) * 0.5),
-    bW,
-    bH
-  );
-  cbCtx.restore();
-  const chalkboardUrl = cbCanvas.toDataURL('image/jpeg', 0.94);
-  const chalkboardPreviewUrl = createWatermarkedPreviewDataUrl(cbCanvas, watermarkText);
-
-  // --- OPTION 04: PURE STUDIO WHITE CYCLORAMA ---
-  const swCanvas = document.createElement('canvas');
-  swCanvas.width = sceneW;
-  swCanvas.height = sceneH;
-  const swCtx = swCanvas.getContext('2d');
-  swCtx.fillStyle = '#ffffff';
-  swCtx.fillRect(0, 0, sceneW, sceneH);
-  swCtx.save();
-  swCtx.shadowColor = 'rgba(15, 23, 42, 0.16)';
-  swCtx.shadowBlur = 24;
-  swCtx.shadowOffsetY = 14;
-  swCtx.drawImage(
-    subjectCanvas,
-    tightBbox.x,
-    tightBbox.y,
-    tightBbox.w,
-    tightBbox.h,
-    drawX,
-    drawY,
-    drawW,
-    drawH
-  );
-  swCtx.restore();
-  const studioWhiteUrl = swCanvas.toDataURL('image/jpeg', 0.95);
-  const studioWhitePreviewUrl = createWatermarkedPreviewDataUrl(swCanvas, watermarkText);
-
   // --- OPTION 05: ALPHA CUTOUT ---
   const trCanvas = document.createElement('canvas');
   trCanvas.width = sceneW;
@@ -683,17 +682,17 @@ async function buildAllFiveBackdropsAndSvg(
     trimmedStickerUrl,
     svgMarkup,
     cleanByStyle: {
-      grass_yard: grassYardUrl,
-      whiteboard: whiteboardUrl,
+      green_screen: greenScreenUrl,
+      corkboard: corkboardUrl,
       chalkboard: chalkboardUrl,
-      studio_white: studioWhiteUrl,
+      grass_yard: grassYardUrl,
       transparent: transparentUrl
     },
     previewByStyle: {
-      grass_yard: grassYardPreviewUrl,
-      whiteboard: whiteboardPreviewUrl,
+      green_screen: greenScreenPreviewUrl,
+      corkboard: corkboardPreviewUrl,
       chalkboard: chalkboardPreviewUrl,
-      studio_white: studioWhitePreviewUrl,
+      grass_yard: grassYardPreviewUrl,
       transparent: transparentPreviewUrl
     }
   };
@@ -709,18 +708,18 @@ const BANNER_PRESETS = [
 ];
 
 const BANNER_BACKGROUNDS = [
-  { id: 'grass_yard', name: '01 · Sunny Grass Yard', css: 'url("/backdrops/sunny_park_lawn.jpg") center/cover no-repeat', colors: ['#2563eb', '#60a5fa', '#4d7c0f'] },
-  { id: 'whiteboard', name: '02 · Architectural Whiteboard', css: 'url("/backdrops/studio_whiteboard.jpg") center/cover no-repeat', colors: ['#ffffff', '#f8fafc', '#e2e8f0'], textColor: '#0f172a' },
+  { id: 'green_screen', name: '01 · Figure on Green Screen', css: 'url("/backdrops/green_screen_studio.jpg") center/cover no-repeat', colors: ['#22c55e', '#16a34a', '#15803d'] },
+  { id: 'corkboard', name: '02 · Cork Bulletin Board', css: 'url("/backdrops/cork_bulletin_board.jpg") center/cover no-repeat', colors: ['#d99b66', '#b8763e', '#9a5b2c'] },
   { id: 'chalkboard', name: '03 · Belgian Slate Chalkboard', css: 'url("/backdrops/slate_chalkboard.jpg") center/cover no-repeat', colors: ['#233b2e', '#192b21', '#0f1c15'] },
-  { id: 'studio_white', name: '04 · Pure Studio White', css: '#ffffff', colors: ['#ffffff', '#ffffff', '#f8fafc'], textColor: '#0f172a' },
+  { id: 'grass_yard', name: '04 · Sunny Grass Yard', css: 'url("/backdrops/sunny_park_lawn.jpg") center/cover no-repeat', colors: ['#2563eb', '#60a5fa', '#4d7c0f'] },
   { id: 'obsidian_gold', name: '05 · Obsidian Editorial Gold', css: 'linear-gradient(135deg, #07080c 0%, #151824 55%, #272214 100%)', colors: ['#07080c', '#151824', '#272214'] }
 ];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('cleaner'); // 'cleaner' | 'vault' | 'banner'
 
-  // The 5 Background Options ('grass_yard' | 'whiteboard' | 'chalkboard' | 'studio_white' | 'transparent')
-  const [backdropStyle, setBackdropStyle] = useState('grass_yard');
+  // The 5 Background Options ('green_screen' | 'corkboard' | 'chalkboard' | 'grass_yard' | 'transparent')
+  const [backdropStyle, setBackdropStyle] = useState('corkboard');
   const [polishIntensity, setPolishIntensity] = useState('high');
   const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS • PREVIEW ONLY');
 
@@ -734,7 +733,7 @@ export default function App() {
 
   // Banner & Visual Sentences Builder State
   const [selectedPreset, setSelectedPreset] = useState(BANNER_PRESETS[0]);
-  const [selectedBg, setSelectedBg] = useState(BANNER_BACKGROUNDS[0]);
+  const [selectedBg, setSelectedBg] = useState(BANNER_BACKGROUNDS[1]);
   const [bannerLayers, setBannerLayers] = useState([
     {
       id: 'title_1',
@@ -755,7 +754,7 @@ export default function App() {
   const bannerStageRef = useRef(null);
   const seenHashesRef = useRef(new Map());
 
-  // Initialize the 6 Real EDR Bounce House Showcase items with all 5 Photorealistic Backdrops & Marching Squares SVGs
+  // Initialize the 6 Showcase items (#01 Figure on Green Screen + 5 Real EDR Bounce Houses) across all 5 Backdrops
   useEffect(() => {
     let mounted = true;
     async function initShowcase() {
@@ -771,17 +770,17 @@ export default function App() {
         trimmed_sticker_url: s.cutout_url,
         svg_markup: null,
         cleanByStyle: {
-          grass_yard: s.after_park_url,
-          whiteboard: s.after_park_url,
+          green_screen: s.after_park_url,
+          corkboard: s.after_park_url,
           chalkboard: s.after_park_url,
-          studio_white: s.after_park_url,
+          grass_yard: s.after_park_url,
           transparent: s.cutout_url
         },
         previewByStyle: {
-          grass_yard: s.after_park_url,
-          whiteboard: s.after_park_url,
+          green_screen: s.after_park_url,
+          corkboard: s.after_park_url,
           chalkboard: s.after_park_url,
-          studio_white: s.after_park_url,
+          grass_yard: s.after_park_url,
           transparent: s.cutout_url
         },
         status: 'completed',
@@ -801,7 +800,7 @@ export default function App() {
             sample.cutout_url,
             'high',
             watermarkText,
-            sample.after_park_url
+            sample.use_dynamic_backdrops ? null : sample.after_park_url
           );
           if (!mounted) return;
           setJobs((prev) =>
@@ -1052,12 +1051,14 @@ export default function App() {
     const bgCtx = bgCanvas.getContext('2d');
     const backdrops = await loadAllStudioBackdrops();
 
-    if (selectedBg.id === 'grass_yard' && backdrops.grass) {
-      bgCtx.drawImage(backdrops.grass, 0, 0, w, h);
-    } else if (selectedBg.id === 'whiteboard' && backdrops.whiteboard) {
-      bgCtx.drawImage(backdrops.whiteboard, 0, 0, w, h);
+    if (selectedBg.id === 'green_screen' && backdrops.greenScreen) {
+      bgCtx.drawImage(backdrops.greenScreen, 0, 0, w, h);
+    } else if (selectedBg.id === 'corkboard' && backdrops.corkboard) {
+      bgCtx.drawImage(backdrops.corkboard, 0, 0, w, h);
     } else if (selectedBg.id === 'chalkboard' && backdrops.chalkboard) {
       bgCtx.drawImage(backdrops.chalkboard, 0, 0, w, h);
+    } else if (selectedBg.id === 'grass_yard' && backdrops.grass) {
+      bgCtx.drawImage(backdrops.grass, 0, 0, w, h);
     } else if (selectedBg.colors) {
       const grad = bgCtx.createLinearGradient(0, 0, w, h);
       grad.addColorStop(0, selectedBg.colors[0]);
@@ -1200,7 +1201,7 @@ ${layerMarkups.join('\n')}
             <div className="filmstrip-grid">
               {jobs.slice(0, 6).map((job, idx) => {
                 const isSelected = selectedJob?.job_id === job.job_id;
-                const thumbSrc = job.cleanByStyle?.[backdropStyle] || job.cleanByStyle?.grass_yard;
+                const thumbSrc = job.cleanByStyle?.[backdropStyle] || job.cleanByStyle?.corkboard || job.cleanByStyle?.grass_yard;
                 return (
                   <div
                     key={job.job_id}
@@ -1402,7 +1403,7 @@ ${layerMarkups.join('\n')}
                   </span>
                   <h2 className="card-title">
                     {selectedJob?.title || 'Select an Asset'} —{' '}
-                    <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--gold)', fontSize: '21px' }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--gold)' }}>
                       {activeBackdropInfo.label}
                     </span>
                   </h2>
