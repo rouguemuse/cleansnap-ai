@@ -67,7 +67,7 @@ const FIVE_BACKDROP_OPTIONS = [
   }
 ];
 
-// Pre-loaded Showcase Pairs: #01 is Figure on Green Screen + 5 Real EDR Bounce Houses
+// Pre-loaded Showcase Pairs: #01 is Figure on Green Screen, #02 is 1 Bounce House, #03-#06 are 4 User Images
 const EDR_SHOWCASE_SAMPLES = [
   {
     job_id: 'vs_figure_greenscreen',
@@ -93,48 +93,52 @@ const EDR_SHOWCASE_SAMPLES = [
     is_showcase: true
   },
   {
-    job_id: 'edr_ninja_turtles',
-    original_filename: 'Ninja_Turtles_Bounce_18x15x20.png',
-    title: 'TMNT Bounce House',
-    dimensions: '18×15×20 FT',
-    subtitle: 'Winter driveway, overhanging branches, fence & sky text removed → Polished purple/green vinyl',
-    before_url: '/samples/ninja_turtles_before.jpg',
-    after_park_url: '/samples/ninja_turtles_after.jpg',
-    cutout_url: '/samples/ninja_turtles_cutout.webp',
-    is_showcase: true
+    job_id: 'user_wax_letter',
+    original_filename: 'Wax_Sealed_Parchment_Letter.png',
+    title: 'Wax-Sealed Parchment Letter',
+    dimensions: 'CONCEPT ART',
+    subtitle: 'Dark wood desk, antique brass key, leather tome & dried rose removed → Clean deckled parchment cutout',
+    before_url: '/samples/wax_letter_before.jpg',
+    after_park_url: '/samples/wax_letter_after.jpg',
+    cutout_url: '/samples/wax_letter_cutout.webp',
+    is_showcase: true,
+    use_dynamic_backdrops: true
   },
   {
-    job_id: 'edr_princess_castle',
-    original_filename: 'Princess_Castle_12x12.png',
-    title: 'Royal Princess Castle',
-    dimensions: '12×12 FT',
-    subtitle: 'Blue ground tarp, asphalt driveway, garage & lens flare removed → Polished pink/teal vinyl',
-    before_url: '/samples/princess_castle_before.jpg',
-    after_park_url: '/samples/princess_castle_after.jpg',
-    cutout_url: '/samples/princess_castle_cutout.webp',
-    is_showcase: true
+    job_id: 'user_red_coat',
+    original_filename: 'Crimson_Wool_Trench_Coat.png',
+    title: 'Crimson Wool Trench Coat',
+    dimensions: 'CONCEPT ART',
+    subtitle: 'Weathered timber bench, stone wall & candle lantern removed → Clean crimson wool garment cutout',
+    before_url: '/samples/red_coat_before.jpg',
+    after_park_url: '/samples/red_coat_after.jpg',
+    cutout_url: '/samples/red_coat_cutout.webp',
+    is_showcase: true,
+    use_dynamic_backdrops: true
   },
   {
-    job_id: 'edr_toy_story',
-    original_filename: 'Toy_Story_Bounce_14x12.png',
-    title: 'Toy Story Playland',
-    dimensions: '14×12 FT',
-    subtitle: 'Concrete driveway, pickup truck, carport & rolled tarps removed → Crisp artwork & vinyl polish',
-    before_url: '/samples/toy_story_before.jpg',
-    after_park_url: '/samples/toy_story_after.jpg',
-    cutout_url: '/samples/toy_story_cutout.webp',
-    is_showcase: true
+    job_id: 'user_crimson_envelope',
+    original_filename: 'Cord_Bound_Crimson_Envelope.png',
+    title: 'Cord-Bound Crimson Envelope',
+    dimensions: 'CONCEPT ART',
+    subtitle: 'Dark timber tabletop, gold-tooled books, fountain pen & berries removed → Crisp cord-bound envelope',
+    before_url: '/samples/crimson_envelope_before.jpg',
+    after_park_url: '/samples/crimson_envelope_after.jpg',
+    cutout_url: '/samples/crimson_envelope_cutout.webp',
+    is_showcase: true,
+    use_dynamic_backdrops: true
   },
   {
-    job_id: 'edr_rainbow_palace',
-    original_filename: 'Rainbow_Palace_Slide.png',
-    title: 'Rainbow Palace Combo',
-    dimensions: '26×14 FT',
-    subtitle: 'Patchy dry field, white tarp, horse trailer & barn removed → High-vibrance rainbow domes',
-    before_url: '/samples/rainbow_palace_before.jpg',
-    after_park_url: '/samples/rainbow_palace_after.jpg',
-    cutout_url: '/samples/rainbow_palace_cutout.webp',
-    is_showcase: true
+    job_id: 'user_sports_coupe',
+    original_filename: 'Obsidian_Studio_Sports_Coupe.png',
+    title: 'Obsidian Studio Sports Coupe',
+    dimensions: 'STUDIO 4:3',
+    subtitle: 'Dark cyclorama floor & red neon light bars removed → Rain-beaded gloss black coupe isolated',
+    before_url: '/samples/sports_coupe_before.jpg',
+    after_park_url: '/samples/sports_coupe_after.jpg',
+    cutout_url: '/samples/sports_coupe_cutout.webp',
+    is_showcase: true,
+    use_dynamic_backdrops: true
   }
 ];
 
