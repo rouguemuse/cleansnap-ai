@@ -3,11 +3,13 @@ import sys
 import subprocess
 import logging
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
+import io
+from PIL import Image
 
 from processors.product_cleaner import ProductCleanerProcessor
 from hashing import ProcessRegistry
@@ -33,12 +35,12 @@ DEFAULT_OUTPUT_DIR = os.path.abspath(os.path.join(r"C:\Users\rougu\Downloads", "
 DB_PATH = os.path.join(BASE_DIR, "clean_snap.db")
 
 registry = ProcessRegistry(db_path=DB_PATH)
-batch_engine = BatchEngine(registry=registry, primary_model="isnet-general-use", fallback_model="u2net")
+batch_engine = BatchEngine(registry=registry, primary_model="u2net", fallback_model="silueta")
 
 watcher_config = {
     "watch_dir": DEFAULT_WATCH_DIR,
     "output_dir": DEFAULT_OUTPUT_DIR,
-    "model_name": "isnet-general-use",
+    "model_name": "u2net",
     "enhance_color": True,
     "add_shadow": True
 }
@@ -150,6 +152,20 @@ def clean_batch(req: BatchProcessRequest):
         output_dir=output_dir
     )
     return summary
+
+@app.post("/api/segment")
+async def segment_uploaded_image(file: UploadFile = File(...)):
+    try:
+        raw_bytes = await file.read()
+        img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+        engine = batch_engine.processor.get_engine(watcher_config.get("model_name", "u2net"))
+        _, _, rgba_img = engine.generate_masks_and_rgba(img, alpha_matting=False)
+        out_buf = io.BytesIO()
+        rgba_img.save(out_buf, format="PNG")
+        return Response(content=out_buf.getvalue(), media_type="image/png")
+    except Exception as e:
+        logger.error(f"Segmentation API error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/history")
 def get_history():
