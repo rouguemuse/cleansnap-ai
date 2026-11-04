@@ -1281,7 +1281,7 @@ ${layerMarkups.join('\n')}
                 <div className="dropzone-icon-ring">
                   <Sparkles size={20} />
                 </div>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>
+                <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 500, fontSize: '15px', letterSpacing: '-0.015em', color: 'var(--text-primary)' }}>
                   {isProcessingBatch
                     ? progressMsg || 'Running Neural Cutout & 5-Stage Compositor...'
                     : 'Drop Raw Inventory or Visual Sentence Photos'}
@@ -1399,7 +1399,7 @@ ${layerMarkups.join('\n')}
                   </span>
                   <h2 className="card-title">
                     {selectedJob?.title || 'Select an Asset'} —{' '}
-                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--gold)' }}>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 500, color: 'var(--gold)' }}>
                       {activeBackdropInfo.label}
                     </span>
                   </h2>
@@ -1646,7 +1646,7 @@ ${layerMarkups.join('\n')}
                     />
                     <span className="contact-badge">0{idx + 1}</span>
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 500, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {job.title || job.original_filename}
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
