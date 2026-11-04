@@ -733,7 +733,7 @@ export default function App() {
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
   const [sliderPos, setSliderPos] = useState(50);
-  const [packCategory, setPackCategory] = useState('EDR_Visual_Sentences_SVG_Pack');
+  const [packCategory, setPackCategory] = useState('CleanSnap_Studio_SVG_Pack');
 
   // Banner & Visual Sentences Builder State
   const [selectedPreset, setSelectedPreset] = useState(BANNER_PRESETS[0]);
@@ -768,7 +768,7 @@ export default function App() {
         title: s.title,
         dimensions: s.dimensions,
         subtitle: s.subtitle,
-        pack_name: 'EDR_Visual_Sentences_SVG_Pack',
+        pack_name: 'CleanSnap_Studio_SVG_Pack',
         original_url: s.before_url,
         aligned_before_url: s.before_url,
         trimmed_sticker_url: s.cutout_url,
@@ -1284,7 +1284,7 @@ ${layerMarkups.join('\n')}
                 <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 500, fontSize: '15px', letterSpacing: '-0.015em', color: 'var(--text-primary)' }}>
                   {isProcessingBatch
                     ? progressMsg || 'Running Neural Cutout & 5-Stage Compositor...'
-                    : 'Drop Raw Inventory or Visual Sentence Photos'}
+                    : 'Drop Raw Product, Studio or Concept Photos'}
                 </div>
                 <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '6px', maxWidth: '330px', marginInline: 'auto' }}>
                   Removes driveways, tarps &amp; clutter · Lifts shadows · Renders all 5 studio environments &amp; vector-clipped .SVG
@@ -1347,7 +1347,7 @@ ${layerMarkups.join('\n')}
                     type="text"
                     value={packCategory}
                     onChange={(e) => setPackCategory(e.target.value)}
-                    placeholder="EDR_Visual_Sentences_SVG_Pack"
+                    placeholder="CleanSnap_Studio_SVG_Pack"
                   />
                 </div>
               </div>
