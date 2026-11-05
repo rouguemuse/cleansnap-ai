@@ -52,3 +52,13 @@ jobs:
 
       - name: Check Python files
         run: python -m compileall -q backend api
+
+        
+      - name: Install image test dependencies
+        run: python -m pip install pillow numpy
+
+      - name: Test image processing
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+
+
