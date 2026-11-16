@@ -3,6 +3,7 @@ import sqlite3
 import hashlib
 import time
 import uuid
+from contextlib import closing
 from typing import Optional, Dict, Any, List
 
 class ProcessRegistry:
@@ -23,7 +24,7 @@ class ProcessRegistry:
         return conn
 
     def _init_db(self):
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     job_id TEXT PRIMARY KEY,
@@ -70,7 +71,7 @@ class ProcessRegistry:
     ) -> str:
         job_id = f"job_{uuid.uuid4().hex[:12]}"
         now = time.time()
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn:
             conn.execute("""
                 INSERT INTO jobs 
                 (job_id, batch_id, source_path, original_filename, content_hash, status, duplicate_of_job_id, created_at)
@@ -90,7 +91,7 @@ class ProcessRegistry:
         duplicate_of_job_id: Optional[str] = None
     ):
         now = time.time()
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn:
             if status == "processing":
                 conn.execute("UPDATE jobs SET status = ?, started_at = ? WHERE job_id = ?", (status, now, job_id))
             elif status in ("completed", "skipped", "failed"):
@@ -110,7 +111,7 @@ class ProcessRegistry:
             conn.commit()
 
     def find_completed_job_by_hash(self, content_hash: str) -> Optional[Dict[str, Any]]:
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT * FROM jobs 
@@ -121,20 +122,20 @@ class ProcessRegistry:
             return dict(row) if row else None
 
     def get_job_by_id(self, job_id: str) -> Optional[Dict[str, Any]]:
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
     def get_jobs_by_batch(self, batch_id: str) -> List[Dict[str, Any]]:
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM jobs WHERE batch_id = ? ORDER BY created_at ASC", (batch_id,))
             return [dict(row) for row in cursor.fetchall()]
 
     def get_all_jobs(self) -> List[Dict[str, Any]]:
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM jobs ORDER BY created_at DESC")
             return [dict(row) for row in cursor.fetchall()]
