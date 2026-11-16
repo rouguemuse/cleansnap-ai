@@ -667,15 +667,16 @@ async function buildAllFiveBackdropsAndSvg(
   beforeCtx.fillStyle = '#07080c';
   beforeCtx.fillRect(0, 0, sceneW, sceneH);
 
-  if (prebakedGrassYardUrl) {
-    beforeCtx.drawImage(origImg, 0, 0, sceneW, sceneH);
-  } else {
-    const fullOrigW = Math.round(origImg.width * sceneScale);
-    const fullOrigH = Math.round(origImg.height * sceneScale);
-    const fullOrigX = Math.round(drawX - tightBbox.x * sceneScale);
-    const fullOrigY = Math.round(drawY - tightBbox.y * sceneScale);
-    beforeCtx.drawImage(origImg, 0, 0, origImg.width, origImg.height, fullOrigX, fullOrigY, fullOrigW, fullOrigH);
-  }
+  // Project the full source through the same crop-to-scene transform as the cutout.
+  const scaleX = drawW / tightBbox.w;
+  const scaleY = drawH / tightBbox.h;
+  beforeCtx.drawImage(
+    origImg,
+    drawX - tightBbox.x * scaleX,
+    drawY - tightBbox.y * scaleY,
+    subjectCanvas.width * scaleX,
+    subjectCanvas.height * scaleY
+  );
   const alignedBeforeUrl = beforeCanvas.toDataURL('image/jpeg', 0.92);
 
   if (typeof originalFileOrUrl !== 'string') URL.revokeObjectURL(origUrl);
@@ -754,7 +755,6 @@ export default function App() {
 
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
-  const sliderRef = useRef(null);
   const bannerStageRef = useRef(null);
   const seenHashesRef = useRef(new Map());
 
@@ -771,6 +771,7 @@ export default function App() {
         pack_name: 'CleanSnap_Studio_SVG_Pack',
         original_url: s.before_url,
         aligned_before_url: s.before_url,
+        has_prebaked_grass_yard: !s.use_dynamic_backdrops,
         trimmed_sticker_url: s.cutout_url,
         svg_markup: null,
         cleanByStyle: {
@@ -1121,17 +1122,22 @@ ${layerMarkups.join('\n')}
     );
   };
 
-  const updateSliderFromPointer = (clientX) => {
-    if (!sliderRef.current) return;
-    const rect = sliderRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    setSliderPos((x / rect.width) * 100);
+  const updateSliderFromPointer = (event) => {
+    const { clientLeft, clientWidth } = event.currentTarget;
+    if (!clientWidth) return;
+    const { left } = event.currentTarget.getBoundingClientRect();
+    const percent = ((event.clientX - left - clientLeft) / clientWidth) * 100;
+    setSliderPos(Math.max(0, Math.min(percent, 100)));
   };
 
   const completedJobs = jobs.filter((j) => j.status === 'completed' || j.status === 'skipped');
   const activeLayer = bannerLayers.find((l) => l.id === activeLayerId);
 
   const activePreviewUrl = selectedJob?.previewByStyle?.[backdropStyle] || null;
+  const activeBeforeUrl =
+    backdropStyle === 'grass_yard' && selectedJob?.has_prebaked_grass_yard
+      ? selectedJob.original_url
+      : selectedJob?.aligned_before_url || selectedJob?.original_url;
   const activeCleanDownloadUrl = selectedJob?.cleanByStyle?.[backdropStyle] || null;
   const activeBackdropInfo =
     FIVE_BACKDROP_OPTIONS.find((b) => b.id === backdropStyle) || FIVE_BACKDROP_OPTIONS[0];
@@ -1444,14 +1450,15 @@ ${layerMarkups.join('\n')}
                 <>
                   <div
                     className="slider-container"
-                    ref={sliderRef}
                     onPointerDown={(e) => {
+                      if (!e.isPrimary || e.button !== 0) return;
+                      e.preventDefault();
                       e.currentTarget.setPointerCapture(e.pointerId);
-                      updateSliderFromPointer(e.clientX);
+                      updateSliderFromPointer(e);
                     }}
                     onPointerMove={(e) => {
-                      if (e.buttons === 1) {
-                        updateSliderFromPointer(e.clientX);
+                      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                        updateSliderFromPointer(e);
                       }
                     }}
                     onContextMenu={(e) => e.preventDefault()}
@@ -1468,7 +1475,7 @@ ${layerMarkups.join('\n')}
 
                     {/* BEFORE Layer: Raw Driveway / Tarp / Cluttered Photo clipped cleanly */}
                     <img
-                      src={selectedJob.aligned_before_url || selectedJob.original_url}
+                      src={activeBeforeUrl}
                       alt="BEFORE: Raw Capture"
                       className="slider-img"
                       draggable={false}
@@ -1499,6 +1506,7 @@ ${layerMarkups.join('\n')}
                     </span>
                     <input
                       type="range"
+                      aria-label="Before and after split"
                       min="0"
                       max="100"
                       step="0.5"
