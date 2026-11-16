@@ -1,0 +1,67 @@
+name: CleanSnap Studio — CI / QA & Build Checks
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-qa:
+    name: Frontend Lint, Unit QA & Production Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Run Static Linter (oxlint)
+        run: npm run lint
+
+      - name: Run Segmentation & Mask Pipeline Unit Tests
+        run: npm test
+
+      - name: Build Production Bundle (Vite)
+        run: npm run build
+
+      - name: Verify Production Dist Output
+        run: |
+          test -f dist/index.html
+          ls -lh dist/assets/
+
+  python-asset-and-backend-qa:
+    name: Cutout Alpha Integrity & Backend SQLite QA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install QA Dependencies
+        run: pip install --upgrade pip pillow numpy
+
+      - name: Run Asset Alpha & Backend Registry QA Suite
+        run: python backend/tests/test_cutout_and_backend_qa.py

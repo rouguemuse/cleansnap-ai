@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Folder,
   Upload,
@@ -7,23 +7,32 @@ import {
   Image as ImageIcon,
   Archive,
   Sliders,
-  Layout,
-  Plus,
   Trash2,
-  Type,
   Package,
-  Move,
   FileCode,
-  Layers
+  RotateCcw,
+  Undo2,
+  Redo2,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Brush,
+  Eraser,
+  Hand,
+  XCircle,
+  RefreshCw,
+  CheckCircle2,
+  ChevronDown
 } from 'lucide-react';
 import JSZip from 'jszip';
 import {
   segmentSubjectPermissive,
-  traceMarchingSquaresSvgPath
+  traceMarchingSquaresSvgPath,
+  applyMaskRefinements
 } from './lib/mitSegmentationEngine';
 import './App.css';
 
-// The 5 Official Studio Backdrops (Zero Emojis — Clean Tactile Material Swatches & Monospace Indices)
+// The 5 Official Studio Backdrops
 const FIVE_BACKDROP_OPTIONS = [
   {
     id: 'green_screen',
@@ -63,11 +72,11 @@ const FIVE_BACKDROP_OPTIONS = [
     label: 'Alpha Cutout (.SVG / .PNG)',
     shortLabel: 'Alpha Cutout',
     swatchBg: 'repeating-conic-gradient(#cbd5e1 0% 25%, #f8fafc 0% 50%) 50% / 8px 8px',
-    description: 'Zero-background die-cut alpha master for 1-Click .SVG export & scene layering'
+    description: 'Zero-background transparent alpha cutout for full-res .PNG & vector-clipped .SVG export'
   }
 ];
 
-// Pre-loaded Showcase Pairs: #01 is Figure on Green Screen, #02 is 1 Bounce House, #03-#06 are 4 User Images
+// Pre-loaded Showcase Pairs — all 6 use dynamic 5-backdrop compositing & shared 4:3 coordinate alignment
 const EDR_SHOWCASE_SAMPLES = [
   {
     job_id: 'vs_figure_greenscreen',
@@ -90,7 +99,8 @@ const EDR_SHOWCASE_SAMPLES = [
     before_url: '/samples/tropical_slide_before.jpg',
     after_park_url: '/samples/tropical_slide_after.jpg',
     cutout_url: '/samples/tropical_slide_cutout.webp',
-    is_showcase: true
+    is_showcase: true,
+    use_dynamic_backdrops: true
   },
   {
     job_id: 'user_wax_letter',
@@ -142,17 +152,27 @@ const EDR_SHOWCASE_SAMPLES = [
   }
 ];
 
-// Compute SHA-256 content hash in browser
+const yieldToMain = () =>
+  new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => setTimeout(resolve, 0));
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+
 async function hashArrayBuffer(buffer) {
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Find non-transparent bounding box of an RGBA canvas
 function getTransparentBoundingBox(ctx, width, height) {
   const imgData = ctx.getImageData(0, 0, width, height).data;
-  let minX = width, minY = height, maxX = 0, maxY = 0;
+  let minX = width,
+    minY = height,
+    maxX = 0,
+    maxY = 0;
   let found = false;
 
   for (let y = 0; y < height; y++) {
@@ -167,15 +187,21 @@ function getTransparentBoundingBox(ctx, width, height) {
       }
     }
   }
-  if (!found) return { x: 0, y: 0, w: width, h: height };
-  return { x: minX, y: minY, w: Math.max(1, maxX - minX + 1), h: Math.max(1, maxY - minY + 1) };
+  if (!found) return { x: 0, y: 0, w: width, h: height, empty: true };
+  return {
+    x: minX,
+    y: minY,
+    w: Math.max(1, maxX - minX + 1),
+    h: Math.max(1, maxY - minY + 1),
+    empty: false
+  };
 }
 
 /**
- * Build a standalone, scalable .SVG string containing:
- * - Scalable viewBox matching the trimmed element dimensions
+ * Build a standalone Vector-Clipped .SVG containing:
+ * - Scalable viewBox matching the trimmed cutout dimensions
  * - True 2D Marching Squares + Douglas-Peucker multi-contour & hole <path id="element_cutline_contour">
- * - Applied <clipPath id="element_clip"> on the high-res cutout element
+ * - Applied <clipPath id="element_clip"> on the high-resolution transparent PNG cutout
  */
 function createStandaloneSvgMarkup(stickerCanvas, pngDataUrl) {
   const w = stickerCanvas.width;
@@ -197,7 +223,6 @@ function createStandaloneSvgMarkup(stickerCanvas, pngDataUrl) {
 </svg>`;
 }
 
-// Cache the 4 Photorealistic Studio Backdrop Photographs (Green Screen Studio, Cork Bulletin Board, Belgian Slate Chalkboard, Sunny Grass Yard)
 const cachedBackdrops = {
   greenScreen: null,
   corkboard: null,
@@ -206,6 +231,7 @@ const cachedBackdrops = {
 };
 
 async function loadImageSafe(src) {
+  if (!src) return null;
   return await new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -232,9 +258,36 @@ async function loadAllStudioBackdrops() {
 }
 
 /**
- * Bake the Diagonal Anti-Theft Watermark DIRECTLY into a Preview Canvas
- * so that inspecting browser DOM or Network images NEVER exposes an unwatermarked master.
+ * Generates a fast, lightweight 320px thumbnail before full-resolution segmentation
  */
+async function generateLightweightThumbnail(file) {
+  const tempUrl = URL.createObjectURL(file);
+  try {
+    const img = await loadImageSafe(tempUrl);
+    if (!img || !(img.naturalWidth || img.width)) {
+      throw new Error('Unsupported or corrupt image file.');
+    }
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const scale = Math.min(1, 320 / Math.max(w, h));
+    const tw = Math.max(1, Math.round(w * scale));
+    const th = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = tw;
+    canvas.height = th;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, tw, th);
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.82));
+    return {
+      thumbUrl: blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/jpeg', 0.82),
+      width: w,
+      height: h
+    };
+  } finally {
+    URL.revokeObjectURL(tempUrl);
+  }
+}
+
 function createWatermarkedPreviewDataUrl(sourceCanvas, watermarkText = 'EDR PARTY RENTALS • PREVIEW ONLY') {
   const prevW = 1040;
   const prevH = Math.round((sourceCanvas.height / sourceCanvas.width) * prevW);
@@ -243,7 +296,6 @@ function createWatermarkedPreviewDataUrl(sourceCanvas, watermarkText = 'EDR PART
   c.height = prevH;
   const ctx = c.getContext('2d');
 
-  // Subtle dark obsidian checkerboard behind transparent previews
   ctx.fillStyle = '#0d0f17';
   ctx.fillRect(0, 0, prevW, prevH);
   const tile = 22;
@@ -258,12 +310,11 @@ function createWatermarkedPreviewDataUrl(sourceCanvas, watermarkText = 'EDR PART
 
   ctx.drawImage(sourceCanvas, 0, 0, prevW, prevH);
 
-  // Destructively rasterize refined diagonal watermark text across the preview pixels
   if (watermarkText && watermarkText.trim()) {
     ctx.save();
     ctx.translate(prevW / 2, prevH / 2);
     ctx.rotate((-24 * Math.PI) / 180);
-    ctx.font = '600 15px "JetBrains Mono", monospace';
+    ctx.font = '600 15px "Geist Mono", "IBM Plex Mono", monospace';
     ctx.textAlign = 'center';
 
     for (let y = -prevH; y <= prevH; y += 118) {
@@ -278,24 +329,25 @@ function createWatermarkedPreviewDataUrl(sourceCanvas, watermarkText = 'EDR PART
     ctx.restore();
   }
 
-  return c.toDataURL('image/jpeg', 0.90);
+  return c.toDataURL('image/jpeg', 0.88);
 }
 
 /**
- * Multi-Stage Bounce House Vinyl Polish, De-Wrinkle, Sunlight Warmth & Color Pop Engine
+ * Multi-Stage Vinyl Polish & Surface Grading Engine with Clean Alpha Cutout Support
+ * (Fixed: Never forces opaque background when subject is small; preserves genuine alpha channel)
  */
-function processBounceHouseVinylPolish(origImg, cutoutImg, polishIntensity = 'high') {
-  const w = origImg.width;
-  const h = origImg.height;
-
+function buildPolishedSubjectFromRgba(origImg, rgbaBuffer, alphaMask, w, h, polishIntensity = 'high') {
   const subjectCanvas = document.createElement('canvas');
   subjectCanvas.width = w;
   subjectCanvas.height = h;
   const ctx = subjectCanvas.getContext('2d');
-  ctx.drawImage(origImg, 0, 0, w, h);
+
+  const imgData = ctx.createImageData(w, h);
+  const data = imgData.data;
+  data.set(rgbaBuffer);
 
   let smoothData = null;
-  if (polishIntensity !== 'off') {
+  if (polishIntensity !== 'off' && origImg) {
     const smoothCanvas = document.createElement('canvas');
     smoothCanvas.width = w;
     smoothCanvas.height = h;
@@ -305,33 +357,10 @@ function processBounceHouseVinylPolish(origImg, cutoutImg, polishIntensity = 'hi
     smoothData = smoothCtx.getImageData(0, 0, w, h).data;
   }
 
-  const imgData = ctx.getImageData(0, 0, w, h);
-  const data = imgData.data;
-
-  let maskData = null;
-  let keepFullScene = !cutoutImg;
-
-  if (cutoutImg) {
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = w;
-    maskCanvas.height = h;
-    const maskCtx = maskCanvas.getContext('2d');
-    maskCtx.drawImage(cutoutImg, 0, 0, w, h);
-    maskData = maskCtx.getImageData(0, 0, w, h).data;
-
-    let opaqueCount = 0;
-    for (let i = 0; i < maskData.length; i += 4) {
-      if (maskData[i + 3] > 60) opaqueCount++;
-    }
-    if (opaqueCount / (w * h) < 0.04) {
-      keepFullScene = true;
-    }
-  }
-
-  const shadowLiftGamma = polishIntensity === 'high' ? 0.74 : polishIntensity === 'medium' ? 0.85 : 1.0;
-  const contrastGain = polishIntensity === 'high' ? 1.16 : polishIntensity === 'medium' ? 1.09 : 1.0;
-  const vibranceBoost = polishIntensity === 'high' ? 0.40 : polishIntensity === 'medium' ? 0.22 : 0.0;
-  const vinylSheen = polishIntensity === 'high' ? 14 : polishIntensity === 'medium' ? 7 : 0;
+  const shadowLiftGamma = polishIntensity === 'high' ? 0.76 : polishIntensity === 'medium' ? 0.86 : 1.0;
+  const contrastGain = polishIntensity === 'high' ? 1.14 : polishIntensity === 'medium' ? 1.08 : 1.0;
+  const vibranceBoost = polishIntensity === 'high' ? 0.34 : polishIntensity === 'medium' ? 0.18 : 0.0;
+  const vinylSheen = polishIntensity === 'high' ? 11 : polishIntensity === 'medium' ? 6 : 0;
 
   const lutR = new Uint8Array(256);
   const lutG = new Uint8Array(256);
@@ -345,26 +374,27 @@ function processBounceHouseVinylPolish(origImg, cutoutImg, polishIntensity = 'hi
 
     const warmShift =
       polishIntensity === 'high'
-        ? 5.5 * Math.sin(norm * Math.PI)
+        ? 4.5 * Math.sin(norm * Math.PI)
         : polishIntensity === 'medium'
-        ? 3.0 * Math.sin(norm * Math.PI)
+        ? 2.5 * Math.sin(norm * Math.PI)
         : 0;
-    lutR[v] = Math.max(0, Math.min(255, Math.round(baseOut + warmShift * 1.15)));
-    lutG[v] = Math.max(0, Math.min(255, Math.round(baseOut + warmShift * 0.45)));
-    lutB[v] = Math.max(0, Math.min(255, Math.round(baseOut - warmShift * 0.65)));
+    lutR[v] = Math.max(0, Math.min(255, Math.round(baseOut + warmShift * 1.1)));
+    lutG[v] = Math.max(0, Math.min(255, Math.round(baseOut + warmShift * 0.4)));
+    lutB[v] = Math.max(0, Math.min(255, Math.round(baseOut - warmShift * 0.6)));
   }
 
   for (let i = 0; i < data.length; i += 4) {
-    if (!keepFullScene && maskData) {
-      const a = maskData[i + 3];
-      if (a < 14) {
-        data[i + 3] = 0;
-        continue;
-      }
-      data[i + 3] = a > 225 ? 255 : a;
-    } else {
-      data[i + 3] = 255;
+    const a = alphaMask ? alphaMask[i >> 2] : data[i + 3];
+    if (a < 8) {
+      data[i] = 0;
+      data[i + 1] = 0;
+      data[i + 2] = 0;
+      data[i + 3] = 0;
+      continue;
     }
+    data[i + 3] = a;
+
+    if (polishIntensity === 'off') continue;
 
     let rOrig = data[i];
     let gOrig = data[i + 1];
@@ -376,7 +406,7 @@ function processBounceHouseVinylPolish(origImg, cutoutImg, polishIntensity = 'hi
         Math.abs(gOrig - smoothData[i + 1]) +
         Math.abs(bOrig - smoothData[i + 2]);
       if (diff < 40) {
-        const smoothWeight = (1.0 - diff / 40.0) * 0.36;
+        const smoothWeight = (1.0 - diff / 40.0) * 0.32;
         rOrig = Math.round(rOrig * (1 - smoothWeight) + smoothData[i] * smoothWeight);
         gOrig = Math.round(gOrig * (1 - smoothWeight) + smoothData[i + 1] * smoothWeight);
         bOrig = Math.round(bOrig * (1 - smoothWeight) + smoothData[i + 2] * smoothWeight);
@@ -408,69 +438,219 @@ function processBounceHouseVinylPolish(origImg, cutoutImg, polishIntensity = 'hi
   }
 
   ctx.putImageData(imgData, 0, 0);
-
-  if (polishIntensity !== 'off') {
-    const blurCanvas = document.createElement('canvas');
-    blurCanvas.width = w;
-    blurCanvas.height = h;
-    const blurCtx = blurCanvas.getContext('2d');
-    blurCtx.filter = 'blur(1.2px)';
-    blurCtx.drawImage(subjectCanvas, 0, 0);
-
-    const sharpData = ctx.getImageData(0, 0, w, h);
-    const sp = sharpData.data;
-    const bp = blurCtx.getImageData(0, 0, w, h).data;
-    const amount = polishIntensity === 'high' ? 0.42 : 0.25;
-
-    for (let i = 0; i < sp.length; i += 4) {
-      if (sp[i + 3] === 0) continue;
-      const dR = sp[i] - bp[i];
-      const dG = sp[i + 1] - bp[i + 1];
-      const dB = sp[i + 2] - bp[i + 2];
-      if (Math.abs(dR) + Math.abs(dG) + Math.abs(dB) > 18) {
-        sp[i] = Math.max(0, Math.min(255, Math.round(sp[i] + dR * amount)));
-        sp[i + 1] = Math.max(0, Math.min(255, Math.round(sp[i + 1] + dG * amount)));
-        sp[i + 2] = Math.max(0, Math.min(255, Math.round(sp[i + 2] + dB * amount)));
-      }
-    }
-    ctx.putImageData(sharpData, 0, 0);
-  }
-
   return subjectCanvas;
 }
 
 /**
- * Build All 5 Photorealistic Studio Backdrop Composites + Baked Watermarked Previews + Marching Squares .SVG
+ * Renders a single requested studio backdrop environment on demand (1448x1086 4:3)
  */
-async function buildAllFiveBackdropsAndSvg(
+async function renderSingleEnvironmentComposite(engineCache, styleId, watermarkText) {
+  const backdrops = await loadAllStudioBackdrops();
+  const { subjectCanvas, tightBbox, sceneW, sceneH, drawX, drawY, drawW, drawH } = engineCache;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sceneW;
+  canvas.height = sceneH;
+  const ctx = canvas.getContext('2d');
+
+  if (styleId === 'green_screen') {
+    if (backdrops.greenScreen) {
+      ctx.drawImage(backdrops.greenScreen, 0, 0, sceneW, sceneH);
+    } else {
+      ctx.fillStyle = '#16a34a';
+      ctx.fillRect(0, 0, sceneW, sceneH);
+    }
+    ctx.save();
+    ctx.shadowColor = 'rgba(5, 46, 22, 0.42)';
+    ctx.shadowBlur = 26;
+    ctx.shadowOffsetY = 14;
+    ctx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  } else if (styleId === 'corkboard') {
+    if (backdrops.corkboard) {
+      ctx.drawImage(backdrops.corkboard, 0, 0, sceneW, sceneH);
+    } else {
+      ctx.fillStyle = '#c88d55';
+      ctx.fillRect(0, 0, sceneW, sceneH);
+    }
+    ctx.save();
+    ctx.shadowColor = 'rgba(42, 22, 8, 0.44)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 12;
+    ctx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  } else if (styleId === 'chalkboard') {
+    if (backdrops.chalkboard) {
+      ctx.drawImage(backdrops.chalkboard, 0, 0, sceneW, sceneH);
+    } else {
+      ctx.fillStyle = '#18181b';
+      ctx.fillRect(0, 0, sceneW, sceneH);
+    }
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.62)';
+    ctx.shadowBlur = 32;
+    ctx.shadowOffsetY = 14;
+    ctx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  } else if (styleId === 'grass_yard') {
+    if (backdrops.grass) {
+      ctx.drawImage(backdrops.grass, 0, 0, sceneW, sceneH);
+    } else {
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillRect(0, 0, sceneW, sceneH * 0.58);
+      ctx.fillStyle = '#4d7c0f';
+      ctx.fillRect(0, sceneH * 0.58, sceneW, sceneH * 0.42);
+    }
+    ctx.save();
+    const shadowCenterX = drawX + Math.floor(drawW * 0.52);
+    const shadowCenterY = drawY + drawH - Math.floor(drawH * 0.02);
+    const shadowRx = Math.max(12, Math.floor(drawW * 0.48));
+    const shadowRy = Math.max(18, Math.floor(drawH * 0.055));
+    const ambientGrad = ctx.createRadialGradient(
+      shadowCenterX,
+      shadowCenterY,
+      10,
+      shadowCenterX,
+      shadowCenterY,
+      shadowRx
+    );
+    ambientGrad.addColorStop(0, 'rgba(15, 35, 10, 0.58)');
+    ambientGrad.addColorStop(0.6, 'rgba(15, 35, 10, 0.28)');
+    ambientGrad.addColorStop(1, 'rgba(15, 35, 10, 0)');
+    ctx.translate(shadowCenterX, shadowCenterY);
+    ctx.scale(1, shadowRy / shadowRx);
+    ctx.beginPath();
+    ctx.arc(0, 0, shadowRx, 0, Math.PI * 2);
+    ctx.fillStyle = ambientGrad;
+    ctx.fill();
+    ctx.restore();
+
+    ctx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
+  } else {
+    // transparent
+    ctx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
+  }
+
+  const cleanUrl =
+    styleId === 'transparent'
+      ? canvas.toDataURL('image/png')
+      : canvas.toDataURL('image/jpeg', 0.94);
+  const previewUrl = createWatermarkedPreviewDataUrl(canvas, watermarkText);
+  return { cleanUrl, previewUrl };
+}
+
+/**
+ * Prepares the Subject Cutout Engine Cache + Aligned Before Image + Active Environment Composite.
+ * Other environments are rendered lazily on demand when selected or exported.
+ */
+async function buildSubjectAndActiveBackdrop(
   originalFileOrUrl,
   cutoutBlobOrUrl,
   polishIntensity = 'high',
   watermarkText = 'EDR PARTY RENTALS • PREVIEW ONLY',
-  prebakedGrassYardUrl = null
+  activeStyleId = 'corkboard',
+  existingEngineCache = null,
+  refineOptions = null
 ) {
-  const origUrl =
-    typeof originalFileOrUrl === 'string'
-      ? originalFileOrUrl
-      : URL.createObjectURL(originalFileOrUrl);
-  const cutUrl =
-    !cutoutBlobOrUrl
-      ? null
-      : typeof cutoutBlobOrUrl === 'string'
-      ? cutoutBlobOrUrl
-      : URL.createObjectURL(cutoutBlobOrUrl);
+  let w, h, origImg, origRgba, autoAlphaMask, userAlphaMask;
 
-  const origImg = await loadImageSafe(origUrl);
-  const cutImg = cutUrl ? await loadImageSafe(cutUrl) : null;
-  const backdrops = await loadAllStudioBackdrops();
+  if (existingEngineCache) {
+    ({ w, h, origImg, origRgba, autoAlphaMask, userAlphaMask } = existingEngineCache);
+  } else {
+    const origUrl =
+      typeof originalFileOrUrl === 'string'
+        ? originalFileOrUrl
+        : URL.createObjectURL(originalFileOrUrl);
+    const cutUrl =
+      !cutoutBlobOrUrl
+        ? null
+        : typeof cutoutBlobOrUrl === 'string'
+        ? cutoutBlobOrUrl
+        : URL.createObjectURL(cutoutBlobOrUrl);
 
-  const subjectSourceImg = prebakedGrassYardUrl && cutImg ? cutImg : origImg;
-  const effectivePolish = prebakedGrassYardUrl ? 'off' : polishIntensity;
-  const subjectCanvas = processBounceHouseVinylPolish(subjectSourceImg, cutImg, effectivePolish);
+    try {
+      origImg = await loadImageSafe(origUrl);
+      const cutImg = cutUrl ? await loadImageSafe(cutUrl) : null;
+      if (!origImg && !cutImg) {
+        throw new Error('Could not decode image data.');
+      }
+
+      const refImg = cutImg || origImg;
+      w = refImg.naturalWidth || refImg.width;
+      h = refImg.naturalHeight || refImg.height;
+
+      // Extract original RGB pixels
+      const rawCanvas = document.createElement('canvas');
+      rawCanvas.width = w;
+      rawCanvas.height = h;
+      const rawCtx = rawCanvas.getContext('2d');
+      rawCtx.drawImage(origImg || cutImg, 0, 0, w, h);
+      origRgba = new Uint8ClampedArray(rawCtx.getImageData(0, 0, w, h).data);
+
+      // Extract cutout alpha mask (and if cutout has pre-cleaned RGB, blend it in)
+      autoAlphaMask = new Uint8ClampedArray(w * h);
+      if (cutImg) {
+        const cutCanvas = document.createElement('canvas');
+        cutCanvas.width = w;
+        cutCanvas.height = h;
+        const cutCtx = cutCanvas.getContext('2d');
+        cutCtx.drawImage(cutImg, 0, 0, w, h);
+        const cutData = cutCtx.getImageData(0, 0, w, h).data;
+        let nonZero = 0;
+        for (let i = 0; i < w * h; i++) {
+          const a = cutData[i * 4 + 3];
+          autoAlphaMask[i] = a;
+          if (a > 15) nonZero++;
+          // Use decontaminated RGB from cutout on visible pixels
+          if (a > 0) {
+            origRgba[i * 4] = cutData[i * 4];
+            origRgba[i * 4 + 1] = cutData[i * 4 + 1];
+            origRgba[i * 4 + 2] = cutData[i * 4 + 2];
+          }
+        }
+        if (nonZero === 0) {
+          throw new Error('Automatic cutout returned an empty subject mask.');
+        }
+      } else {
+        autoAlphaMask.fill(255);
+      }
+      userAlphaMask = new Uint8ClampedArray(autoAlphaMask);
+    } finally {
+      if (typeof originalFileOrUrl !== 'string') URL.revokeObjectURL(origUrl);
+      if (cutoutBlobOrUrl && typeof cutoutBlobOrUrl !== 'string') URL.revokeObjectURL(cutUrl);
+    }
+  }
+
+  const effectiveRefine = refineOptions || {
+    expandPx: 0,
+    featherPx: 0,
+    decontaminate: true,
+    decontaminateStrength: 0.85
+  };
+
+  const { rgba: refinedRgba, alpha: finalAlpha } = applyMaskRefinements(
+    origRgba,
+    userAlphaMask,
+    w,
+    h,
+    effectiveRefine
+  );
+
+  const subjectCanvas = buildPolishedSubjectFromRgba(
+    origImg,
+    refinedRgba,
+    finalAlpha,
+    w,
+    h,
+    polishIntensity
+  );
   const subjectCtx = subjectCanvas.getContext('2d');
 
-  // Tightly cropped Sticker PNG + True Marching Squares Vector-Contour SVG
-  const tightBbox = getTransparentBoundingBox(subjectCtx, subjectCanvas.width, subjectCanvas.height);
+  // Full-resolution transparent PNG URL for direct export
+  const fullResAlphaPngUrl = subjectCanvas.toDataURL('image/png');
+
+  // Tightly cropped Sticker PNG + Marching Squares Vector-Clipped SVG
+  const tightBbox = getTransparentBoundingBox(subjectCtx, w, h);
   const stickerCanvas = document.createElement('canvas');
   stickerCanvas.width = tightBbox.w;
   stickerCanvas.height = tightBbox.h;
@@ -491,274 +671,155 @@ async function buildAllFiveBackdropsAndSvg(
 
   const sceneW = 1448;
   const sceneH = 1086;
-
   const maxOccW = Math.floor(sceneW * 0.74);
   const maxOccH = Math.floor(sceneH * 0.74);
   const sceneScale = Math.min(maxOccW / tightBbox.w, maxOccH / tightBbox.h);
   const drawW = Math.max(1, Math.floor(tightBbox.w * sceneScale));
   const drawH = Math.max(1, Math.floor(tightBbox.h * sceneScale));
   const drawX = Math.floor((sceneW - drawW) / 2);
-  const drawY = Math.floor((sceneH - drawH) * 0.50);
+  const drawY = Math.floor((sceneH - drawH) * 0.5);
 
-  // --- OPTION 01: FIGURE ON GREEN SCREEN (Studio Chroma Key Cyclorama) ---
-  const gsCanvas = document.createElement('canvas');
-  gsCanvas.width = sceneW;
-  gsCanvas.height = sceneH;
-  const gsCtx = gsCanvas.getContext('2d');
-  if (backdrops.greenScreen) {
-    gsCtx.drawImage(backdrops.greenScreen, 0, 0, sceneW, sceneH);
-  } else {
-    gsCtx.fillStyle = '#16a34a';
-    gsCtx.fillRect(0, 0, sceneW, sceneH);
-  }
-  gsCtx.save();
-  gsCtx.shadowColor = 'rgba(5, 46, 22, 0.42)';
-  gsCtx.shadowBlur = 26;
-  gsCtx.shadowOffsetY = 14;
-  gsCtx.drawImage(
-    subjectCanvas,
-    tightBbox.x,
-    tightBbox.y,
-    tightBbox.w,
-    tightBbox.h,
-    drawX,
-    drawY,
-    drawW,
-    drawH
-  );
-  gsCtx.restore();
-  const greenScreenUrl = gsCanvas.toDataURL('image/jpeg', 0.95);
-  const greenScreenPreviewUrl = createWatermarkedPreviewDataUrl(gsCanvas, watermarkText);
+  // Aligned Before Image (1448x1086 4:3) — always uses the exact same coordinate transform as the subject!
+  let alignedBeforeUrl = existingEngineCache?.alignedBeforeUrl || null;
+  if (!alignedBeforeUrl && origImg) {
+    const beforeCanvas = document.createElement('canvas');
+    beforeCanvas.width = sceneW;
+    beforeCanvas.height = sceneH;
+    const beforeCtx = beforeCanvas.getContext('2d');
+    beforeCtx.fillStyle = '#07080c';
+    beforeCtx.fillRect(0, 0, sceneW, sceneH);
 
-  // --- OPTION 02: CORK BULLETIN BOARD (Photorealistic Honey Cork + Warm Oak Frame) ---
-  const corkCanvas = document.createElement('canvas');
-  corkCanvas.width = sceneW;
-  corkCanvas.height = sceneH;
-  const corkCtx = corkCanvas.getContext('2d');
-  if (backdrops.corkboard) {
-    corkCtx.drawImage(backdrops.corkboard, 0, 0, sceneW, sceneH);
-  } else {
-    corkCtx.fillStyle = '#c88d55';
-    corkCtx.fillRect(0, 0, sceneW, sceneH);
-  }
-  corkCtx.save();
-  corkCtx.shadowColor = 'rgba(42, 22, 8, 0.44)';
-  corkCtx.shadowBlur = 24;
-  corkCtx.shadowOffsetY = 12;
-  corkCtx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
-  corkCtx.restore();
-  const corkboardUrl = corkCanvas.toDataURL('image/jpeg', 0.94);
-  const corkboardPreviewUrl = createWatermarkedPreviewDataUrl(corkCanvas, watermarkText);
+    const origW = origImg.naturalWidth || origImg.width;
+    const origH = origImg.naturalHeight || origImg.height;
+    const scaleRatioX = w / origW;
+    const scaleRatioY = h / origH;
 
-  // --- OPTION 03: BELGIAN SLATE CHALKBOARD (Photorealistic Walnut-Framed Slate) ---
-  const cbCanvas = document.createElement('canvas');
-  cbCanvas.width = sceneW;
-  cbCanvas.height = sceneH;
-  const cbCtx = cbCanvas.getContext('2d');
-  if (backdrops.chalkboard) {
-    cbCtx.drawImage(backdrops.chalkboard, 0, 0, sceneW, sceneH);
-  } else {
-    cbCtx.fillStyle = '#18181b';
-    cbCtx.fillRect(0, 0, sceneW, sceneH);
-  }
-  cbCtx.save();
-  cbCtx.shadowColor = 'rgba(0, 0, 0, 0.62)';
-  cbCtx.shadowBlur = 32;
-  cbCtx.shadowOffsetY = 14;
-  cbCtx.drawImage(
-    subjectCanvas,
-    tightBbox.x,
-    tightBbox.y,
-    tightBbox.w,
-    tightBbox.h,
-    drawX,
-    drawY,
-    drawW,
-    drawH
-  );
-  cbCtx.restore();
-  const chalkboardUrl = cbCanvas.toDataURL('image/jpeg', 0.94);
-  const chalkboardPreviewUrl = createWatermarkedPreviewDataUrl(cbCanvas, watermarkText);
-
-  // --- OPTION 04: SUNNY GRASS YARD ---
-  const grassCanvas = document.createElement('canvas');
-  grassCanvas.width = sceneW;
-  grassCanvas.height = sceneH;
-  const grassCtx = grassCanvas.getContext('2d');
-
-  if (prebakedGrassYardUrl) {
-    const preImg = await loadImageSafe(prebakedGrassYardUrl);
-    if (preImg) {
-      grassCtx.drawImage(preImg, 0, 0, sceneW, sceneH);
-    }
-  } else {
-    if (backdrops.grass) {
-      grassCtx.drawImage(backdrops.grass, 0, 0, sceneW, sceneH);
-    } else {
-      grassCtx.fillStyle = '#3b82f6';
-      grassCtx.fillRect(0, 0, sceneW, sceneH * 0.58);
-      grassCtx.fillStyle = '#4d7c0f';
-      grassCtx.fillRect(0, sceneH * 0.58, sceneW, sceneH * 0.42);
-    }
-
-    grassCtx.save();
-    const shadowCenterX = drawX + Math.floor(drawW * 0.52);
-    const shadowCenterY = drawY + drawH - Math.floor(drawH * 0.02);
-    const shadowRx = Math.floor(drawW * 0.48);
-    const shadowRy = Math.max(18, Math.floor(drawH * 0.055));
-    const ambientGrad = grassCtx.createRadialGradient(
-      shadowCenterX,
-      shadowCenterY,
-      10,
-      shadowCenterX,
-      shadowCenterY,
-      shadowRx
-    );
-    ambientGrad.addColorStop(0, 'rgba(15, 35, 10, 0.58)');
-    ambientGrad.addColorStop(0.6, 'rgba(15, 35, 10, 0.28)');
-    ambientGrad.addColorStop(1, 'rgba(15, 35, 10, 0)');
-    grassCtx.translate(shadowCenterX, shadowCenterY);
-    grassCtx.scale(1, shadowRy / shadowRx);
-    grassCtx.beginPath();
-    grassCtx.arc(0, 0, shadowRx, 0, Math.PI * 2);
-    grassCtx.fillStyle = ambientGrad;
-    grassCtx.fill();
-    grassCtx.restore();
-
-    grassCtx.drawImage(
-      subjectCanvas,
-      tightBbox.x,
-      tightBbox.y,
-      tightBbox.w,
-      tightBbox.h,
-      drawX,
-      drawY,
-      drawW,
-      drawH
-    );
-  }
-  const grassYardUrl = prebakedGrassYardUrl || grassCanvas.toDataURL('image/jpeg', 0.94);
-  const grassYardPreviewUrl = createWatermarkedPreviewDataUrl(grassCanvas, watermarkText);
-
-  // --- OPTION 05: ALPHA CUTOUT ---
-  const trCanvas = document.createElement('canvas');
-  trCanvas.width = sceneW;
-  trCanvas.height = sceneH;
-  const trCtx = trCanvas.getContext('2d');
-  trCtx.drawImage(
-    subjectCanvas,
-    tightBbox.x,
-    tightBbox.y,
-    tightBbox.w,
-    tightBbox.h,
-    drawX,
-    drawY,
-    drawW,
-    drawH
-  );
-  const transparentUrl = trCanvas.toDataURL('image/png');
-  const transparentPreviewUrl = createWatermarkedPreviewDataUrl(trCanvas, watermarkText);
-
-  // Aligned Before Image (1448×1086 4:3)
-  const beforeCanvas = document.createElement('canvas');
-  beforeCanvas.width = sceneW;
-  beforeCanvas.height = sceneH;
-  const beforeCtx = beforeCanvas.getContext('2d');
-  beforeCtx.fillStyle = '#07080c';
-  beforeCtx.fillRect(0, 0, sceneW, sceneH);
-
-  if (prebakedGrassYardUrl) {
-    beforeCtx.drawImage(origImg, 0, 0, sceneW, sceneH);
-  } else {
-    const fullOrigW = Math.round(origImg.width * sceneScale);
-    const fullOrigH = Math.round(origImg.height * sceneScale);
+    const fullOrigW = Math.round(w * sceneScale);
+    const fullOrigH = Math.round(h * sceneScale);
     const fullOrigX = Math.round(drawX - tightBbox.x * sceneScale);
     const fullOrigY = Math.round(drawY - tightBbox.y * sceneScale);
-    beforeCtx.drawImage(origImg, 0, 0, origImg.width, origImg.height, fullOrigX, fullOrigY, fullOrigW, fullOrigH);
+    beforeCtx.drawImage(
+      origImg,
+      0,
+      0,
+      origW,
+      origH,
+      fullOrigX,
+      fullOrigY,
+      fullOrigW / (scaleRatioX || 1) * (scaleRatioX || 1),
+      fullOrigH / (scaleRatioY || 1) * (scaleRatioY || 1)
+    );
+    alignedBeforeUrl = beforeCanvas.toDataURL('image/jpeg', 0.90);
   }
-  const alignedBeforeUrl = beforeCanvas.toDataURL('image/jpeg', 0.92);
 
-  if (typeof originalFileOrUrl !== 'string') URL.revokeObjectURL(origUrl);
-  if (cutoutBlobOrUrl && typeof cutoutBlobOrUrl !== 'string') URL.revokeObjectURL(cutUrl);
+  const engineCache = {
+    w,
+    h,
+    origImg,
+    origRgba,
+    autoAlphaMask,
+    userAlphaMask,
+    subjectCanvas,
+    tightBbox,
+    sceneW,
+    sceneH,
+    drawX,
+    drawY,
+    drawW,
+    drawH,
+    alignedBeforeUrl,
+    refineOptions: effectiveRefine
+  };
+
+  // Render the active environment immediately; other environments render on demand when selected
+  const activeRendered = await renderSingleEnvironmentComposite(
+    engineCache,
+    activeStyleId,
+    watermarkText
+  );
+
+  const cleanByStyle = {
+    [activeStyleId]: activeRendered.cleanUrl
+  };
+  const previewByStyle = {
+    [activeStyleId]: activeRendered.previewUrl
+  };
+
+  if (activeStyleId !== 'transparent') {
+    cleanByStyle.transparent = fullResAlphaPngUrl;
+  }
 
   return {
+    engineCache,
     alignedBeforeUrl,
     trimmedStickerUrl,
+    fullResAlphaPngUrl,
     svgMarkup,
-    cleanByStyle: {
-      green_screen: greenScreenUrl,
-      corkboard: corkboardUrl,
-      chalkboard: chalkboardUrl,
-      grass_yard: grassYardUrl,
-      transparent: transparentUrl
-    },
-    previewByStyle: {
-      green_screen: greenScreenPreviewUrl,
-      corkboard: corkboardPreviewUrl,
-      chalkboard: chalkboardPreviewUrl,
-      grass_yard: grassYardPreviewUrl,
-      transparent: transparentPreviewUrl
-    }
+    cleanByStyle,
+    previewByStyle
   };
 }
 
-// Presets for Banner & Visual Sentences Builder
-const BANNER_PRESETS = [
-  { id: 'fb_cover', name: 'Facebook Cover Banner (1640 × 624)', width: 1640, height: 624 },
-  { id: 'ig_square', name: 'Instagram Square Post (1080 × 1080)', width: 1080, height: 1080 },
-  { id: 'ig_story', name: 'Instagram Story / Reel (1080 × 1920)', width: 1080, height: 1920 },
-  { id: 'web_hero', name: 'Editorial Web Hero (1920 × 700)', width: 1920, height: 700 },
-  { id: 'print_sheet', name: 'Printable Visual Sentence Sheet (2400 × 1800)', width: 2400, height: 1800 }
-];
-
-const BANNER_BACKGROUNDS = [
-  { id: 'green_screen', name: '01 · Figure on Green Screen', css: 'url("/backdrops/green_screen_studio.jpg") center/cover no-repeat', colors: ['#22c55e', '#16a34a', '#15803d'] },
-  { id: 'corkboard', name: '02 · Cork Bulletin Board', css: 'url("/backdrops/cork_bulletin_board.jpg") center/cover no-repeat', colors: ['#d99b66', '#b8763e', '#9a5b2c'] },
-  { id: 'chalkboard', name: '03 · Belgian Slate Chalkboard', css: 'url("/backdrops/slate_chalkboard.jpg") center/cover no-repeat', colors: ['#233b2e', '#192b21', '#0f1c15'] },
-  { id: 'grass_yard', name: '04 · Sunny Grass Yard', css: 'url("/backdrops/sunny_park_lawn.jpg") center/cover no-repeat', colors: ['#2563eb', '#60a5fa', '#4d7c0f'] },
-  { id: 'obsidian_gold', name: '05 · Obsidian Editorial Gold', css: 'linear-gradient(135deg, #07080c 0%, #151824 55%, #272214 100%)', colors: ['#07080c', '#151824', '#272214'] }
-];
-
 export default function App() {
-  const [activeTab, setActiveTab] = useState('cleaner'); // 'cleaner' | 'vault' | 'banner'
+  const [activeTab, setActiveTab] = useState('cleaner'); // 'cleaner' | 'vault'
+  const [stageMode, setStageMode] = useState('compare'); // 'compare' | 'refine'
+  const [filmstripFilter, setFilmstripFilter] = useState('all'); // 'all' | 'uploads' | 'samples'
 
-  // The 5 Background Options ('green_screen' | 'corkboard' | 'chalkboard' | 'grass_yard' | 'transparent')
   const [backdropStyle, setBackdropStyle] = useState('corkboard');
   const [polishIntensity, setPolishIntensity] = useState('high');
   const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS • PREVIEW ONLY');
 
-  // Queue & SVG Vault State
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
+  const [batchStats, setBatchStats] = useState(null);
   const [sliderPos, setSliderPos] = useState(50);
   const [packCategory, setPackCategory] = useState('CleanSnap_Studio_SVG_Pack');
 
-  // Banner & Visual Sentences Builder State
-  const [selectedPreset, setSelectedPreset] = useState(BANNER_PRESETS[0]);
-  const [selectedBg, setSelectedBg] = useState(BANNER_BACKGROUNDS[1]);
-  const [bannerLayers, setBannerLayers] = useState([
-    {
-      id: 'title_1',
-      type: 'text',
-      text: 'CLEAN IMAGES. CLEAR CHOICES. MORE BOOKINGS.',
-      x: 50,
-      y: 16,
-      scale: 0.85,
-      color: '#ffffff'
-    }
-  ]);
-  const [activeLayerId, setActiveLayerId] = useState('title_1');
-  const [customTextInput, setCustomTextInput] = useState('');
+  // Manual Edge Refinement Workspace State
+  const [brushMode, setBrushMode] = useState('erase'); // 'add' | 'erase' | 'pan'
+  const [brushSize, setBrushSize] = useState(28);
+  const [brushHardness, setBrushHardness] = useState(75);
+  const [edgeExpandPx, setEdgeExpandPx] = useState(0);
+  const [edgeFeatherPx, setEdgeFeatherPx] = useState(1);
+  const [edgeDecontam, setEdgeDecontam] = useState(true);
+  const [edgeDecontamStrength, setEdgeDecontamStrength] = useState(85);
+  const [refinerBgMode, setRefinerBgMode] = useState('checkerboard'); // 'checkerboard' | 'mask' | 'dark' | 'light' | 'environment'
+  const [refinerZoom, setRefinerZoom] = useState(1);
+  const [refinerPan, setRefinerPan] = useState({ x: 0, y: 0 });
+  const [maskHistoryInfo, setMaskHistoryInfo] = useState({ canUndo: false, canRedo: false, dirty: false });
 
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
   const sliderRef = useRef(null);
-  const bannerStageRef = useRef(null);
   const seenHashesRef = useRef(new Map());
+  const batchCancelRef = useRef(false);
+  const objectUrlsRef = useRef(new Set());
 
-  // Initialize the 6 Showcase items (#01 Figure on Green Screen + 5 Real EDR Bounce Houses) across all 5 Backdrops
+  // Refiner Canvas & History Refs
+  const refinerCanvasRef = useRef(null);
+  const isDrawingRef = useRef(false);
+  const lastPtRef = useRef(null);
+  const maskUndoStackRef = useRef([]);
+  const maskRedoStackRef = useRef([]);
+
+  const trackUrl = useCallback((url) => {
+    if (url && url.startsWith('blob:')) {
+      objectUrlsRef.current.add(url);
+    }
+    return url;
+  }, []);
+
+  useEffect(() => {
+    const tracked = objectUrlsRef.current;
+    return () => {
+      tracked.forEach((url) => URL.revokeObjectURL(url));
+      tracked.clear();
+    };
+  }, []);
+
+  // Initialize the 6 Showcase items on mount
   useEffect(() => {
     let mounted = true;
     async function initShowcase() {
@@ -770,27 +831,23 @@ export default function App() {
         subtitle: s.subtitle,
         pack_name: 'CleanSnap_Studio_SVG_Pack',
         original_url: s.before_url,
+        thumb_url: s.after_park_url,
         aligned_before_url: s.before_url,
         trimmed_sticker_url: s.cutout_url,
+        full_res_alpha_url: s.cutout_url,
         svg_markup: null,
         cleanByStyle: {
-          green_screen: s.after_park_url,
           corkboard: s.after_park_url,
-          chalkboard: s.after_park_url,
-          grass_yard: s.after_park_url,
           transparent: s.cutout_url
         },
         previewByStyle: {
-          green_screen: s.after_park_url,
           corkboard: s.after_park_url,
-          chalkboard: s.after_park_url,
-          grass_yard: s.after_park_url,
           transparent: s.cutout_url
         },
         status: 'completed',
         is_showcase: true,
         model_used: 'Permissive MIT/Apache-2.0 Engine + 5-Backdrop Studio',
-        processing_time: '0.65'
+        processing_time: '0.42'
       }));
 
       setJobs(placeholderJobs);
@@ -798,13 +855,14 @@ export default function App() {
 
       for (const sample of EDR_SHOWCASE_SAMPLES) {
         if (!mounted) return;
+        await yieldToMain();
         try {
-          const built = await buildAllFiveBackdropsAndSvg(
+          const built = await buildSubjectAndActiveBackdrop(
             sample.before_url,
             sample.cutout_url,
             'high',
-            watermarkText,
-            sample.use_dynamic_backdrops ? null : sample.after_park_url
+            'EDR PARTY RENTALS • PREVIEW ONLY',
+            'corkboard'
           );
           if (!mounted) return;
           setJobs((prev) =>
@@ -812,8 +870,10 @@ export default function App() {
               j.job_id === sample.job_id
                 ? {
                     ...j,
+                    _engineCache: built.engineCache,
                     aligned_before_url: built.alignedBeforeUrl,
                     trimmed_sticker_url: built.trimmedStickerUrl,
+                    full_res_alpha_url: built.fullResAlphaPngUrl,
                     svg_markup: built.svgMarkup,
                     cleanByStyle: built.cleanByStyle,
                     previewByStyle: built.previewByStyle
@@ -825,8 +885,10 @@ export default function App() {
             prev && prev.job_id === sample.job_id
               ? {
                   ...prev,
+                  _engineCache: built.engineCache,
                   aligned_before_url: built.alignedBeforeUrl,
                   trimmed_sticker_url: built.trimmedStickerUrl,
+                  full_res_alpha_url: built.fullResAlphaPngUrl,
                   svg_markup: built.svgMarkup,
                   cleanByStyle: built.cleanByStyle,
                   previewByStyle: built.previewByStyle
@@ -834,7 +896,7 @@ export default function App() {
               : prev
           );
         } catch (err) {
-          console.warn('Showcase 5-backdrop build warning:', err);
+          console.warn('Showcase init warning:', err);
         }
       }
     }
@@ -844,128 +906,536 @@ export default function App() {
     };
   }, []);
 
-  // Process uploaded files through our 100% permissive MIT/Apache-2.0 segmentation & 5-Backdrop compositor
-  const handleFilesSelected = async (fileList) => {
-    const files = Array.from(fileList).filter((f) =>
-      /\.(png|jpe?g|webp|bmp|heic|heif)$/i.test(f.name)
-    );
-    if (files.length === 0) {
-      alert('Please select or drop image files (.png, .jpg, .jpeg, .webp).');
-      return;
-    }
+  // On-demand environment rendering whenever selectedJob or backdropStyle changes
+  useEffect(() => {
+    let active = true;
+    async function ensureStyleReady() {
+      if (!selectedJob || selectedJob.status !== 'completed') return;
+      if (selectedJob.previewByStyle?.[backdropStyle] && selectedJob.cleanByStyle?.[backdropStyle]) {
+        return;
+      }
+      if (!selectedJob._engineCache) return;
 
-    setIsProcessingBatch(true);
-
-    const newEntries = files.map((file, idx) => ({
-      job_id: `job_${Date.now()}_${idx}`,
-      file,
-      original_filename: file.name,
-      title: file.name.replace(/\.[^/.]+$/, ''),
-      dimensions: 'CUSTOM',
-      subtitle: 'Cleaned, Polished & Rendered Across All 5 Studio Backdrops + Vector-Clipped .SVG',
-      pack_name: packCategory,
-      original_url: URL.createObjectURL(file),
-      aligned_before_url: null,
-      trimmed_sticker_url: null,
-      svg_markup: null,
-      cleanByStyle: null,
-      previewByStyle: null,
-      status: 'queued',
-      model_used: 'Permissive MIT ONNX Engine + 5-Backdrop Compositor',
-      processing_time: null
-    }));
-
-    setJobs((prev) => [...newEntries, ...prev]);
-    setSelectedJob(newEntries[0]);
-
-    for (let i = 0; i < newEntries.length; i++) {
-      const entry = newEntries[i];
-      const t0 = performance.now();
-      setProgressMsg(
-        `Cleaning, Polishing & Rendering 5 Backdrops (${i + 1}/${newEntries.length}): ${entry.original_filename}...`
+      const rendered = await renderSingleEnvironmentComposite(
+        selectedJob._engineCache,
+        backdropStyle,
+        watermarkText
       );
+      if (!active) return;
 
       setJobs((prev) =>
-        prev.map((j) => (j.job_id === entry.job_id ? { ...j, status: 'processing' } : j))
+        prev.map((j) =>
+          j.job_id === selectedJob.job_id
+            ? {
+                ...j,
+                cleanByStyle: { ...j.cleanByStyle, [backdropStyle]: rendered.cleanUrl },
+                previewByStyle: { ...j.previewByStyle, [backdropStyle]: rendered.previewUrl }
+              }
+            : j
+        )
       );
+      setSelectedJob((prev) =>
+        prev && prev.job_id === selectedJob.job_id
+          ? {
+              ...prev,
+              cleanByStyle: { ...prev.cleanByStyle, [backdropStyle]: rendered.cleanUrl },
+              previewByStyle: { ...prev.previewByStyle, [backdropStyle]: rendered.previewUrl }
+            }
+          : prev
+      );
+    }
+    ensureStyleReady();
+    return () => {
+      active = false;
+    };
+  }, [selectedJob, backdropStyle, watermarkText]);
 
-      await new Promise((r) => setTimeout(r, 30));
+  // Sync Manual Edge Refiner Canvas whenever in 'refine' mode or parameters change
+  const renderRefinerPreviewCanvas = useCallback(() => {
+    const canvas = refinerCanvasRef.current;
+    const cache = selectedJob?._engineCache;
+    if (!canvas || !cache) return;
+
+    const { w, h, origRgba, userAlphaMask } = cache;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    const ctx = canvas.getContext('2d');
+    const { rgba } = applyMaskRefinements(origRgba, userAlphaMask, w, h, {
+      expandPx: edgeExpandPx,
+      featherPx: edgeFeatherPx,
+      decontaminate: edgeDecontam,
+      decontaminateStrength: edgeDecontamStrength / 100
+    });
+
+    if (refinerBgMode === 'mask') {
+      // Before/After Ruby Mask Overlay inspection mode: shows original image with ruby tint over removed background
+      const overlay = new Uint8ClampedArray(origRgba.length);
+      for (let i = 0; i < w * h; i++) {
+        const p = i * 4;
+        const a = rgba[p + 3] / 255;
+        const bgWeight = 1 - a;
+        overlay[p] = Math.round(origRgba[p] * (0.35 + 0.65 * a) + 244 * bgWeight * 0.55);
+        overlay[p + 1] = Math.round(origRgba[p + 1] * (0.25 + 0.75 * a) + 32 * bgWeight * 0.15);
+        overlay[p + 2] = Math.round(origRgba[p + 2] * (0.25 + 0.75 * a) + 68 * bgWeight * 0.25);
+        overlay[p + 3] = 255;
+      }
+      ctx.putImageData(new ImageData(overlay, w, h), 0, 0);
+    } else {
+      ctx.putImageData(new ImageData(rgba, w, h), 0, 0);
+    }
+  }, [selectedJob, edgeExpandPx, edgeFeatherPx, edgeDecontam, edgeDecontamStrength, refinerBgMode]);
+
+  useEffect(() => {
+    if (stageMode === 'refine' && selectedJob?._engineCache) {
+      renderRefinerPreviewCanvas();
+    }
+  }, [stageMode, selectedJob, renderRefinerPreviewCanvas]);
+
+  // Reset Undo/Redo stacks when switching selectedJob
+  const selectedRefineOpts = selectedJob?._engineCache?.refineOptions;
+  useEffect(() => {
+    maskUndoStackRef.current = [];
+    maskRedoStackRef.current = [];
+    if (selectedRefineOpts) {
+      setEdgeExpandPx(selectedRefineOpts.expandPx || 0);
+      setEdgeFeatherPx(selectedRefineOpts.featherPx ?? 1);
+      setEdgeDecontam(selectedRefineOpts.decontaminate ?? true);
+      setEdgeDecontamStrength(Math.round((selectedRefineOpts.decontaminateStrength ?? 0.85) * 100));
+    } else {
+      setEdgeExpandPx(0);
+      setEdgeFeatherPx(1);
+      setEdgeDecontam(true);
+      setEdgeDecontamStrength(85);
+    }
+    setMaskHistoryInfo({ canUndo: false, canRedo: false, dirty: false });
+  }, [selectedJob?.job_id, selectedRefineOpts]);
+
+  // Paint brush stroke onto userAlphaMask
+  const paintMaskAtPoint = (xNorm, yNorm, prevNorm = null) => {
+    const cache = selectedJob?._engineCache;
+    if (!cache) return;
+    const { w, h, userAlphaMask } = cache;
+    const targetX = xNorm * w;
+    const targetY = yNorm * h;
+    const startX = prevNorm ? prevNorm.x * w : targetX;
+    const startY = prevNorm ? prevNorm.y * h : targetY;
+
+    const scaleFactor = Math.max(w, h) / 900;
+    const radius = Math.max(2, brushSize * scaleFactor);
+    const hardFrac = Math.max(0.05, Math.min(0.99, brushHardness / 100));
+    const innerR = radius * hardFrac;
+    const targetVal = brushMode === 'add' ? 255 : 0;
+
+    const dist = Math.hypot(targetX - startX, targetY - startY);
+    const steps = Math.max(1, Math.ceil(dist / Math.max(1, radius * 0.25)));
+
+    for (let s = 0; s <= steps; s++) {
+      const cx = startX + ((targetX - startX) * s) / steps;
+      const cy = startY + ((targetY - startY) * s) / steps;
+      const x0 = Math.max(0, Math.floor(cx - radius));
+      const x1 = Math.min(w - 1, Math.ceil(cx + radius));
+      const y0 = Math.max(0, Math.floor(cy - radius));
+      const y1 = Math.min(h - 1, Math.ceil(cy + radius));
+
+      for (let py = y0; py <= y1; py++) {
+        const dy = py - cy;
+        const row = py * w;
+        for (let px = x0; px <= x1; px++) {
+          const dx = px - cx;
+          const d = Math.hypot(dx, dy);
+          if (d > radius) continue;
+          let strength = 1.0;
+          if (d > innerR) {
+            strength = 1.0 - (d - innerR) / Math.max(1e-4, radius - innerR);
+          }
+          const idx = row + px;
+          const cur = userAlphaMask[idx];
+          userAlphaMask[idx] = Math.round(cur + (targetVal - cur) * strength);
+        }
+      }
+    }
+    renderRefinerPreviewCanvas();
+  };
+
+  const handleRefinerPointerDown = (e) => {
+    if (!selectedJob?._engineCache || !refinerCanvasRef.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    if (brushMode === 'pan') {
+      isDrawingRef.current = true;
+      lastPtRef.current = { x: e.clientX, y: e.clientY };
+      return;
+    }
+    // Push current mask to undo stack before modifying
+    const snapshot = new Uint8ClampedArray(selectedJob._engineCache.userAlphaMask);
+    maskUndoStackRef.current.push(snapshot);
+    if (maskUndoStackRef.current.length > 20) maskUndoStackRef.current.shift();
+    maskRedoStackRef.current = [];
+    setMaskHistoryInfo({
+      canUndo: maskUndoStackRef.current.length > 0,
+      canRedo: false,
+      dirty: true
+    });
+
+    const rect = refinerCanvasRef.current.getBoundingClientRect();
+    const xNorm = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const yNorm = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    isDrawingRef.current = true;
+    lastPtRef.current = { x: xNorm, y: yNorm };
+    paintMaskAtPoint(xNorm, yNorm, null);
+  };
+
+  const handleRefinerPointerMove = (e) => {
+    if (!isDrawingRef.current || !selectedJob?._engineCache || !refinerCanvasRef.current) return;
+    if (brushMode === 'pan') {
+      const dx = e.clientX - lastPtRef.current.x;
+      const dy = e.clientY - lastPtRef.current.y;
+      lastPtRef.current = { x: e.clientX, y: e.clientY };
+      setRefinerPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+      return;
+    }
+    const rect = refinerCanvasRef.current.getBoundingClientRect();
+    const xNorm = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const yNorm = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    paintMaskAtPoint(xNorm, yNorm, lastPtRef.current);
+    lastPtRef.current = { x: xNorm, y: yNorm };
+  };
+
+  const handleRefinerPointerUp = () => {
+    isDrawingRef.current = false;
+    lastPtRef.current = null;
+  };
+
+  const handleUndoMask = () => {
+    const cache = selectedJob?._engineCache;
+    if (!cache || maskUndoStackRef.current.length === 0) return;
+    maskRedoStackRef.current.push(new Uint8ClampedArray(cache.userAlphaMask));
+    const prev = maskUndoStackRef.current.pop();
+    cache.userAlphaMask.set(prev);
+    setMaskHistoryInfo({
+      canUndo: maskUndoStackRef.current.length > 0,
+      canRedo: maskRedoStackRef.current.length > 0,
+      dirty: true
+    });
+    renderRefinerPreviewCanvas();
+  };
+
+  const handleRedoMask = () => {
+    const cache = selectedJob?._engineCache;
+    if (!cache || maskRedoStackRef.current.length === 0) return;
+    maskUndoStackRef.current.push(new Uint8ClampedArray(cache.userAlphaMask));
+    const next = maskRedoStackRef.current.pop();
+    cache.userAlphaMask.set(next);
+    setMaskHistoryInfo({
+      canUndo: maskUndoStackRef.current.length > 0,
+      canRedo: maskRedoStackRef.current.length > 0,
+      dirty: true
+    });
+    renderRefinerPreviewCanvas();
+  };
+
+  const handleResetMaskToAuto = () => {
+    const cache = selectedJob?._engineCache;
+    if (!cache) return;
+    maskUndoStackRef.current.push(new Uint8ClampedArray(cache.userAlphaMask));
+    cache.userAlphaMask.set(cache.autoAlphaMask);
+    setEdgeExpandPx(0);
+    setEdgeFeatherPx(1);
+    setEdgeDecontam(true);
+    setEdgeDecontamStrength(85);
+    setMaskHistoryInfo({
+      canUndo: maskUndoStackRef.current.length > 0,
+      canRedo: false,
+      dirty: true
+    });
+    renderRefinerPreviewCanvas();
+  };
+
+  const applyRefinementToActiveJob = async () => {
+    if (!selectedJob?._engineCache) return;
+    const built = await buildSubjectAndActiveBackdrop(
+      null,
+      null,
+      polishIntensity,
+      watermarkText,
+      backdropStyle,
+      selectedJob._engineCache,
+      {
+        expandPx: edgeExpandPx,
+        featherPx: edgeFeatherPx,
+        decontaminate: edgeDecontam,
+        decontaminateStrength: edgeDecontamStrength / 100
+      }
+    );
+
+    const updatedJob = {
+      ...selectedJob,
+      _engineCache: built.engineCache,
+      trimmed_sticker_url: built.trimmedStickerUrl,
+      full_res_alpha_url: built.fullResAlphaPngUrl,
+      svg_markup: built.svgMarkup,
+      cleanByStyle: built.cleanByStyle,
+      previewByStyle: built.previewByStyle
+    };
+
+    setJobs((prev) => prev.map((j) => (j.job_id === updatedJob.job_id ? updatedJob : j)));
+    setSelectedJob(updatedJob);
+    setMaskHistoryInfo((info) => ({ ...info, dirty: false }));
+    setStageMode('compare');
+  };
+
+  // Process a single uploaded entry (used by both batch loop and single-item retry)
+  const processSingleJobEntry = async (entry, idxLabel = '') => {
+    const t0 = performance.now();
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.job_id === entry.job_id ? { ...j, status: 'processing', error_reason: null } : j
+      )
+    );
+    await yieldToMain();
+
+    const file = entry.file;
+    if (!file || file.size === 0) {
+      throw new Error('Empty or unreadable file (0 bytes).');
+    }
+    if (!/\.(png|jpe?g|webp|bmp|gif|avif|heic|heif)$/i.test(file.name)) {
+      throw new Error(`Unsupported file format (${file.name.split('.').pop() || 'unknown'}).`);
+    }
+
+    const buffer = await file.arrayBuffer();
+    const sha256 = `${polishIntensity}_${await hashArrayBuffer(buffer)}`;
+
+    if (seenHashesRef.current.has(sha256)) {
+      const canon = seenHashesRef.current.get(sha256);
+      const skippedJob = {
+        ...entry,
+        status: 'completed',
+        is_duplicate: true,
+        _engineCache: canon._engineCache,
+        model_used: `Cached SHA-256 Match (${canon.original_filename})`,
+        aligned_before_url: canon.aligned_before_url,
+        trimmed_sticker_url: canon.trimmed_sticker_url,
+        full_res_alpha_url: canon.full_res_alpha_url,
+        svg_markup: canon.svg_markup,
+        cleanByStyle: { ...canon.cleanByStyle },
+        previewByStyle: { ...canon.previewByStyle },
+        processing_time: '0.01'
+      };
+      setJobs((prev) => prev.map((j) => (j.job_id === entry.job_id ? skippedJob : j)));
+      return skippedJob;
+    }
+
+    const cutoutBlob = await segmentSubjectPermissive(file, (stage, current, total) => {
+      const pct = total > 0 ? Math.round((current / total) * 100) : 50;
+      setProgressMsg(`${stage} ${idxLabel} ${entry.original_filename} — ${pct}%`);
+    });
+
+    const built = await buildSubjectAndActiveBackdrop(
+      file,
+      cutoutBlob,
+      polishIntensity,
+      watermarkText,
+      backdropStyle
+    );
+
+    const elapsedSec = ((performance.now() - t0) / 1000).toFixed(2);
+    const completedJob = {
+      ...entry,
+      status: 'completed',
+      _engineCache: built.engineCache,
+      aligned_before_url: built.alignedBeforeUrl,
+      trimmed_sticker_url: built.trimmedStickerUrl,
+      full_res_alpha_url: built.fullResAlphaPngUrl,
+      svg_markup: built.svgMarkup,
+      cleanByStyle: built.cleanByStyle,
+      previewByStyle: built.previewByStyle,
+      processing_time: elapsedSec
+    };
+
+    seenHashesRef.current.set(sha256, completedJob);
+    setJobs((prev) => prev.map((j) => (j.job_id === entry.job_id ? completedJob : j)));
+    return completedJob;
+  };
+
+  // Priority 1: Responsive Batch Ingestion with Lightweight Thumbnails, Bounded Concurrency & Stable Usable Preview
+  const handleFilesSelected = async (fileList) => {
+    const rawFiles = Array.from(fileList || []);
+    if (rawFiles.length === 0) return;
+
+    const tBatchStart = performance.now();
+    batchCancelRef.current = false;
+    setIsProcessingBatch(true);
+
+    // 1. Immediate local batch acknowledgement (<5ms) — do NOT overwrite selectedJob yet!
+    const batchId = Date.now();
+    const initialEntries = rawFiles.map((file, idx) => {
+      const origUrl = trackUrl(URL.createObjectURL(file));
+      return {
+        job_id: `job_${batchId}_${idx}`,
+        file,
+        original_filename: file.name,
+        title: file.name.replace(/\.[^/.]+$/, ''),
+        dimensions: 'QUEUED',
+        subtitle: 'Queued for background removal & studio environment compositing',
+        pack_name: packCategory,
+        original_url: origUrl,
+        thumb_url: origUrl,
+        aligned_before_url: null,
+        trimmed_sticker_url: null,
+        full_res_alpha_url: null,
+        svg_markup: null,
+        cleanByStyle: null,
+        previewByStyle: null,
+        status: 'queued',
+        is_showcase: false,
+        model_used: 'Permissive MIT ONNX Engine',
+        processing_time: null
+      };
+    });
+
+    setJobs((prev) => [...initialEntries, ...prev]);
+    const ingestionLatencyMs = Math.round(performance.now() - tBatchStart);
+    setProgressMsg(`Acknowledged ${initialEntries.length} file(s) in ${ingestionLatencyMs}ms — generating thumbnails...`);
+    await yieldToMain();
+
+    // 2. Generate lightweight 320px thumbnails & validate headers before heavy ONNX segmentation
+    let firstThumbnailMs = null;
+    const validQueue = [];
+    let failedCount = 0;
+
+    for (let i = 0; i < initialEntries.length; i++) {
+      const entry = initialEntries[i];
+      try {
+        if (!/\.(png|jpe?g|webp|bmp|gif|avif|heic|heif)$/i.test(entry.file.name)) {
+          throw new Error('Unsupported file extension.');
+        }
+        const { thumbUrl, width, height } = await generateLightweightThumbnail(entry.file);
+        trackUrl(thumbUrl);
+        if (firstThumbnailMs === null) {
+          firstThumbnailMs = Math.round(performance.now() - tBatchStart);
+        }
+        const updatedEntry = {
+          ...entry,
+          thumb_url: thumbUrl,
+          dimensions: `${width}×${height}`
+        };
+        validQueue.push(updatedEntry);
+        setJobs((prev) => prev.map((j) => (j.job_id === entry.job_id ? updatedEntry : j)));
+      } catch (thumbErr) {
+        failedCount++;
+        const failedEntry = {
+          ...entry,
+          status: 'failed',
+          dimensions: 'INVALID',
+          error_reason: thumbErr.message || 'Corrupt or unsupported image'
+        };
+        setJobs((prev) => prev.map((j) => (j.job_id === entry.job_id ? failedEntry : j)));
+      }
+    }
+
+    // 3. Process valid queue sequentially (bounded concurrency = 1 for WASM ONNX stability)
+    let firstCompletedSelected = false;
+    let completedCount = 0;
+
+    for (let i = 0; i < validQueue.length; i++) {
+      const entry = validQueue[i];
+      if (batchCancelRef.current) {
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.job_id === entry.job_id && j.status === 'queued'
+              ? { ...j, status: 'cancelled', error_reason: 'Cancelled by user' }
+              : j
+          )
+        );
+        continue;
+      }
 
       try {
-        const buffer = await entry.file.arrayBuffer();
-        const sha256 = `${polishIntensity}_${await hashArrayBuffer(buffer)}`;
-
-        if (seenHashesRef.current.has(sha256)) {
-          const canon = seenHashesRef.current.get(sha256);
-          const skippedJob = {
-            ...entry,
-            status: 'skipped',
-            model_used: `SHA-256 Duplicate of ${canon.original_filename} (0.01s)`,
-            aligned_before_url: canon.aligned_before_url,
-            trimmed_sticker_url: canon.trimmed_sticker_url,
-            svg_markup: canon.svg_markup,
-            cleanByStyle: canon.cleanByStyle,
-            previewByStyle: canon.previewByStyle,
-            processing_time: 0.01
-          };
-          setJobs((prev) => prev.map((j) => (j.job_id === entry.job_id ? skippedJob : j)));
-          setSelectedJob(skippedJob);
-          continue;
+        const doneJob = await processSingleJobEntry(entry, `(${i + 1}/${validQueue.length})`);
+        completedCount++;
+        // Only switch selectedJob once the FIRST valid uploaded image is ready!
+        if (!firstCompletedSelected && doneJob) {
+          firstCompletedSelected = true;
+          setSelectedJob(doneJob);
         }
-
-        let cutoutBlob = null;
-        try {
-          cutoutBlob = await segmentSubjectPermissive(entry.file, (stage, current, total) => {
-            const pct = total > 0 ? Math.round((current / total) * 100) : 50;
-            setProgressMsg(
-              `${stage} (${i + 1}/${newEntries.length}: ${entry.original_filename}) — ${pct}%`
-            );
-          });
-        } catch (segErr) {
-          console.warn('Segmentation fallback:', segErr);
-          cutoutBlob = null;
-        }
-
-        const built = await buildAllFiveBackdropsAndSvg(
-          entry.file,
-          cutoutBlob,
-          polishIntensity,
-          watermarkText,
-          null
-        );
-
-        const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-        const completedJob = {
-          ...entry,
-          status: 'completed',
-          aligned_before_url: built.alignedBeforeUrl,
-          trimmed_sticker_url: built.trimmedStickerUrl,
-          svg_markup: built.svgMarkup,
-          cleanByStyle: built.cleanByStyle,
-          previewByStyle: built.previewByStyle,
-          processing_time: elapsed
-        };
-
-        seenHashesRef.current.set(sha256, completedJob);
-        setJobs((prev) => prev.map((j) => (j.job_id === entry.job_id ? completedJob : j)));
-        setSelectedJob(completedJob);
       } catch (err) {
-        console.error('Error processing image:', err);
+        failedCount++;
+        console.error('Batch item processing error:', err);
         setJobs((prev) =>
           prev.map((j) =>
             j.job_id === entry.job_id
-              ? { ...j, status: 'failed', error_reason: err.message || 'Processing error' }
+              ? { ...j, status: 'failed', error_reason: err.message || 'Processing failed' }
               : j
           )
         );
       }
     }
 
+    const totalProcessingMs = Math.round(performance.now() - tBatchStart);
+    const heapMB =
+      typeof performance !== 'undefined' && performance.memory
+        ? Math.round(performance.memory.usedJSHeapSize / (1024 * 1024))
+        : null;
+
+    const metrics = {
+      batchSize: rawFiles.length,
+      completedCount,
+      failedCount,
+      ingestionLatencyMs,
+      firstThumbnailMs: firstThumbnailMs ?? ingestionLatencyMs,
+      totalProcessingMs,
+      avgPerImageMs: completedCount > 0 ? Math.round(totalProcessingMs / completedCount) : 0,
+      heapMB
+    };
+
+    setBatchStats(metrics);
+    if (typeof window !== 'undefined') {
+      window.__CLEANSNAP_METRICS__ = metrics;
+    }
+
     setProgressMsg('');
     setIsProcessingBatch(false);
   };
 
-  // Download single clean image (100% watermark-free!)
+  const handleCancelBatch = () => {
+    batchCancelRef.current = true;
+    setProgressMsg('Cancelling remaining queued images...');
+  };
+
+  const handleRetryJob = async (job, e) => {
+    if (e) e.stopPropagation();
+    if (!job?.file) return;
+    setIsProcessingBatch(true);
+    try {
+      const doneJob = await processSingleJobEntry(job, '(Retry)');
+      if (doneJob) setSelectedJob(doneJob);
+    } catch (err) {
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.job_id === job.job_id
+            ? { ...j, status: 'failed', error_reason: err.message || 'Retry failed' }
+            : j
+        )
+      );
+    } finally {
+      setProgressMsg('');
+      setIsProcessingBatch(false);
+    }
+  };
+
+  const handleRemoveJob = (job, e) => {
+    if (e) e.stopPropagation();
+    setJobs((prev) => {
+      const next = prev.filter((j) => j.job_id !== job.job_id);
+      if (selectedJob?.job_id === job.job_id) {
+        const nextReady = next.find((j) => j.status === 'completed');
+        setSelectedJob(nextReady || next[0] || null);
+      }
+      return next;
+    });
+  };
+
   const downloadImage = (dataUrl, filename) => {
     if (!dataUrl) return;
     const link = document.createElement('a');
@@ -976,160 +1446,66 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // 1-Click Download single .SVG file
   const downloadSingleSvg = (job) => {
     if (!job?.svg_markup) return;
     const base = job.original_filename.replace(/\.[^/.]+$/, '');
     const blob = new Blob([job.svg_markup], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    downloadImage(url, `${base}_element.svg`);
+    downloadImage(url, `${base}_vector_clipped.svg`);
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 
-  // 1-Click Download SVG Pack (.ZIP)
   const downloadSvgPackZip = async () => {
-    const completed = jobs.filter(
-      (j) => (j.status === 'completed' || j.status === 'skipped') && j.svg_markup
-    );
+    const completed = jobs.filter((j) => j.status === 'completed' && j.svg_markup);
     if (completed.length === 0) return;
 
     const zip = new JSZip();
-    const packFolderName = packCategory.replace(/[^a-z0-9_-]/gi, '_');
+    const packFolderName = (packCategory || 'CleanSnap_Studio_Pack').replace(/[^a-z0-9_-]/gi, '_');
 
     completed.forEach((job, idx) => {
       const base = job.original_filename.replace(/\.[^/.]+$/, '');
-      zip.file(`${packFolderName}/${base}_element_${idx + 1}.svg`, job.svg_markup);
+      zip.file(`${packFolderName}/${base}_${String(idx + 1).padStart(2, '0')}.svg`, job.svg_markup);
     });
 
     const content = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(content);
-    downloadImage(url, `${packFolderName}_${completed.length}_SVG_Pack.zip`);
+    downloadImage(url, `${packFolderName}_${completed.length}_Assets.zip`);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
-  };
-
-  // Add a cleaned element from the Vault onto the Banner Builder canvas
-  const addElementToBanner = (job) => {
-    const id = `layer_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const newLayer = {
-      id,
-      type: 'image',
-      name: job.title || job.original_filename,
-      src: job.trimmed_sticker_url || job.cleanByStyle?.transparent,
-      x: 30 + ((bannerLayers.length * 14) % 45),
-      y: 56,
-      scale: 0.45
-    };
-    setBannerLayers((prev) => [...prev, newLayer]);
-    setActiveLayerId(id);
-    setActiveTab('banner');
-  };
-
-  // Add custom headline text to Banner Builder
-  const addTextToBanner = () => {
-    const textVal = customTextInput.trim() || 'NEW VISUAL SENTENCE BANNER';
-    const id = `text_${Date.now()}`;
-    setBannerLayers((prev) => [
-      ...prev,
-      {
-        id,
-        type: 'text',
-        text: textVal,
-        x: 50,
-        y: 25,
-        scale: 1,
-        color: selectedBg.textColor || '#ffffff'
-      }
-    ]);
-    setActiveLayerId(id);
-    setCustomTextInput('');
-  };
-
-  // Export High-Resolution Banner (.SVG) with photorealistic background rendering
-  const exportHighResBannerSvg = async () => {
-    const w = selectedPreset.width;
-    const h = selectedPreset.height;
-
-    const bgCanvas = document.createElement('canvas');
-    bgCanvas.width = w;
-    bgCanvas.height = h;
-    const bgCtx = bgCanvas.getContext('2d');
-    const backdrops = await loadAllStudioBackdrops();
-
-    if (selectedBg.id === 'green_screen' && backdrops.greenScreen) {
-      bgCtx.drawImage(backdrops.greenScreen, 0, 0, w, h);
-    } else if (selectedBg.id === 'corkboard' && backdrops.corkboard) {
-      bgCtx.drawImage(backdrops.corkboard, 0, 0, w, h);
-    } else if (selectedBg.id === 'chalkboard' && backdrops.chalkboard) {
-      bgCtx.drawImage(backdrops.chalkboard, 0, 0, w, h);
-    } else if (selectedBg.id === 'grass_yard' && backdrops.grass) {
-      bgCtx.drawImage(backdrops.grass, 0, 0, w, h);
-    } else if (selectedBg.colors) {
-      const grad = bgCtx.createLinearGradient(0, 0, w, h);
-      grad.addColorStop(0, selectedBg.colors[0]);
-      grad.addColorStop(0.5, selectedBg.colors[1]);
-      grad.addColorStop(1, selectedBg.colors[2]);
-      bgCtx.fillStyle = grad;
-      bgCtx.fillRect(0, 0, w, h);
-    }
-    const bgDataUrl = bgCanvas.toDataURL('image/jpeg', 0.92);
-
-    const layerMarkups = [];
-    for (const layer of bannerLayers) {
-      const cx = Math.round((layer.x / 100) * w);
-      const cy = Math.round((layer.y / 100) * h);
-      if (layer.type === 'image') {
-        const img = await loadImageSafe(layer.src);
-        if (img) {
-          const targetH = Math.round(h * layer.scale);
-          const targetW = Math.round(targetH * (img.width / img.height));
-          const x = Math.round(cx - targetW / 2);
-          const y = Math.round(cy - targetH / 2);
-          layerMarkups.push(
-            `  <image x="${x}" y="${y}" width="${targetW}" height="${targetH}" href="${layer.src}" />`
-          );
-        }
-      } else if (layer.type === 'text') {
-        const fontSize = Math.round(h * 0.068 * layer.scale);
-        const safeText = layer.text
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-        layerMarkups.push(
-          `  <text x="${cx}" y="${cy}" fill="${layer.color || '#ffffff'}" font-family="Syne, Segoe UI, Arial, sans-serif" font-weight="800" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle">${safeText}</text>`
-        );
-      }
-    }
-
-    const svgDoc = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
-  <image x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none" href="${bgDataUrl}" />
-${layerMarkups.join('\n')}
-</svg>`;
-    const blob = new Blob([svgDoc], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    downloadImage(url, `CleanSnap_${selectedPreset.id}_${selectedBg.id}_${w}x${h}.svg`);
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  };
-
-  const handleBannerPointerMove = (e) => {
-    if (e.buttons !== 1 || !activeLayerId || !bannerStageRef.current) return;
-    const rect = bannerStageRef.current.getBoundingClientRect();
-    const xPct = Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100));
-    const yPct = Math.max(5, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100));
-    setBannerLayers((prev) =>
-      prev.map((l) => (l.id === activeLayerId ? { ...l, x: xPct, y: yPct } : l))
-    );
   };
 
   const updateSliderFromPointer = (clientX) => {
     if (!sliderRef.current) return;
     const rect = sliderRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return;
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     setSliderPos((x / rect.width) * 100);
   };
 
-  const completedJobs = jobs.filter((j) => j.status === 'completed' || j.status === 'skipped');
-  const activeLayer = bannerLayers.find((l) => l.id === activeLayerId);
+  const handleSliderKeyDown = (e) => {
+    const step = e.shiftKey ? 10 : 2;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setSliderPos((p) => Math.max(0, p - step));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setSliderPos((p) => Math.min(100, p + step));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setSliderPos(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setSliderPos(100);
+    }
+  };
+
+  const completedJobs = jobs.filter((j) => j.status === 'completed');
+  const uploadedJobsCount = jobs.filter((j) => !j.is_showcase).length;
+
+  const visibleFilmstripJobs = jobs.filter((j) => {
+    if (filmstripFilter === 'uploads') return !j.is_showcase;
+    if (filmstripFilter === 'samples') return j.is_showcase;
+    return true;
+  });
 
   const activePreviewUrl = selectedJob?.previewByStyle?.[backdropStyle] || null;
   const activeCleanDownloadUrl = selectedJob?.cleanByStyle?.[backdropStyle] || null;
@@ -1138,7 +1514,7 @@ ${layerMarkups.join('\n')}
 
   return (
     <div className="app-container">
-      {/* ==================== TOP EDITORIAL STUDIO HEADER ==================== */}
+      {/* ==================== TOP STUDIO HEADER ==================== */}
       <header className="studio-header">
         <div className="brand-lockup">
           <div className="brand-eyebrow">
@@ -1150,71 +1526,138 @@ ${layerMarkups.join('\n')}
             <span className="brand-title-serif">Studio</span>
           </h1>
           <p className="brand-subtitle">
-            Automated Vinyl Polish, 5-Stage Environmental Compositing &amp; Marching-Squares Vector Cutline Engine
+            Automated Subject Cutout, Edge Refinement, 5 Studio Environments &amp; Vector-Clipped .SVG Export
           </p>
         </div>
 
-        {/* Segmented Navigation Bar */}
         <nav className="nav-pill-group" aria-label="Workspace Mode">
           <button
+            type="button"
             className={`nav-pill ${activeTab === 'cleaner' ? 'active' : ''}`}
             onClick={() => setActiveTab('cleaner')}
           >
             <span className="nav-pill-index">01</span>
             <Sparkles size={15} />
-            <span>Studio Cleaner &amp; 5 Backdrops</span>
+            <span>Studio Workspace</span>
           </button>
           <button
+            type="button"
             className={`nav-pill ${activeTab === 'vault' ? 'active' : ''}`}
             onClick={() => setActiveTab('vault')}
           >
             <span className="nav-pill-index">02</span>
             <Package size={15} />
-            <span>Vector .SVG Vault ({completedJobs.length})</span>
+            <span>Export Vault ({completedJobs.length})</span>
           </button>
         </nav>
       </header>
 
-      {/* ==================== TAB 1: STUDIO CLEANER & 5 BACKDROPS ==================== */}
+      {/* ==================== TAB 1: STUDIO WORKSPACE ==================== */}
       {activeTab === 'cleaner' && (
         <>
-          {/* Capture-One Style Contact Sheet Filmstrip */}
-          <section className="filmstrip-panel">
+          {/* Contact Sheet Filmstrip */}
+          <section className="filmstrip-panel" aria-label="Asset Contact Sheet">
             <div className="filmstrip-header">
               <div className="filmstrip-title-row">
-                <span className="filmstrip-tag">MASTER CONTACT SHEET</span>
-                <span className="filmstrip-title">
-                  Select an Inventory Asset to Inspect Across All 5 Studio Environments
-                </span>
+                <span className="filmstrip-tag">CONTACT SHEET ({visibleFilmstripJobs.length})</span>
+                <h2 className="filmstrip-title">
+                  Select an Asset to Compare Environments or Refine Cutout Edges
+                </h2>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button className="btn-gold" onClick={downloadSvgPackZip} style={{ padding: '8px 14px', fontSize: '12px' }}>
-                  <FileCode size={14} /> Export Complete .SVG Pack (.ZIP)
+              <div className="filmstrip-controls">
+                <button
+                  type="button"
+                  className={`filter-chip ${filmstripFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setFilmstripFilter('all')}
+                >
+                  All ({jobs.length})
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${filmstripFilter === 'uploads' ? 'active' : ''}`}
+                  onClick={() => setFilmstripFilter('uploads')}
+                >
+                  Uploaded ({uploadedJobsCount})
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${filmstripFilter === 'samples' ? 'active' : ''}`}
+                  onClick={() => setFilmstripFilter('samples')}
+                >
+                  Studio Samples ({EDR_SHOWCASE_SAMPLES.length})
                 </button>
               </div>
             </div>
 
             <div className="filmstrip-grid">
-              {jobs.slice(0, 6).map((job, idx) => {
+              {visibleFilmstripJobs.map((job, idx) => {
                 const isSelected = selectedJob?.job_id === job.job_id;
-                const thumbSrc = job.cleanByStyle?.[backdropStyle] || job.cleanByStyle?.corkboard || job.cleanByStyle?.grass_yard;
+                const thumbSrc =
+                  job.cleanByStyle?.[backdropStyle] ||
+                  job.cleanByStyle?.corkboard ||
+                  job.thumb_url ||
+                  job.original_url;
                 return (
                   <div
                     key={job.job_id}
-                    onClick={() => setSelectedJob(job)}
-                    className={`contact-card ${isSelected ? 'selected' : ''}`}
+                    data-testid={`contact-card-${job.job_id}`}
+                    onClick={() => {
+                      if (job.status === 'completed') {
+                        setSelectedJob(job);
+                      }
+                    }}
+                    className={`contact-card ${isSelected ? 'selected' : ''} status-${job.status}`}
                   >
                     <div className="contact-thumb-wrap">
                       <img
                         src={thumbSrc}
                         alt={job.title || job.original_filename}
+                        loading="lazy"
                       />
                       <span className="contact-badge">{job.dimensions || `0${idx + 1}`}</span>
+                      <span className={`contact-status-pill ${job.status}`}>
+                        {job.status === 'completed'
+                          ? job.processing_time
+                            ? `${job.processing_time}s`
+                            : 'READY'
+                          : job.status.toUpperCase()}
+                      </span>
                     </div>
                     <div className="contact-meta">
-                      <span className="contact-name">{job.title || job.original_filename}</span>
-                      <span className="contact-index">0{idx + 1}</span>
+                      <span className="contact-name" title={job.original_filename}>
+                        {job.title || job.original_filename}
+                      </span>
+                      <span className="contact-index">
+                        {String(idx + 1).padStart(2, '0')}
+                      </span>
                     </div>
+                    {(job.status === 'failed' || job.status === 'cancelled') && (
+                      <div className="contact-error-bar">
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {job.error_reason || 'Failed'}
+                        </span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            style={{ padding: '2px 6px', fontSize: '10px' }}
+                            onClick={(e) => handleRetryJob(job, e)}
+                            title="Retry Processing"
+                          >
+                            <RefreshCw size={10} /> Retry
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-danger"
+                            style={{ padding: '2px 6px', fontSize: '10px' }}
+                            onClick={(e) => handleRemoveJob(job, e)}
+                            title="Remove Item"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1222,30 +1665,12 @@ ${layerMarkups.join('\n')}
           </section>
 
           <div className="grid-layout">
-            {/* LEFT COLUMN: Ingest & Optical Grading Controls */}
-            <div className="card">
+            {/* ==================== LEFT COLUMN: SIMPLIFIED 4-STEP WORKFLOW SIDEBAR ==================== */}
+            <aside className="card" aria-label="4-Step Workflow Controls">
               <div className="card-header">
                 <div className="card-title-group">
-                  <span className="card-step-label">STAGE 01 · ASSET INGEST &amp; GRADING</span>
-                  <h2 className="card-title">Batch Ingest &amp; Optical Polish</h2>
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button
-                    className="btn-gold"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isProcessingBatch}
-                    style={{ padding: '8px 13px', fontSize: '12px' }}
-                  >
-                    <Upload size={14} /> Add Photos
-                  </button>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => folderInputRef.current?.click()}
-                    disabled={isProcessingBatch}
-                    style={{ padding: '8px 13px', fontSize: '12px' }}
-                  >
-                    <Folder size={14} /> Folder
-                  </button>
+                  <span className="card-step-label">GUIDED WORKFLOW</span>
+                  <h2 className="card-title">Clean, Refine &amp; Export</h2>
                 </div>
               </div>
 
@@ -1254,8 +1679,12 @@ ${layerMarkups.join('\n')}
                 type="file"
                 multiple
                 accept="image/*"
+                data-testid="file-upload-input"
                 style={{ display: 'none' }}
-                onChange={(e) => handleFilesSelected(e.target.files)}
+                onChange={(e) => {
+                  handleFilesSelected(e.target.files);
+                  e.target.value = '';
+                }}
               />
               <input
                 ref={folderInputRef}
@@ -1264,44 +1693,119 @@ ${layerMarkups.join('\n')}
                 directory="true"
                 multiple
                 style={{ display: 'none' }}
-                onChange={(e) => handleFilesSelected(e.target.files)}
+                onChange={(e) => {
+                  handleFilesSelected(e.target.files);
+                  e.target.value = '';
+                }}
               />
 
-              <div
-                className="studio-dropzone"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (e.dataTransfer.files?.length) {
-                    handleFilesSelected(e.dataTransfer.files);
-                  }
-                }}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="dropzone-icon-ring">
-                  <Sparkles size={20} />
+              {/* STEP 1: ADD IMAGES */}
+              <div className="workflow-section">
+                <div className="workflow-section-header">
+                  <h3 className="workflow-step-title">
+                    <span className="workflow-step-num">1</span>
+                    <span>Add Images</span>
+                  </h3>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn-gold"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isProcessingBatch}
+                      style={{ padding: '6px 11px', fontSize: '12px' }}
+                    >
+                      <Upload size={13} /> Add Photos
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => folderInputRef.current?.click()}
+                      disabled={isProcessingBatch}
+                      style={{ padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <Folder size={13} /> Folder
+                    </button>
+                  </div>
                 </div>
-                <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '20px', letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
-                  {isProcessingBatch
-                    ? progressMsg || 'Running Neural Cutout & 5-Stage Compositor...'
-                    : 'Drop Raw Product, Studio or Concept Photos'}
+
+                <div
+                  className="studio-dropzone"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files?.length) {
+                      handleFilesSelected(e.dataTransfer.files);
+                    }
+                  }}
+                  onClick={() => !isProcessingBatch && fileInputRef.current?.click()}
+                >
+                  <div className="dropzone-icon-ring">
+                    <Sparkles size={18} />
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>
+                    {isProcessingBatch
+                      ? progressMsg || 'Processing Batch...'
+                      : 'Drop Photos Here or Click to Browse'}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    Supports single or batch uploads (.PNG, .JPG, .WEBP) with instant thumbnails
+                  </div>
                 </div>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '6px', maxWidth: '330px', marginInline: 'auto' }}>
-                  Removes driveways, tarps &amp; clutter · Lifts shadows · Renders all 5 studio environments &amp; vector-clipped .SVG
-                </div>
+
+                {isProcessingBatch && (
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={handleCancelBatch}
+                    style={{ width: '100%', padding: '7px 12px', fontSize: '12px' }}
+                  >
+                    <XCircle size={14} /> Cancel Remaining Batch
+                  </button>
+                )}
+
+                {batchStats && (
+                  <div
+                    data-testid="batch-telemetry-bar"
+                    className="mono-num"
+                    style={{
+                      fontSize: '11px',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      border: '1px solid rgba(16, 185, 129, 0.28)',
+                      color: '#a7f3d0',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>
+                      Batch: {batchStats.completedCount}/{batchStats.batchSize} ready
+                      {batchStats.failedCount > 0 ? ` (${batchStats.failedCount} failed)` : ''}
+                    </span>
+                    <span>
+                      Ack: {batchStats.ingestionLatencyMs}ms · 1st Thumb: {batchStats.firstThumbnailMs}ms · Avg: {batchStats.avgPerImageMs}ms
+                    </span>
+                  </div>
+                )}
               </div>
 
-              <div className="control-panel">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.1em' }}>
-                    OPTICAL &amp; ENVIRONMENT PARAMETERS
+              {/* STEP 2: CHOOSE BACKGROUND */}
+              <div className="workflow-section">
+                <div className="workflow-section-header">
+                  <h3 className="workflow-step-title">
+                    <span className="workflow-step-num">2</span>
+                    <span>Choose Background</span>
+                  </h3>
+                  <span className="mono-num" style={{ fontSize: '11px', color: 'var(--gold)' }}>
+                    {activeBackdropInfo.index} / 05
                   </span>
-                  <Sliders size={14} style={{ color: 'var(--gold)' }} />
                 </div>
-
                 <div className="form-group">
-                  <label>Active Studio Environment (5 Presets)</label>
+                  <label htmlFor="backdrop-select">Active Studio Environment</label>
                   <select
+                    id="backdrop-select"
                     value={backdropStyle}
                     onChange={(e) => setBackdropStyle(e.target.value)}
                   >
@@ -1312,110 +1816,182 @@ ${layerMarkups.join('\n')}
                     ))}
                   </select>
                 </div>
-
-                <div className="form-group">
-                  <label>Specular Vinyl Polish &amp; Shadow Recovery</label>
-                  <select
-                    value={polishIntensity}
-                    onChange={(e) => setPolishIntensity(e.target.value)}
-                  >
-                    <option value="high">
-                      High Commercial Grade (Deep Shadow Lift + Daylight Warmth + Specular Sheen)
-                    </option>
-                    <option value="medium">
-                      Balanced Studio Grade (Natural Shadow Recovery + Subtle Vibrance)
-                    </option>
-                    <option value="off">
-                      Linear Bypass (Cutout &amp; Environment Composite Only)
-                    </option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Preview Security Watermark (Never Injected Into Exports)</label>
-                  <input
-                    type="text"
-                    value={watermarkText}
-                    onChange={(e) => setWatermarkText(e.target.value)}
-                    placeholder="EDR PARTY RENTALS • PREVIEW ONLY"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Vector .SVG Archive Identifier</label>
-                  <input
-                    type="text"
-                    value={packCategory}
-                    onChange={(e) => setPackCategory(e.target.value)}
-                    placeholder="CleanSnap_Studio_SVG_Pack"
-                  />
-                </div>
+                <p className="workflow-step-desc">{activeBackdropInfo.description}</p>
               </div>
 
-              {/* Telemetry & 1-Click Vector Export Footer */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 14px',
-                  background: 'rgba(7, 8, 12, 0.7)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '10px',
-                  flexWrap: 'wrap',
-                  gap: '8px'
-                }}
-              >
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-                  VAULT READY: <strong style={{ color: 'var(--gold)' }}>{completedJobs.length} ASSETS</strong>
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
+              {/* STEP 3: REFINE EDGES */}
+              <div className="workflow-section">
+                <div className="workflow-section-header">
+                  <h3 className="workflow-step-title">
+                    <span className="workflow-step-num">3</span>
+                    <span>Refine Edges</span>
+                  </h3>
                   <button
+                    type="button"
+                    data-testid="toggle-refine-mode-btn"
+                    className={stageMode === 'refine' ? 'btn-gold' : 'btn-secondary'}
+                    onClick={() => setStageMode((m) => (m === 'refine' ? 'compare' : 'refine'))}
+                    style={{ padding: '6px 11px', fontSize: '12px' }}
+                  >
+                    <Brush size={13} />
+                    {stageMode === 'refine' ? 'Return to Split View' : 'Open Edge Refiner'}
+                  </button>
+                </div>
+                <p className="workflow-step-desc">
+                  Touch up fine hair, clothing boundaries, or missed corners with Add/Remove brushes, edge feathering, and foreground color decontamination.
+                </p>
+              </div>
+
+              {/* STEP 4: EXPORT */}
+              <div className="workflow-section">
+                <div className="workflow-section-header">
+                  <h3 className="workflow-step-title">
+                    <span className="workflow-step-num">4</span>
+                    <span>Export</span>
+                  </h3>
+                  <span className="mono-num" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    WATERMARK-FREE
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button
+                    type="button"
                     className="btn-gold"
-                    onClick={() => selectedJob && downloadSingleSvg(selectedJob)}
-                    disabled={!selectedJob?.svg_markup}
-                    style={{ padding: '7px 12px', fontSize: '12px' }}
+                    disabled={!selectedJob || !activeCleanDownloadUrl}
+                    onClick={() => {
+                      const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
+                      const ext = backdropStyle === 'transparent' ? 'png' : 'jpg';
+                      downloadImage(activeCleanDownloadUrl, `${base}_${backdropStyle}.${ext}`);
+                    }}
                   >
-                    <FileCode size={13} /> 1-Click .SVG
+                    <Download size={14} />
+                    Download {activeBackdropInfo.shortLabel} ({backdropStyle === 'transparent' ? '.PNG' : '.JPG'})
                   </button>
+
                   <button
+                    type="button"
                     className="btn-secondary"
-                    onClick={downloadSvgPackZip}
-                    disabled={completedJobs.length === 0}
-                    style={{ padding: '7px 12px', fontSize: '12px' }}
+                    disabled={!selectedJob}
+                    onClick={() => {
+                      const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
+                      const pngUrl =
+                        selectedJob.full_res_alpha_url ||
+                        selectedJob.cleanByStyle?.transparent ||
+                        selectedJob.trimmed_sticker_url;
+                      downloadImage(pngUrl, `${base}_alpha_cutout.png`);
+                    }}
                   >
-                    <Archive size={13} /> .SVG Pack (.ZIP)
+                    <ImageIcon size={14} />
+                    Download Transparent Cutout (.PNG — Full Res)
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-accent"
+                    disabled={!selectedJob?.svg_markup}
+                    onClick={() => downloadSingleSvg(selectedJob)}
+                  >
+                    <FileCode size={14} />
+                    Download Vector-Clipped Cutout (.SVG)
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={completedJobs.length === 0}
+                    onClick={downloadSvgPackZip}
+                  >
+                    <Archive size={14} />
+                    Export Batch Archive ({completedJobs.length} .SVG in .ZIP)
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* RIGHT COLUMN: 5-Environment Swatch Selector + Precision Split Loupe */}
-            <div className="card">
-              <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
+              {/* COLLAPSIBLE ADVANCED SETTINGS */}
+              <details className="advanced-details">
+                <summary className="advanced-summary">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+                    <Sliders size={13} style={{ color: 'var(--gold)' }} />
+                    <span>Advanced Settings (Polish, Watermark &amp; Archive Naming)</span>
+                  </span>
+                  <ChevronDown size={14} />
+                </summary>
+                <div className="advanced-body">
+                  <div className="form-group">
+                    <label htmlFor="polish-select">Subject Surface Polish</label>
+                    <select
+                      id="polish-select"
+                      value={polishIntensity}
+                      onChange={(e) => setPolishIntensity(e.target.value)}
+                    >
+                      <option value="high">Studio Polish (Shadow Lift + Warmth + Crisp Detail)</option>
+                      <option value="medium">Balanced Natural (Subtle Shadow Recovery)</option>
+                      <option value="off">Off (Unmodified Original Subject Colors)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="watermark-input">Preview Watermark Text (Preview Only)</label>
+                    <input
+                      id="watermark-input"
+                      type="text"
+                      value={watermarkText}
+                      onChange={(e) => setWatermarkText(e.target.value)}
+                      placeholder="EDR PARTY RENTALS • PREVIEW ONLY"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="pack-input">Batch .ZIP Folder Name</label>
+                    <input
+                      id="pack-input"
+                      type="text"
+                      value={packCategory}
+                      onChange={(e) => setPackCategory(e.target.value)}
+                      placeholder="CleanSnap_Studio_SVG_Pack"
+                    />
+                  </div>
+                </div>
+              </details>
+            </aside>
+
+            {/* ==================== RIGHT COLUMN: 5-ENVIRONMENT STAGE & EDGE REFINER ==================== */}
+            <main className="card" aria-label="Inspection and Refinement Stage">
+              <div className="card-header">
                 <div className="card-title-group">
                   <span className="card-step-label">
-                    STAGE 02 · ENVIRONMENT COMPOSITOR ({activeBackdropInfo.index} / 05)
+                    {stageMode === 'refine'
+                      ? 'MANUAL EDGE REFINEMENT WORKSPACE'
+                      : `ENVIRONMENT COMPOSITOR (${activeBackdropInfo.index} / 05)`}
                   </span>
                   <h2 className="card-title">
                     {selectedJob?.title || 'Select an Asset'} —{' '}
-                    <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--gold)' }}>
-                      {activeBackdropInfo.label}
+                    <span style={{ color: 'var(--gold)' }}>
+                      {stageMode === 'refine' ? 'Refine Cutout Mask' : activeBackdropInfo.label}
                     </span>
                   </h2>
                 </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '11px',
-                    padding: '5px 10px',
-                    borderRadius: '6px',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-secondary)'
-                  }}
-                >
-                  SPLIT CURTAIN · <strong style={{ color: 'var(--gold)' }}>{Math.round(sliderPos)}%</strong>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div className="nav-pill-group" role="tablist" aria-label="Stage View Mode">
+                    <button
+                      type="button"
+                      className={`nav-pill ${stageMode === 'compare' ? 'active' : ''}`}
+                      onClick={() => setStageMode('compare')}
+                      style={{ padding: '6px 12px', fontSize: '12px' }}
+                    >
+                      Before / After Split
+                    </button>
+                    <button
+                      type="button"
+                      className={`nav-pill ${stageMode === 'refine' ? 'active' : ''}`}
+                      onClick={() => setStageMode('refine')}
+                      style={{ padding: '6px 12px', fontSize: '12px' }}
+                    >
+                      <Brush size={13} /> Refine Edges
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1427,6 +2003,7 @@ ${layerMarkups.join('\n')}
                     <button
                       key={opt.id}
                       type="button"
+                      data-testid={`swatch-${opt.id}`}
                       onClick={() => setBackdropStyle(opt.id)}
                       className={`backdrop-swatch-btn ${active ? 'active' : ''}`}
                     >
@@ -1440,65 +2017,331 @@ ${layerMarkups.join('\n')}
                 })}
               </div>
 
-              {selectedJob && activePreviewUrl ? (
-                <>
-                  <div
-                    className="slider-container"
-                    ref={sliderRef}
-                    onPointerDown={(e) => {
-                      e.currentTarget.setPointerCapture(e.pointerId);
-                      updateSliderFromPointer(e.clientX);
-                    }}
-                    onPointerMove={(e) => {
-                      if (e.buttons === 1) {
-                        updateSliderFromPointer(e.clientX);
-                      }
-                    }}
-                    onContextMenu={(e) => e.preventDefault()}
-                    style={{ touchAction: 'none', cursor: 'ew-resize' }}
-                  >
-                    {/* AFTER Layer: Watermark is rasterized directly into the preview image pixels */}
-                    <img
-                      src={activePreviewUrl}
-                      alt={`AFTER: ${activeBackdropInfo.label}`}
-                      className="slider-img"
-                      draggable={false}
-                      style={{ pointerEvents: 'none', userSelect: 'none' }}
-                    />
+              {/* MODE A: MANUAL EDGE REFINEMENT WORKSPACE */}
+              {stageMode === 'refine' && selectedJob?._engineCache ? (
+                <div className="refiner-workspace" data-testid="edge-refiner-workspace">
+                  <div className="refiner-toolbar">
+                    <div className="refiner-tool-group" role="group" aria-label="Brush Tools">
+                      <button
+                        type="button"
+                        data-testid="brush-add-btn"
+                        className={brushMode === 'add' ? 'btn-gold' : 'btn-secondary'}
+                        onClick={() => setBrushMode('add')}
+                      >
+                        <Brush size={13} /> Add to Subject (+)
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="brush-erase-btn"
+                        className={brushMode === 'erase' ? 'btn-gold' : 'btn-secondary'}
+                        onClick={() => setBrushMode('erase')}
+                      >
+                        <Eraser size={13} /> Remove Background (−)
+                      </button>
+                      <button
+                        type="button"
+                        className={brushMode === 'pan' ? 'btn-gold' : 'btn-secondary'}
+                        onClick={() => setBrushMode('pan')}
+                      >
+                        <Hand size={13} /> Pan
+                      </button>
+                    </div>
 
-                    {/* BEFORE Layer: Raw Driveway / Tarp / Cluttered Photo clipped cleanly */}
-                    <img
-                      src={selectedJob.aligned_before_url || selectedJob.original_url}
-                      alt="BEFORE: Raw Capture"
-                      className="slider-img"
-                      draggable={false}
+                    <div className="refiner-tool-group" role="group" aria-label="History and Zoom">
+                      <button
+                        type="button"
+                        data-testid="mask-undo-btn"
+                        className="btn-secondary"
+                        onClick={handleUndoMask}
+                        disabled={!maskHistoryInfo.canUndo}
+                        title="Undo Brush Stroke"
+                      >
+                        <Undo2 size={13} /> Undo
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="mask-redo-btn"
+                        className="btn-secondary"
+                        onClick={handleRedoMask}
+                        disabled={!maskHistoryInfo.canRedo}
+                        title="Redo Brush Stroke"
+                      >
+                        <Redo2 size={13} /> Redo
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="mask-reset-btn"
+                        className="btn-secondary"
+                        onClick={handleResetMaskToAuto}
+                        title="Reset to Automatic Cutout Mask"
+                      >
+                        <RotateCcw size={13} /> Reset to Auto
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => setRefinerZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                        title="Zoom Out"
+                      >
+                        <ZoomOut size={13} />
+                      </button>
+                      <span className="mono-num" style={{ fontSize: '11.5px', minWidth: '44px', textAlign: 'center' }}>
+                        {Math.round(refinerZoom * 100)}%
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => setRefinerZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))}
+                        title="Zoom In"
+                      >
+                        <ZoomIn size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          setRefinerZoom(1);
+                          setRefinerPan({ x: 0, y: 0 });
+                        }}
+                      >
+                        <Maximize2 size={12} /> Fit
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          setRefinerZoom(2);
+                          setRefinerPan({ x: 0, y: 0 });
+                        }}
+                      >
+                        100%
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Preview Backdrop Selector inside Edge Refiner */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginRight: '4px' }}>
+                        Inspection Backdrop:
+                      </span>
+                      {[
+                        { id: 'checkerboard', label: 'Checkerboard' },
+                        { id: 'mask', label: 'Before/After Mask Overlay' },
+                        { id: 'dark', label: 'Solid Dark' },
+                        { id: 'light', label: 'Solid Light' }
+                      ].map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          className={`filter-chip ${refinerBgMode === m.id ? 'active' : ''}`}
+                          onClick={() => setRefinerBgMode(m.id)}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    className={`refiner-stage-viewport bg-${refinerBgMode}`}
+                    onPointerDown={handleRefinerPointerDown}
+                    onPointerMove={handleRefinerPointerMove}
+                    onPointerUp={handleRefinerPointerUp}
+                    onPointerCancel={handleRefinerPointerUp}
+                    style={{
+                      cursor: brushMode === 'pan' ? 'grab' : 'crosshair'
+                    }}
+                  >
+                    <canvas
+                      ref={refinerCanvasRef}
+                      data-testid="refiner-canvas"
+                      className="refiner-canvas"
                       style={{
-                        pointerEvents: 'none',
-                        userSelect: 'none',
-                        clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
+                        transform: `translate(${refinerPan.x}px, ${refinerPan.y}px) scale(${refinerZoom})`
                       }}
                     />
+                  </div>
 
-                    <span className="stage-pill before">RAW CAPTURE</span>
-                    <span className="stage-pill after">
-                      {activeBackdropInfo.index} · {activeBackdropInfo.shortLabel}
-                    </span>
+                  <div className="refiner-controls-grid">
+                    <div className="refiner-slider-box">
+                      <label htmlFor="brush-size-range">
+                        <span>Brush Size</span>
+                        <span className="val">{brushSize}px</span>
+                      </label>
+                      <input
+                        id="brush-size-range"
+                        type="range"
+                        min="4"
+                        max="120"
+                        value={brushSize}
+                        onChange={(e) => setBrushSize(Number(e.target.value))}
+                      />
+                    </div>
 
-                    <div
-                      className="slider-handle"
-                      style={{ left: `${sliderPos}%`, zIndex: 10, pointerEvents: 'none' }}
+                    <div className="refiner-slider-box">
+                      <label htmlFor="brush-hardness-range">
+                        <span>Brush Hardness</span>
+                        <span className="val">{brushHardness}%</span>
+                      </label>
+                      <input
+                        id="brush-hardness-range"
+                        type="range"
+                        min="10"
+                        max="100"
+                        value={brushHardness}
+                        onChange={(e) => setBrushHardness(Number(e.target.value))}
+                      />
+                    </div>
+
+                    <div className="refiner-slider-box">
+                      <label htmlFor="edge-expand-range">
+                        <span>Mask Expand / Contract</span>
+                        <span className="val">{edgeExpandPx > 0 ? `+${edgeExpandPx}` : edgeExpandPx}px</span>
+                      </label>
+                      <input
+                        id="edge-expand-range"
+                        type="range"
+                        min="-10"
+                        max="10"
+                        step="1"
+                        value={edgeExpandPx}
+                        onChange={(e) => setEdgeExpandPx(Number(e.target.value))}
+                      />
+                    </div>
+
+                    <div className="refiner-slider-box">
+                      <label htmlFor="edge-feather-range">
+                        <span>Edge Feathering</span>
+                        <span className="val">{edgeFeatherPx}px</span>
+                      </label>
+                      <input
+                        id="edge-feather-range"
+                        type="range"
+                        min="0"
+                        max="10"
+                        step="1"
+                        value={edgeFeatherPx}
+                        onChange={(e) => setEdgeFeatherPx(Number(e.target.value))}
+                      />
+                    </div>
+
+                    <div className="refiner-slider-box">
+                      <label htmlFor="edge-decontam-range">
+                        <span>Color Decontamination</span>
+                        <span className="val">{edgeDecontam ? `${edgeDecontamStrength}%` : 'OFF'}</span>
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={edgeDecontam}
+                          onChange={(e) => setEdgeDecontam(e.target.checked)}
+                          aria-label="Enable Edge Color Decontamination"
+                        />
+                        <input
+                          id="edge-decontam-range"
+                          type="range"
+                          min="0"
+                          max="100"
+                          disabled={!edgeDecontam}
+                          value={edgeDecontamStrength}
+                          onChange={(e) => setEdgeDecontamStrength(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setStageMode('compare')}
                     >
-                      <div className="slider-handle-circle">↔</div>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="apply-refinement-btn"
+                      className="btn-gold"
+                      onClick={applyRefinementToActiveJob}
+                    >
+                      <CheckCircle2 size={14} /> Apply Edge Refinement to Scene
+                    </button>
+                  </div>
+                </div>
+              ) : selectedJob && activePreviewUrl ? (
+                /* MODE B: BEFORE / AFTER SPLIT COMPARISON STAGE */
+                <>
+                  <div className="slider-stage-frame">
+                    <div
+                      className="slider-container"
+                      ref={sliderRef}
+                      data-testid="before-after-slider"
+                      role="slider"
+                      tabIndex={0}
+                      aria-label="Before and After Comparison Split Slider"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(sliderPos)}
+                      onKeyDown={handleSliderKeyDown}
+                      onPointerDown={(e) => {
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        updateSliderFromPointer(e.clientX);
+                      }}
+                      onPointerMove={(e) => {
+                        if (e.buttons === 1) {
+                          updateSliderFromPointer(e.clientX);
+                        }
+                      }}
+                      onPointerUp={(e) => {
+                        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                          e.currentTarget.releasePointerCapture(e.pointerId);
+                        }
+                      }}
+                      onContextMenu={(e) => e.preventDefault()}
+                    >
+                      {/* AFTER Layer */}
+                      <img
+                        src={activePreviewUrl}
+                        alt={`AFTER: ${activeBackdropInfo.label}`}
+                        className="slider-img"
+                        draggable={false}
+                      />
+
+                      {/* BEFORE Layer: Identical 1448x1086 4:3 coordinate space clipped at sliderPos% */}
+                      <img
+                        src={selectedJob.aligned_before_url || selectedJob.original_url}
+                        alt="BEFORE: Original Source"
+                        className="slider-img"
+                        draggable={false}
+                        style={{
+                          clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
+                        }}
+                      />
+
+                      <span className="stage-pill before">ORIGINAL SOURCE</span>
+                      <span className="stage-pill after">
+                        {activeBackdropInfo.index} · {activeBackdropInfo.shortLabel}
+                      </span>
+
+                      <div
+                        className="slider-handle"
+                        style={{ left: `${sliderPos}%`, zIndex: 10, pointerEvents: 'none' }}
+                      >
+                        <div className="slider-handle-circle">↔</div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Precision Scrubber Bar */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '2px 4px' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)', minWidth: '82px' }}>
-                      RAW BEFORE
+                    <span className="mono-num" style={{ fontSize: '11px', color: 'var(--text-secondary)', minWidth: '88px' }}>
+                      ORIGINAL ({Math.round(sliderPos)}%)
                     </span>
                     <input
                       type="range"
+                      aria-label="Comparison split percentage"
                       min="0"
                       max="100"
                       step="0.5"
@@ -1506,14 +2349,15 @@ ${layerMarkups.join('\n')}
                       onChange={(e) => setSliderPos(Number(e.target.value))}
                       style={{ flex: 1, cursor: 'pointer' }}
                     />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--gold)', minWidth: '95px', textAlign: 'right' }}>
+                    <span className="mono-num" style={{ fontSize: '11px', color: 'var(--gold)', minWidth: '100px', textAlign: 'right' }}>
                       {activeBackdropInfo.shortLabel.toUpperCase()}
                     </span>
                   </div>
 
-                  {/* Clean Watermark-Free Master Export Bar */}
+                  {/* Quick Export Action Bar */}
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '2px' }}>
                     <button
+                      type="button"
                       className="btn-gold"
                       style={{ flex: 1.4 }}
                       onClick={() => {
@@ -1522,22 +2366,24 @@ ${layerMarkups.join('\n')}
                         downloadImage(activeCleanDownloadUrl, `${base}_${backdropStyle}_master.${ext}`);
                       }}
                     >
-                      <Download size={15} /> Export Clean {activeBackdropInfo.shortLabel} ({backdropStyle === 'transparent' ? '.PNG' : '.JPG'})
+                      <Download size={15} /> Download {activeBackdropInfo.shortLabel} ({backdropStyle === 'transparent' ? '.PNG' : '.JPG'})
                     </button>
                     <button
+                      type="button"
                       className="btn-accent"
                       style={{ flex: 1 }}
                       onClick={() => downloadSingleSvg(selectedJob)}
                       disabled={!selectedJob.svg_markup}
                     >
-                      <FileCode size={15} /> 1-Click Export .SVG
+                      <FileCode size={15} /> Vector-Clipped .SVG
                     </button>
                     <button
+                      type="button"
                       className="btn-secondary"
                       style={{ flex: 1 }}
-                      onClick={downloadSvgPackZip}
+                      onClick={() => setStageMode('refine')}
                     >
-                      <Archive size={15} /> 1-Click .SVG Pack (.ZIP)
+                      <Brush size={15} /> Refine Edges
                     </button>
                   </div>
                 </>
@@ -1559,48 +2405,36 @@ ${layerMarkups.join('\n')}
                   }}
                 >
                   <ImageIcon size={36} style={{ color: 'var(--gold)' }} />
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Select an Inventory Asset Above or Drop Photos on the Left
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Select a Completed Asset Above or Add Photos on the Left
                   </div>
                 </div>
               )}
-            </div>
+            </main>
           </div>
         </>
       )}
 
-      {/* ==================== TAB 2: VECTOR .SVG & ELEMENT PACK VAULT ==================== */}
+      {/* ==================== TAB 2: EXPORT VAULT ==================== */}
       {activeTab === 'vault' && (
         <div className="card">
-          <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
+          <div className="card-header">
             <div className="card-title-group">
-              <span className="card-step-label">STAGE 02 · DIE-CUT VECTOR ARCHIVE</span>
+              <span className="card-step-label">READY FOR EXPORT</span>
               <h2 className="card-title">
-                1-Click .SVG &amp; Element Vault — "{packCategory}" ({completedJobs.length} Assets)
+                Processed Cutout &amp; Vector-Clipped .SVG Vault — "{packCategory}" ({completedJobs.length} Assets)
               </h2>
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button className="btn-gold" onClick={downloadSvgPackZip} disabled={completedJobs.length === 0}>
-                <FileCode size={15} /> 1-Click Export Complete .SVG Pack (.ZIP)
+              <button
+                type="button"
+                className="btn-gold"
+                onClick={downloadSvgPackZip}
+                disabled={completedJobs.length === 0}
+              >
+                <FileCode size={15} /> Export Batch Archive (.ZIP)
               </button>
             </div>
-          </div>
-
-          <div className="backdrop-swatch-bar">
-            {FIVE_BACKDROP_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setBackdropStyle(opt.id)}
-                className={`backdrop-swatch-btn ${backdropStyle === opt.id ? 'active' : ''}`}
-              >
-                <div className="swatch-top-row">
-                  <span className="swatch-dot" style={{ background: opt.swatchBg }} />
-                  <span className="swatch-index">{opt.index}</span>
-                </div>
-                <span className="swatch-name">Preview: {opt.shortLabel}</span>
-              </button>
-            ))}
           </div>
 
           {completedJobs.length > 0 ? (
@@ -1636,26 +2470,45 @@ ${layerMarkups.join('\n')}
                       overflow: 'hidden',
                       background: '#050609'
                     }}
-                    onContextMenu={(e) => e.preventDefault()}
                   >
                     <img
                       src={job.previewByStyle?.[backdropStyle] || job.trimmed_sticker_url}
                       alt={job.original_filename}
                       draggable={false}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
-                    <span className="contact-badge">0{idx + 1}</span>
+                    <span className="contact-badge">{String(idx + 1).padStart(2, '0')}</span>
                   </div>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
                     {job.title || job.original_filename}
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ flex: 1, padding: '8px 10px', fontSize: '12px' }}
+                      onClick={() => {
+                        const base = job.original_filename.replace(/\.[^/.]+$/, '');
+                        downloadImage(job.full_res_alpha_url || job.trimmed_sticker_url, `${base}_alpha.png`);
+                      }}
+                    >
+                      <Download size={13} /> Alpha .PNG
+                    </button>
+                    <button
+                      type="button"
                       className="btn-gold"
                       style={{ flex: 1, padding: '8px 10px', fontSize: '12px' }}
                       onClick={() => downloadSingleSvg(job)}
                     >
-                      <FileCode size={14} /> 1-Click .SVG
+                      <FileCode size={13} /> Cutline .SVG
                     </button>
                   </div>
                 </div>
@@ -1663,7 +2516,7 @@ ${layerMarkups.join('\n')}
             </div>
           ) : (
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              No assets in Vault yet. Drop photos in Stage 01 to generate cutouts and vector .SVGs.
+              No completed assets yet. Add photos in the Studio Workspace to generate cutouts.
             </div>
           )}
         </div>
