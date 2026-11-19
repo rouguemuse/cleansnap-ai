@@ -1521,13 +1521,16 @@ export default function App() {
     FIVE_BACKDROP_OPTIONS.find((b) => b.id === backdropStyle) || FIVE_BACKDROP_OPTIONS[0];
 
   const handleInstallAppClick = async () => {
-    if (installPromptEvent) {
-      installPromptEvent.prompt();
-      await installPromptEvent.userChoice.catch(() => {});
-      setInstallPromptEvent(null);
-      return;
-    }
     setShowInstallModal(true);
+    if (installPromptEvent) {
+      try {
+        installPromptEvent.prompt();
+        await installPromptEvent.userChoice;
+      } catch {
+        // Fallback to modal download buttons
+      }
+      setInstallPromptEvent(null);
+    }
   };
 
   return (
@@ -1578,7 +1581,7 @@ export default function App() {
             style={{ padding: '9px 14px', fontSize: '12.5px' }}
           >
             <Download size={14} />
-            <span>Install App (Windows / Android)</span>
+            <span>Download / Install App (Windows &amp; Android)</span>
           </button>
         </div>
       </header>
@@ -1587,52 +1590,129 @@ export default function App() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Install CleanSnap Studio"
+          aria-label="Download or Install CleanSnap Studio"
+          onClick={() => setShowInstallModal(false)}
           style={{
-            background: 'var(--surface-panel)',
-            border: '1px solid var(--border-gold)',
-            borderRadius: 'var(--radius-xl)',
-            padding: '18px 20px',
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(4, 5, 8, 0.82)',
+            backdropFilter: 'blur(12px)',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.75)'
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-            <div>
-              <span className="card-step-label">100% OFFLINE-READY NATIVE APP</span>
-              <h2 className="card-title">Install CleanSnap Studio on Windows or Android ($0)</h2>
-            </div>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setShowInstallModal(false)}
-              style={{ padding: '6px 12px' }}
-            >
-              Close
-            </button>
-          </div>
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '12px',
-              fontSize: '12.5px',
-              color: 'var(--text-secondary)'
+              width: '100%',
+              maxWidth: '640px',
+              background: '#0e111a',
+              border: '1.5px solid var(--gold)',
+              borderRadius: 'var(--radius-xl)',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              boxShadow: '0 28px 64px rgba(0, 0, 0, 0.9)'
             }}
           >
-            <div className="workflow-section">
-              <strong style={{ color: 'var(--text-primary)' }}>1. Direct Desktop / Android Install</strong>
-              <span>
-                In Chrome or Microsoft Edge, click the <strong>Install App</strong> icon in the address bar (or browser menu → <em>Install CleanSnap Studio</em>) to add it to your Windows Start Menu or Android Home Screen with full offline support.
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div>
+                <span className="card-step-label">DIRECT APP DOWNLOADS &amp; STORE PACKAGES ($0)</span>
+                <h2 className="card-title" style={{ fontSize: '21px', marginTop: '4px' }}>
+                  Download CleanSnap Studio for Windows or Android
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowInstallModal(false)}
+                style={{ padding: '6px 12px' }}
+              >
+                ✕ Close
+              </button>
             </div>
-            <div className="workflow-section">
-              <strong style={{ color: 'var(--gold)' }}>2. Microsoft Store (.MSIX) &amp; Android (.APK)</strong>
-              <span>
-                This site includes a store-certified <code>/manifest.webmanifest</code> and offline Service Worker (<code>/sw.js</code>). Paste <code>https://bold-oppenheimer.vercel.app</code> into <strong>PWABuilder.com</strong> to download your signed Windows <code>.msix</code> and Android <code>.apk</code> packages for $0.
-              </span>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* 1-Click Direct Windows Download */}
+              <div className="workflow-section" style={{ borderColor: 'rgba(229, 193, 88, 0.35)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <strong style={{ color: 'var(--text-primary)', fontSize: '14px', display: 'block' }}>
+                      1. Windows 10 / 11 App Package (.MSIX + Microsoft Store Bundle)
+                    </strong>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      Includes <code>CleanSnap Studio.msixbundle</code> (for Microsoft Store) &amp; <code>install.ps1</code> (for instant local PC install).
+                    </span>
+                  </div>
+                  <a
+                    href="/downloads/CleanSnap_Studio_Windows_Installer.zip"
+                    download="CleanSnap_Studio_Windows_Installer.zip"
+                    style={{
+                      textDecoration: 'none',
+                      background: 'linear-gradient(180deg, #ebd074 0%, #d4af37 100%)',
+                      color: '#090a0f',
+                      fontWeight: 600,
+                      fontSize: '12.5px',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Download size={14} /> Download Windows .ZIP (1.8 MB)
+                  </a>
+                </div>
+              </div>
+
+              {/* 1-Click Android APK Download Page */}
+              <div className="workflow-section" style={{ borderColor: 'rgba(16, 185, 129, 0.35)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <strong style={{ color: 'var(--text-primary)', fontSize: '14px', display: 'block' }}>
+                      2. Android Phone &amp; Tablet Package (.APK — 56 MB Offline Build)
+                    </strong>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      Compiled automatically by your GitHub Actions cloud builder. Scroll to <strong>Artifacts → CleanSnap-Studio-Android-APK</strong>.
+                    </span>
+                  </div>
+                  <a
+                    href="https://github.com/rouguemuse/cleansnap-ai/actions/runs/44524218279"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      textDecoration: 'none',
+                      background: 'linear-gradient(180deg, #10b981 0%, #059669 100%)',
+                      color: '#ffffff',
+                      fontWeight: 600,
+                      fontSize: '12.5px',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Package size={14} /> Open GitHub Android .APK Build ↗
+                  </a>
+                </div>
+              </div>
+
+              {/* Browser PWA Install Note */}
+              <div className="workflow-section">
+                <strong style={{ color: 'var(--text-primary)', fontSize: '13px' }}>
+                  3. Instant Browser App Install (Edge / Chrome Outside IDE Preview)
+                </strong>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  If you are viewing this inside the IDE preview tab, embedded previews block OS installers— click <strong>Download Windows .ZIP</strong> above, or open <code>https://bold-oppenheimer.vercel.app</code> in standalone Microsoft Edge or Chrome and click the <strong>Install App</strong> icon in the address bar.
+                </span>
+              </div>
             </div>
           </div>
         </div>
