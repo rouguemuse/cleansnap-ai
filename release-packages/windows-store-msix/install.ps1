@@ -6,25 +6,25 @@ if ($currentWindowsVersion -And $currentWindowsVersion -lt $minWindowsVersion) {
 }
 
 # Install the app using pwainstaller.exe
-Write-Host "Installing CleanSnap Studio..."
+Write-Host "Installing CleanSnap.Studio..."
 $currentDir = Get-Location
-$msixPath = ($currentDir.Path + "\" + "CleanSnap Studio.sideload.msix")
+$msixPath = ($currentDir.Path + "\" + "CleanSnap.Studio.sideload.msix")
 $installProc = Start-Process -FilePath "utils\pwainstaller.exe" -ArgumentList `"$msixPath`" -NoNewWindow -PassThru
 $handle = $installProc.Handle # cache pro.Handle, see https://stackoverflow.com/a/23797762/536
 $exitedNormally = $installProc.WaitForExit(10000)
 
 # Launch the app
 if ($installProc.ExitCode -eq 0) {
-	$app = Get-StartApps "CleanSnap Studio"
+	$app = Get-StartApps "CleanSnap.Studio"
 
 	# If it's an array, then we found multiple matching apps. Grab the last one.
 	if ($app -is [array]) {
-		Write-Host "Warning: found multiple apps installed named CleanSnap Studio. Launching best guess. If the wrong app launches, find the right one in your start menu."
+		Write-Host "Warning: found multiple apps installed named CleanSnap.Studio. Launching best guess. If the wrong app launches, find the right one in your start menu."
 		$app = $app[-1];
 	}
 
 	if ($app) {
-		Write-Host "Launching CleanSnap Studio..."
+		Write-Host "Launching CleanSnap.Studio..."
 		start ("shell:AppsFolder\" + $app.AppId)
 	} else {
 		Write-Host "Couldn't find installed app. If there are no errors above, you can find the app in your start menu"
