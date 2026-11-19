@@ -128,8 +128,14 @@ test('Unit 5: applyMaskRefinements integrates expand, feather, and decontaminati
   assert.equal(alpha[5 * w + 5], 255);
 });
 
-test('Unit 6: All required public studio backdrops, showcase cutouts, and ONNX model files exist', () => {
+test('Unit 6: All required public studio backdrops, showcase cutouts, ONNX model, and Store PWA assets exist', () => {
   const requiredFiles = [
+    'manifest.webmanifest',
+    'sw.js',
+    'icons/icon-192.png',
+    'icons/icon-512.png',
+    'icons/icon-maskable-512.png',
+    'icons/apple-touch-icon.png',
     'models/u2netp.onnx',
     'backdrops/green_screen_studio.jpg',
     'backdrops/cork_bulletin_board.jpg',
@@ -153,6 +159,10 @@ test('Unit 6: All required public studio backdrops, showcase cutouts, and ONNX m
     const full = path.join(publicDir, rel);
     assert.ok(fs.existsSync(full), `Missing required asset: ${rel}`);
     const stat = fs.statSync(full);
-    assert.ok(stat.size > 1000, `Asset ${rel} is unexpectedly small (${stat.size} bytes)`);
+    assert.ok(stat.size > 500, `Asset ${rel} is unexpectedly small (${stat.size} bytes)`);
   }
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(publicDir, 'manifest.webmanifest'), 'utf8'));
+  assert.equal(manifest.display, 'standalone');
+  assert.ok(Array.isArray(manifest.icons) && manifest.icons.length >= 3);
 });

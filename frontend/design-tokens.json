@@ -1,0 +1,62 @@
+{
+  "$schema": "https://tr.designtokens.org/format/",
+  "meta": {
+    "name": "CleanSnap Studio & ContextMuse Shared Design Tokens",
+    "version": "1.0.0",
+    "typographySystem": "Vercel Geist Sans + Geist Mono"
+  },
+  "color": {
+    "surface": {
+      "canvas": { "$value": "#050609", "$type": "color" },
+      "base": { "$value": "#07080c", "$type": "color" },
+      "panel": { "$value": "rgba(16, 18, 26, 0.88)", "$type": "color" },
+      "recessed": { "$value": "rgba(10, 12, 18, 0.76)", "$type": "color" },
+      "interactive": { "$value": "rgba(20, 24, 34, 0.88)", "$type": "color" }
+    },
+    "text": {
+      "primary": { "$value": "#f8fafc", "$type": "color", "wcagContrastOnBase": "19.4:1" },
+      "secondary": { "$value": "#a1a1aa", "$type": "color", "wcagContrastOnBase": "7.92:1" },
+      "muted": { "$value": "#82828c", "$type": "color", "wcagContrastOnBase": "5.18:1" }
+    },
+    "brand": {
+      "gold": { "$value": "#e5c158", "$type": "color" },
+      "emerald": { "$value": "#10b981", "$type": "color" }
+    },
+    "status": {
+      "success": {
+        "bg": { "$value": "rgba(6, 78, 59, 0.88)", "$type": "color" },
+        "border": { "$value": "rgba(16, 185, 129, 0.38)", "$type": "color" },
+        "text": { "$value": "#6ee7b7", "$type": "color", "wcagContrast": "10.4:1" }
+      },
+      "warning": {
+        "bg": { "$value": "rgba(120, 53, 15, 0.90)", "$type": "color" },
+        "border": { "$value": "rgba(245, 158, 11, 0.42)", "$type": "color" },
+        "text": { "$value": "#fcd34d", "$type": "color", "wcagContrast": "9.8:1" }
+      },
+      "danger": {
+        "bg": { "$value": "rgba(136, 19, 55, 0.92)", "$type": "color" },
+        "border": { "$value": "rgba(244, 63, 94, 0.45)", "$type": "color" },
+        "text": { "$value": "#fda4af", "$type": "color", "wcagContrast": "8.6:1" }
+      }
+    }
+  },
+  "radius": {
+    "xs": { "$value": "4px", "$type": "dimension" },
+    "sm": { "$value": "6px", "$type": "dimension" },
+    "md": { "$value": "8px", "$type": "dimension" },
+    "lg": { "$value": "12px", "$type": "dimension" },
+    "xl": { "$value": "16px", "$type": "dimension" }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans": { "$value": ["Geist", "Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"], "$type": "fontFamily" },
+      "mono": { "$value": ["Geist Mono", "IBM Plex Mono", "Courier New", "monospace"], "$type": "fontFamily" }
+    },
+    "tracking": {
+      "display": { "$value": "-0.03em", "$type": "dimension" },
+      "heading": { "$value": "-0.02em", "$type": "dimension" },
+      "ui": { "$value": "-0.01em", "$type": "dimension" },
+      "mono": { "$value": "0.07em", "$type": "dimension" }
+    }
+  }
+}

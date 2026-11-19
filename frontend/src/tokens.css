@@ -1,0 +1,88 @@
+/**
+ * CleanSnap Studio & ContextMuse — Shared Semantic Design Tokens (v1.0)
+ * Based on the Vercel Geist Typography & Obsidian Darkroom System
+ */
+:root {
+  /* 1. 5-Tier Semantic Darkroom Surface Hierarchy */
+  --surface-canvas: #050609;
+  --surface-base: #07080c;
+  --surface-panel: rgba(16, 18, 26, 0.88);
+  --surface-recessed: rgba(10, 12, 18, 0.76);
+  --surface-interactive: rgba(20, 24, 34, 0.88);
+  --surface-selected: linear-gradient(180deg, rgba(32, 37, 52, 0.95) 0%, rgba(19, 22, 32, 0.95) 100%);
+
+  /* Legacy alias bindings for zero-regression compatibility */
+  --bg-obsidian: var(--surface-base);
+  --bg-elevated: var(--surface-panel);
+  --bg-surface: rgba(23, 26, 38, 0.72);
+  --bg-glass: rgba(255, 255, 255, 0.03);
+
+  /* 2. Borders & Brand Accents */
+  --border-subtle: rgba(255, 255, 255, 0.085);
+  --border-highlight: rgba(255, 255, 255, 0.17);
+  --border-gold: rgba(229, 193, 88, 0.45);
+
+  --gold: #e5c158;
+  --gold-soft: rgba(229, 193, 88, 0.14);
+  --emerald: #10b981;
+  --emerald-soft: rgba(16, 185, 129, 0.14);
+  --danger: #f43f5e;
+  --warning: #f59e0b;
+
+  /* 3. WCAG AA Calibrated Text Colors (7.9:1+ on #07080c) */
+  --text-primary: #f8fafc;
+  --text-secondary: #a1a1aa;
+  --text-muted: #82828c;
+
+  /* 4. Semantic Status & Feedback Tuples (WCAG AA >= 8.6:1) */
+  --status-success-bg: rgba(6, 78, 59, 0.88);
+  --status-success-border: rgba(16, 185, 129, 0.38);
+  --status-success-text: #6ee7b7;
+
+  --status-warning-bg: rgba(120, 53, 15, 0.90);
+  --status-warning-border: rgba(245, 158, 11, 0.42);
+  --status-warning-text: #fcd34d;
+
+  --status-danger-bg: rgba(136, 19, 55, 0.92);
+  --status-danger-border: rgba(244, 63, 94, 0.45);
+  --status-danger-text: #fda4af;
+
+  /* 5. Geist Typography Stacks, Scale & Tracking */
+  --font-display: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', 'IBM Plex Mono', 'Courier New', monospace;
+
+  --text-display-size: clamp(1.625rem, 3vw, 2.125rem);
+  --text-h2-size: 1.1875rem;
+  --text-h3-size: 0.875rem;
+  --text-body-size: 0.84375rem;
+  --text-ui-size: 0.78125rem;
+  --text-label-size: 0.75rem;
+  --text-mono-xs: 0.65625rem;
+
+  --tracking-display: -0.03em;
+  --tracking-heading: -0.02em;
+  --tracking-ui: -0.01em;
+  --tracking-mono: 0.07em;
+
+  /* 6. Concentric Border-Radius Scale (16px -> 12px -> 8px -> 6px -> 4px) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* 7. Unified WCAG 2.2 Focus Appearance Ring */
+  --focus-ring-color: var(--gold);
+  --focus-ring-shadow: 0 0 0 2px #07080c, 0 0 0 4px rgba(229, 193, 88, 0.75);
+
+  /* 8. Studio Transparency Checkerboard Tokens */
+  --checker-dark-a: #12151e;
+  --checker-dark-b: #1b202e;
+  --checker-size: 20px;
+
+  /* 9. Motion Curves */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+}

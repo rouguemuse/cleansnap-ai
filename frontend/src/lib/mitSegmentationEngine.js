@@ -9,7 +9,7 @@
  */
 import * as ort from 'onnxruntime-web';
 
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
+// Uses Vite-bundled local WASM binary (/assets/ort-wasm-simd-threaded.jsep-*.wasm) for 100% offline execution
 ort.env.wasm.numThreads = 1;
 
 let cachedOrtSession = null;

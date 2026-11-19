@@ -789,6 +789,8 @@ export default function App() {
   const [refinerZoom, setRefinerZoom] = useState(1);
   const [refinerPan, setRefinerPan] = useState({ x: 0, y: 0 });
   const [maskHistoryInfo, setMaskHistoryInfo] = useState({ canUndo: false, canRedo: false, dirty: false });
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
 
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
@@ -813,7 +815,13 @@ export default function App() {
 
   useEffect(() => {
     const tracked = objectUrlsRef.current;
+    const onBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPromptEvent(e);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
     return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
       tracked.forEach((url) => URL.revokeObjectURL(url));
       tracked.clear();
     };
@@ -1512,6 +1520,16 @@ export default function App() {
   const activeBackdropInfo =
     FIVE_BACKDROP_OPTIONS.find((b) => b.id === backdropStyle) || FIVE_BACKDROP_OPTIONS[0];
 
+  const handleInstallAppClick = async () => {
+    if (installPromptEvent) {
+      installPromptEvent.prompt();
+      await installPromptEvent.userChoice.catch(() => {});
+      setInstallPromptEvent(null);
+      return;
+    }
+    setShowInstallModal(true);
+  };
+
   return (
     <div className="app-container">
       {/* ==================== TOP STUDIO HEADER ==================== */}
@@ -1519,7 +1537,7 @@ export default function App() {
         <div className="brand-lockup">
           <div className="brand-eyebrow">
             <span className="brand-eyebrow-dot" />
-            <span>CONTEXT &amp; MUSE · COMMERCIAL ASSET LAB</span>
+            <span>CONTEXT &amp; MUSE · COMMERCIAL ASSET LAB · 100% ON-DEVICE</span>
           </div>
           <h1 className="brand-title">
             <span>CleanSnap</span>
@@ -1530,27 +1548,95 @@ export default function App() {
           </p>
         </div>
 
-        <nav className="nav-pill-group" aria-label="Workspace Mode">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <nav className="nav-pill-group" aria-label="Workspace Mode">
+            <button
+              type="button"
+              className={`nav-pill ${activeTab === 'cleaner' ? 'active' : ''}`}
+              onClick={() => setActiveTab('cleaner')}
+            >
+              <span className="nav-pill-index">01</span>
+              <Sparkles size={15} />
+              <span>Studio Workspace</span>
+            </button>
+            <button
+              type="button"
+              className={`nav-pill ${activeTab === 'vault' ? 'active' : ''}`}
+              onClick={() => setActiveTab('vault')}
+            >
+              <span className="nav-pill-index">02</span>
+              <Package size={15} />
+              <span>Export Vault ({completedJobs.length})</span>
+            </button>
+          </nav>
+
           <button
             type="button"
-            className={`nav-pill ${activeTab === 'cleaner' ? 'active' : ''}`}
-            onClick={() => setActiveTab('cleaner')}
+            data-testid="install-app-btn"
+            className="btn-gold"
+            onClick={handleInstallAppClick}
+            style={{ padding: '9px 14px', fontSize: '12.5px' }}
           >
-            <span className="nav-pill-index">01</span>
-            <Sparkles size={15} />
-            <span>Studio Workspace</span>
+            <Download size={14} />
+            <span>Install App (Windows / Android)</span>
           </button>
-          <button
-            type="button"
-            className={`nav-pill ${activeTab === 'vault' ? 'active' : ''}`}
-            onClick={() => setActiveTab('vault')}
-          >
-            <span className="nav-pill-index">02</span>
-            <Package size={15} />
-            <span>Export Vault ({completedJobs.length})</span>
-          </button>
-        </nav>
+        </div>
       </header>
+
+      {showInstallModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Install CleanSnap Studio"
+          style={{
+            background: 'var(--surface-panel)',
+            border: '1px solid var(--border-gold)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '18px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.75)'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+            <div>
+              <span className="card-step-label">100% OFFLINE-READY NATIVE APP</span>
+              <h2 className="card-title">Install CleanSnap Studio on Windows or Android ($0)</h2>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setShowInstallModal(false)}
+              style={{ padding: '6px 12px' }}
+            >
+              Close
+            </button>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '12px',
+              fontSize: '12.5px',
+              color: 'var(--text-secondary)'
+            }}
+          >
+            <div className="workflow-section">
+              <strong style={{ color: 'var(--text-primary)' }}>1. Direct Desktop / Android Install</strong>
+              <span>
+                In Chrome or Microsoft Edge, click the <strong>Install App</strong> icon in the address bar (or browser menu → <em>Install CleanSnap Studio</em>) to add it to your Windows Start Menu or Android Home Screen with full offline support.
+              </span>
+            </div>
+            <div className="workflow-section">
+              <strong style={{ color: 'var(--gold)' }}>2. Microsoft Store (.MSIX) &amp; Android (.APK)</strong>
+              <span>
+                This site includes a store-certified <code>/manifest.webmanifest</code> and offline Service Worker (<code>/sw.js</code>). Paste <code>https://bold-oppenheimer.vercel.app</code> into <strong>PWABuilder.com</strong> to download your signed Windows <code>.msix</code> and Android <code>.apk</code> packages for $0.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==================== TAB 1: STUDIO WORKSPACE ==================== */}
       {activeTab === 'cleaner' && (

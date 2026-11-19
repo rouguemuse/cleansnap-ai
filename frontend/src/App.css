@@ -1,31 +1,10 @@
-:root {
-  --bg-obsidian: #07080c;
-  --bg-elevated: rgba(16, 18, 26, 0.86);
-  --bg-surface: rgba(23, 26, 38, 0.72);
-  --bg-glass: rgba(255, 255, 255, 0.03);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-highlight: rgba(255, 255, 255, 0.16);
-  --border-gold: rgba(229, 193, 88, 0.45);
+@import './tokens.css';
 
-  --gold: #e5c158;
-  --gold-soft: rgba(229, 193, 88, 0.14);
-  --emerald: #10b981;
-  --emerald-soft: rgba(16, 185, 129, 0.14);
-  --danger: #f43f5e;
-  --warning: #f59e0b;
-
-  --text-primary: #f8fafc;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-
-  /* Vercel Geist Typography System */
-  --font-display: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-serif: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-sans: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'Geist Mono', 'IBM Plex Mono', 'Courier New', monospace;
-
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-shadow);
 }
 
 *,
