@@ -1,0 +1,64 @@
+name: Build Android .APK & Windows .MSIX Store Packages ($0)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-store-packages:
+    name: Build Standalone Android .APK & Windows .MSIX
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Java 21 (Required for Android Gradle Build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install & Build Offline Web Bundle
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run qa
+
+      - name: Generate Android Native Project via Capacitor & Compile Signed Debug/Release APK
+        working-directory: frontend
+        run: |
+          npm install --no-save @capacitor/core @capacitor/cli @capacitor/android
+          if [ ! -f capacitor.config.json ]; then
+            cat << 'EOF' > capacitor.config.json
+          {
+            "appId": "com.contextmuse.cleansnap",
+            "appName": "CleanSnap Studio",
+            "webDir": "dist",
+            "bundledWebRuntime": false
+          }
+          EOF
+          fi
+          npx cap add android || npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../CleanSnap-Studio-Android.apk
+
+      - name: Upload Android .APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CleanSnap-Studio-Android-APK
+          path: frontend/CleanSnap-Studio-Android.apk
+          retention-days: 30
