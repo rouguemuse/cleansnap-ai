@@ -792,6 +792,26 @@ export default function App() {
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
 
+  // 100% Stripe Studio Pro & B2B Monetization State
+  const [proLicenseKey, setProLicenseKey] = useState(() => {
+    try {
+      return localStorage.getItem('cleansnap_pro_license') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [isProUnlocked, setIsProUnlocked] = useState(() => {
+    try {
+      return Boolean(localStorage.getItem('cleansnap_pro_license'));
+    } catch {
+      return false;
+    }
+  });
+  const [showProModal, setShowProModal] = useState(false);
+  const [proInputVal, setProInputVal] = useState('');
+  const [proStatusMsg, setProStatusMsg] = useState('');
+  const [isCheckingOutStripe, setIsCheckingOutStripe] = useState(false);
+
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
   const sliderRef = useRef(null);
@@ -820,6 +840,30 @@ export default function App() {
       setInstallPromptEvent(e);
     };
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
+
+    // Auto-verify Stripe Checkout redirect (?stripe_session=cs_...)
+    const params = new URLSearchParams(window.location.search);
+    const stripeSession = params.get('stripe_session');
+    if (stripeSession) {
+      fetch('/api/verify-stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', sessionId: stripeSession })
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.valid && data.licenseKey) {
+            localStorage.setItem('cleansnap_pro_license', data.licenseKey);
+            setProLicenseKey(data.licenseKey);
+            setIsProUnlocked(true);
+            setProStatusMsg(`Activated via Stripe! Your Lifetime Key: ${data.licenseKey}`);
+            setShowProModal(true);
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);
       tracked.forEach((url) => URL.revokeObjectURL(url));
@@ -1533,6 +1577,94 @@ export default function App() {
     }
   };
 
+  const handleStartStripeCheckout = async (tier = 'pro') => {
+    const directLink =
+      tier === 'b2b'
+        ? import.meta.env.VITE_STRIPE_B2B_LINK
+        : import.meta.env.VITE_STRIPE_PRO_LINK;
+    if (directLink) {
+      window.open(directLink, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    setIsCheckingOutStripe(true);
+    setProStatusMsg('Connecting to Stripe Checkout...');
+    try {
+      const resp = await fetch('/api/verify-stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_checkout',
+          tier,
+          origin: window.location.origin
+        })
+      });
+      const data = await resp.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setProStatusMsg(
+        data.message ||
+          data.error ||
+          'Add STRIPE_SECRET_KEY in Vercel to enable 1-click live checkout, or enter your license key below.'
+      );
+    } catch {
+      setProStatusMsg('Offline mode: enter your CSPRO license key below to unlock immediately.');
+    } finally {
+      setIsCheckingOutStripe(false);
+    }
+  };
+
+  const handleVerifyStripeKeyOrEmail = async (e) => {
+    if (e) e.preventDefault();
+    const val = proInputVal.trim();
+    if (!val) return;
+
+    const upper = val.toUpperCase();
+    // Instant client-side check for Owner Master Keys
+    if (upper === 'CSPRO-MUSE-VIP-2026' || upper === 'CSPRO-WILDER-OWNER-2026') {
+      try {
+        localStorage.setItem('cleansnap_pro_license', upper);
+      } catch {
+        // ignore storage error
+      }
+      setProLicenseKey(upper);
+      setIsProUnlocked(true);
+      setProStatusMsg(`Studio Pro Activated! Key: ${upper}`);
+      return;
+    }
+
+    setProStatusMsg('Verifying with Stripe...');
+    try {
+      const isEmail = val.includes('@');
+      const resp = await fetch('/api/verify-stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify',
+          email: isEmail ? val : undefined,
+          licenseKey: !isEmail ? upper : undefined
+        })
+      });
+      const data = await resp.json();
+      if (data.valid && data.licenseKey) {
+        try {
+          localStorage.setItem('cleansnap_pro_license', data.licenseKey);
+        } catch {
+          // ignore
+        }
+        setProLicenseKey(data.licenseKey);
+        setIsProUnlocked(true);
+        setProStatusMsg(`Studio Pro Activated! Key: ${data.licenseKey}`);
+      } else {
+        setProStatusMsg(data.error || 'Key or Stripe email not found.');
+      }
+    } catch {
+      setProStatusMsg('Could not reach verification server. Check your key or connection.');
+    }
+  };
+
   return (
     <div className="app-container">
       {/* ==================== TOP STUDIO HEADER ==================== */}
@@ -1575,16 +1707,164 @@ export default function App() {
 
           <button
             type="button"
+            data-testid="studio-pro-btn"
+            className={isProUnlocked ? 'btn-accent' : 'btn-gold'}
+            onClick={() => setShowProModal(true)}
+            style={{ padding: '9px 14px', fontSize: '12.5px' }}
+          >
+            <Sparkles size={14} />
+            <span>{isProUnlocked ? 'STUDIO PRO ACTIVE' : 'Unlock Studio Pro ($14)'}</span>
+          </button>
+
+          <button
+            type="button"
             data-testid="install-app-btn"
-            className="btn-gold"
+            className="btn-secondary"
             onClick={handleInstallAppClick}
             style={{ padding: '9px 14px', fontSize: '12.5px' }}
           >
             <Download size={14} />
-            <span>Download / Install App (Windows &amp; Android)</span>
+            <span>Install App (Windows &amp; Android)</span>
           </button>
         </div>
       </header>
+
+      {showProModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="CleanSnap Studio Pro & B2B Stripe Checkout"
+          onClick={() => setShowProModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(4, 5, 8, 0.84)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '660px',
+              background: '#0e111a',
+              border: '1.5px solid var(--gold)',
+              borderRadius: 'var(--radius-xl)',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              boxShadow: '0 28px 64px rgba(0, 0, 0, 0.92)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div>
+                <span className="card-step-label">STRIPE COMMERCIAL LICENSING &amp; B2B STUDIO</span>
+                <h2 className="card-title" style={{ fontSize: '21px', marginTop: '4px' }}>
+                  {isProUnlocked
+                    ? `CleanSnap Studio Pro Active (${proLicenseKey})`
+                    : 'Upgrade to CleanSnap Studio Pro or Book a Bulk Catalog Batch'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowProModal(false)}
+                style={{ padding: '6px 12px' }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+              {/* Tier 1: $14 Lifetime Studio Pro */}
+              <div className="workflow-section" style={{ borderColor: 'rgba(229, 193, 88, 0.45)', justifyContent: 'space-between' }}>
+                <div>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--gold)', fontWeight: 600 }}>
+                    LIFETIME SOFTWARE KEY · ONE-TIME
+                  </span>
+                  <h3 style={{ margin: '4px 0', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Studio Pro — $14
+                  </h3>
+                  <p className="workflow-step-desc" style={{ marginBottom: '10px' }}>
+                    Unlocks multi-photo batch folders, Marching-Squares vector <code>.SVG</code> cutline packs (<code>.ZIP</code>), and custom brand watermarks across Windows, Android &amp; Web.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-gold"
+                  disabled={isCheckingOutStripe}
+                  onClick={() => handleStartStripeCheckout('pro')}
+                  style={{ width: '100%' }}
+                >
+                  <Sparkles size={14} /> Checkout with Stripe ($14) →
+                </button>
+              </div>
+
+              {/* Tier 2: $149 B2B Done-For-You Catalog Service */}
+              <div className="workflow-section" style={{ borderColor: 'rgba(16, 185, 129, 0.45)', justifyContent: 'space-between' }}>
+                <div>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--emerald)', fontWeight: 600 }}>
+                    DONE-FOR-YOU B2B SERVICE
+                  </span>
+                  <h3 style={{ margin: '4px 0', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Bulk Catalog Batch — $149
+                  </h3>
+                  <p className="workflow-step-desc" style={{ marginBottom: '10px' }}>
+                    Have 100–200 messy rental, dealership, or product photos? Send us your folder—we clean, stage on custom brand backdrops, and deliver your master <code>.PNG</code> + <code>.SVG</code> vault.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-accent"
+                  disabled={isCheckingOutStripe}
+                  onClick={() => handleStartStripeCheckout('b2b')}
+                  style={{ width: '100%' }}
+                >
+                  <Package size={14} /> Book Bulk Catalog Batch ($149) →
+                </button>
+              </div>
+            </div>
+
+            {/* Restore Purchase by Stripe Email or License Key */}
+            <form onSubmit={handleVerifyStripeKeyOrEmail} className="workflow-section">
+              <label htmlFor="stripe-restore-input" style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Already Purchased on Stripe? Restore by Checkout Email or License Key:
+              </label>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input
+                  id="stripe-restore-input"
+                  type="text"
+                  value={proInputVal}
+                  onChange={(e) => setProInputVal(e.target.value)}
+                  placeholder="Enter your Stripe checkout email or CSPRO-XXXX-XXXX-XXXX key"
+                  style={{ flex: 1, minWidth: '220px' }}
+                />
+                <button type="submit" className="btn-gold">
+                  <CheckCircle2 size={14} /> Activate Pro
+                </button>
+              </div>
+              {proStatusMsg && (
+                <div
+                  className="mono-num"
+                  style={{
+                    fontSize: '11.5px',
+                    color: isProUnlocked ? '#6ee7b7' : 'var(--gold)',
+                    marginTop: '4px'
+                  }}
+                >
+                  {proStatusMsg}
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
 
       {showInstallModal && (
         <div
@@ -2120,6 +2400,35 @@ export default function App() {
                   </div>
                 </div>
               </details>
+
+              {/* B2B DONE-FOR-YOU CATALOG SERVICE CTA (STRIPE) */}
+              <div
+                className="workflow-section"
+                style={{
+                  borderColor: 'rgba(229, 193, 88, 0.35)',
+                  background: 'linear-gradient(180deg, rgba(229, 193, 88, 0.07) 0%, rgba(10, 12, 18, 0.85) 100%)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--gold)', fontWeight: 600 }}>
+                    WHITE-GLOVE B2B SERVICE
+                  </span>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: '#6ee7b7', fontWeight: 600 }}>
+                    STRIPE CHECKOUT
+                  </span>
+                </div>
+                <p className="workflow-step-desc" style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                  Need 100–200+ rental, auto, or product photos cleaned &amp; staged on custom brand backdrops?
+                </p>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowProModal(true)}
+                  style={{ width: '100%', borderColor: 'rgba(229, 193, 88, 0.45)', color: 'var(--gold)' }}
+                >
+                  <Sparkles size={13} /> Order Bulk Catalog Batch / Studio Pro →
+                </button>
+              </div>
             </aside>
 
             {/* ==================== RIGHT COLUMN: 5-ENVIRONMENT STAGE & EDGE REFINER ==================== */}
