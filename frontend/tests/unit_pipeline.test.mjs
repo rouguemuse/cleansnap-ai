@@ -166,3 +166,18 @@ test('Unit 6: All required public studio backdrops, showcase cutouts, ONNX model
   assert.equal(manifest.display, 'standalone');
   assert.ok(Array.isArray(manifest.icons) && manifest.icons.length >= 3);
 });
+
+test('Unit 7: Stripe HMAC Access Token & Signed License Key cryptographic verification', async () => {
+  const stripeMod = await import('../../api/verify-stripe.js');
+  const genKey = stripeMod.generateSignedLicenseKey('customer@example.com:pro');
+  assert.match(genKey, /^CSPRO-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/);
+  assert.equal(stripeMod.verifySignedLicenseKey(genKey), true, 'Generated key must verify');
+  assert.equal(stripeMod.verifySignedLicenseKey('CSPRO-0000-0000-0000'), false, 'Tampered key must fail');
+  assert.equal(stripeMod.verifySignedLicenseKey('CSPRO-MUSE-VIP-2026'), true, 'Owner master key must verify');
+
+  const token = stripeMod.issueHmacAccessToken(genKey, ['pack_auto'], 'customer@example.com');
+  const decoded = stripeMod.verifyHmacAccessToken(token);
+  assert.ok(decoded, 'Valid HMAC token must decode');
+  assert.deepEqual(decoded.ent, ['pack_auto']);
+  assert.equal(stripeMod.verifyHmacAccessToken(token + 'tamper'), null, 'Tampered HMAC token must be rejected');
+});
