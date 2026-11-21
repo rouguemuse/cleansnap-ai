@@ -76,6 +76,73 @@ const FIVE_BACKDROP_OPTIONS = [
   }
 ];
 
+// Server-Gated Premium Industry Backdrop Packs (Delivered only by /api/pro-assets after HMAC Stripe verification)
+const PREMIUM_BACKDROP_OPTIONS = [
+  {
+    id: 'rental_twilight_patio',
+    index: '06',
+    packId: 'pack_rental',
+    packName: 'Event & Party Rental Pack ($9)',
+    label: 'Twilight String-Lit Patio Turf',
+    shortLabel: 'Twilight Patio',
+    swatchBg: 'linear-gradient(135deg, #1c2541 0%, #2d6a4f 100%)',
+    description: 'Warm bistro string lights over manicured evening event turf (Server-Gated Event Pack)'
+  },
+  {
+    id: 'rental_event_pavilion',
+    index: '07',
+    packId: 'pack_rental',
+    packName: 'Event & Party Rental Pack ($9)',
+    label: 'Grand Hardwood Event Pavilion',
+    shortLabel: 'Event Pavilion',
+    swatchBg: 'linear-gradient(135deg, #f8fafc 0%, #b45309 100%)',
+    description: 'Clean architectural reception hall with warm oak event flooring (Server-Gated Event Pack)'
+  },
+  {
+    id: 'auto_obsidian_cyclorama',
+    index: '08',
+    packId: 'pack_auto',
+    packName: 'Auto & Dealership Showroom Pack ($9)',
+    label: 'Wet Obsidian Studio Cyclorama',
+    shortLabel: 'Obsidian Auto',
+    swatchBg: 'linear-gradient(135deg, #27272a 0%, #050609 100%)',
+    description: 'Dark dealership reflection floor with overhead gold softbox strip (Server-Gated Auto Pack)'
+  },
+  {
+    id: 'auto_led_bay',
+    index: '09',
+    packId: 'pack_auto',
+    packName: 'Auto & Dealership Showroom Pack ($9)',
+    label: 'Architectural LED Dealership Bay',
+    shortLabel: 'LED Showroom',
+    swatchBg: 'linear-gradient(135deg, #090d16 0%, #38bdf8 100%)',
+    description: 'Modern luxury detailing bay with cyan & daylight LED light bars (Server-Gated Auto Pack)'
+  },
+  {
+    id: 'ecom_travertine_podium',
+    index: '10',
+    packId: 'pack_ecom',
+    packName: 'E-Commerce & Apparel Editorial Pack ($9)',
+    label: 'Warm Travertine Limestone Studio',
+    shortLabel: 'Travertine',
+    swatchBg: 'linear-gradient(135deg, #f5f0e6 0%, #bca98e 100%)',
+    description: 'Minimalist Mediterranean limestone studio for apparel & luxury goods (Server-Gated E-Com Pack)'
+  },
+  {
+    id: 'ecom_brushed_linen',
+    index: '11',
+    packId: 'pack_ecom',
+    packName: 'E-Commerce & Apparel Editorial Pack ($9)',
+    label: 'Editorial Sand Linen Backdrop',
+    shortLabel: 'Sand Linen',
+    swatchBg: 'linear-gradient(135deg, #faf8f5 0%, #d6cbb9 100%)',
+    description: 'Soft editorial sand linen gallery backdrop with natural studio falloff (Server-Gated E-Com Pack)'
+  }
+];
+
+const ALL_BACKDROP_OPTIONS = [...FIVE_BACKDROP_OPTIONS, ...PREMIUM_BACKDROP_OPTIONS];
+const SERVER_GATED_STYLE_MAP = new Map(PREMIUM_BACKDROP_OPTIONS.map((o) => [o.id, o]));
+
 // Pre-loaded Showcase Pairs — all 6 use dynamic 5-backdrop compositing & shared 4:3 coordinate alignment
 const EDR_SHOWCASE_SAMPLES = [
   {
@@ -526,6 +593,31 @@ async function renderSingleEnvironmentComposite(engineCache, styleId, watermarkT
     ctx.restore();
 
     ctx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
+  } else if (SERVER_GATED_STYLE_MAP.has(styleId)) {
+    // Cryptographically Server-Gated Premium Backdrop Pack (/api/pro-assets)
+    let token = '';
+    try {
+      token = localStorage.getItem('cleansnap_pro_token') || '';
+    } catch {
+      token = '';
+    }
+    const resp = await fetch(
+      `/api/pro-assets?style=${encodeURIComponent(styleId)}&token=${encodeURIComponent(token)}`
+    );
+    if (!resp.ok) {
+      throw new Error('LOCKED_PREMIUM_PACK');
+    }
+    const assetData = await resp.json();
+    const bgImg = await loadImageSafe(assetData.svgDataUrl);
+    if (bgImg) {
+      ctx.drawImage(bgImg, 0, 0, sceneW, sceneH);
+    }
+    ctx.save();
+    ctx.shadowColor = assetData.shadowColor || 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = assetData.shadowBlur || 28;
+    ctx.shadowOffsetY = assetData.shadowOffsetY || 14;
+    ctx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
+    ctx.restore();
   } else {
     // transparent
     ctx.drawImage(subjectCanvas, tightBbox.x, tightBbox.y, tightBbox.w, tightBbox.h, drawX, drawY, drawW, drawH);
@@ -792,12 +884,20 @@ export default function App() {
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
 
-  // 100% Stripe Studio Pro & B2B Monetization State
+  // 100% Stripe Studio Pro, Server-Gated Backdrop Packs & B2B Intake State
   const [proLicenseKey, setProLicenseKey] = useState(() => {
     try {
       return localStorage.getItem('cleansnap_pro_license') || '';
     } catch {
       return '';
+    }
+  });
+  const [unlockedPacks, setUnlockedPacks] = useState(() => {
+    try {
+      const raw = localStorage.getItem('cleansnap_pro_entitlements');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
     }
   });
   const [isProUnlocked, setIsProUnlocked] = useState(() => {
@@ -808,9 +908,22 @@ export default function App() {
     }
   });
   const [showProModal, setShowProModal] = useState(false);
+  const [proModalTab, setProModalTab] = useState('packs'); // 'packs' | 'b2b'
   const [proInputVal, setProInputVal] = useState('');
   const [proStatusMsg, setProStatusMsg] = useState('');
   const [isCheckingOutStripe, setIsCheckingOutStripe] = useState(false);
+
+  // B2B 100-500 Photo Folder Intake State
+  const [b2bForm, setB2bForm] = useState({
+    businessName: '',
+    contactEmail: '',
+    folderUrl: '',
+    watermarkText: '',
+    backdropPack: 'All Studio Backdrops + Alpha .PNG + Vector .SVG',
+    photoCountEstimate: '100-200 Photos',
+    notes: ''
+  });
+  const [b2bOrderReceipt, setB2bOrderReceipt] = useState(null);
 
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
@@ -844,19 +957,36 @@ export default function App() {
     // Auto-verify Stripe Checkout redirect (?stripe_session=cs_...)
     const params = new URLSearchParams(window.location.search);
     const stripeSession = params.get('stripe_session');
+    const returnedTier = params.get('tier');
     if (stripeSession) {
       fetch('/api/verify-stripe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', sessionId: stripeSession })
+        body: JSON.stringify({ action: 'verify', sessionId: stripeSession, tier: returnedTier })
       })
         .then((r) => r.json())
         .then((data) => {
           if (data.valid && data.licenseKey) {
-            localStorage.setItem('cleansnap_pro_license', data.licenseKey);
+            const ents = data.entitlements || ['all'];
+            try {
+              localStorage.setItem('cleansnap_pro_license', data.licenseKey);
+              if (data.accessToken) localStorage.setItem('cleansnap_pro_token', data.accessToken);
+              localStorage.setItem('cleansnap_pro_entitlements', JSON.stringify(ents));
+            } catch {
+              // ignore
+            }
             setProLicenseKey(data.licenseKey);
+            setUnlockedPacks(ents);
             setIsProUnlocked(true);
-            setProStatusMsg(`Activated via Stripe! Your Lifetime Key: ${data.licenseKey}`);
+            if (data.email) {
+              setB2bForm((f) => ({ ...f, contactEmail: data.email }));
+            }
+            if (returnedTier === 'b2b' || data.isB2bOrder) {
+              setProModalTab('b2b');
+              setProStatusMsg(`B2B Order Verified! Submit your photo folder link below. Complimentary Pro Key: ${data.licenseKey}`);
+            } else {
+              setProStatusMsg(`Activated via Stripe! Your Key: ${data.licenseKey}`);
+            }
             setShowProModal(true);
             window.history.replaceState({}, '', window.location.pathname);
           }
@@ -1562,7 +1692,47 @@ export default function App() {
   const activePreviewUrl = selectedJob?.previewByStyle?.[backdropStyle] || null;
   const activeCleanDownloadUrl = selectedJob?.cleanByStyle?.[backdropStyle] || null;
   const activeBackdropInfo =
-    FIVE_BACKDROP_OPTIONS.find((b) => b.id === backdropStyle) || FIVE_BACKDROP_OPTIONS[0];
+    ALL_BACKDROP_OPTIONS.find((b) => b.id === backdropStyle) || FIVE_BACKDROP_OPTIONS[0];
+
+  const isPackUnlocked = useCallback(
+    (packId) => {
+      if (!packId) return true;
+      return unlockedPacks.includes('all') || unlockedPacks.includes(packId);
+    },
+    [unlockedPacks]
+  );
+
+  const handleSelectBackdropStyle = (styleId) => {
+    const opt = ALL_BACKDROP_OPTIONS.find((b) => b.id === styleId);
+    if (opt?.packId && !isPackUnlocked(opt.packId)) {
+      setProModalTab('packs');
+      setProStatusMsg(`"${opt.label}" is part of the ${opt.packName}. Unlock below or enter your key.`);
+      setShowProModal(true);
+      return;
+    }
+    setBackdropStyle(styleId);
+  };
+
+  const handleB2bIntakeSubmit = async (e) => {
+    e.preventDefault();
+    setProStatusMsg('Submitting your B2B bulk catalog folder...');
+    try {
+      const resp = await fetch('/api/b2b-intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(b2bForm)
+      });
+      const data = await resp.json();
+      if (resp.ok && data.ok) {
+        setB2bOrderReceipt(data);
+        setProStatusMsg(data.message);
+      } else {
+        setProStatusMsg(data.error || 'Please check your folder URL and email.');
+      }
+    } catch {
+      setProStatusMsg('Network error submitting B2B order. Please try again.');
+    }
+  };
 
   const handleInstallAppClick = async () => {
     setShowInstallModal(true);
@@ -1622,20 +1792,7 @@ export default function App() {
     if (!val) return;
 
     const upper = val.toUpperCase();
-    // Instant client-side check for Owner Master Keys
-    if (upper === 'CSPRO-MUSE-VIP-2026' || upper === 'CSPRO-WILDER-OWNER-2026') {
-      try {
-        localStorage.setItem('cleansnap_pro_license', upper);
-      } catch {
-        // ignore storage error
-      }
-      setProLicenseKey(upper);
-      setIsProUnlocked(true);
-      setProStatusMsg(`Studio Pro Activated! Key: ${upper}`);
-      return;
-    }
-
-    setProStatusMsg('Verifying with Stripe...');
+    setProStatusMsg('Verifying with Stripe & Server Token Authority...');
     try {
       const isEmail = val.includes('@');
       const resp = await fetch('/api/verify-stripe', {
@@ -1649,14 +1806,18 @@ export default function App() {
       });
       const data = await resp.json();
       if (data.valid && data.licenseKey) {
+        const ents = data.entitlements || ['all', 'pack_rental', 'pack_auto', 'pack_ecom'];
         try {
           localStorage.setItem('cleansnap_pro_license', data.licenseKey);
+          if (data.accessToken) localStorage.setItem('cleansnap_pro_token', data.accessToken);
+          localStorage.setItem('cleansnap_pro_entitlements', JSON.stringify(ents));
         } catch {
           // ignore
         }
         setProLicenseKey(data.licenseKey);
+        setUnlockedPacks(ents);
         setIsProUnlocked(true);
-        setProStatusMsg(`Studio Pro Activated! Key: ${data.licenseKey}`);
+        setProStatusMsg(`Unlocked (${data.tier})! Server-Signed Key: ${data.licenseKey}`);
       } else {
         setProStatusMsg(data.error || 'Key or Stripe email not found.');
       }
@@ -1739,97 +1900,301 @@ export default function App() {
             position: 'fixed',
             inset: 0,
             zIndex: 9999,
-            background: 'rgba(4, 5, 8, 0.84)',
+            background: 'rgba(4, 5, 8, 0.86)',
             backdropFilter: 'blur(12px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px'
+            padding: '16px',
+            overflowY: 'auto'
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
-              maxWidth: '660px',
+              maxWidth: '760px',
               background: '#0e111a',
               border: '1.5px solid var(--gold)',
               borderRadius: 'var(--radius-xl)',
-              padding: '24px',
+              padding: '22px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '16px',
-              boxShadow: '0 28px 64px rgba(0, 0, 0, 0.92)'
+              gap: '14px',
+              boxShadow: '0 28px 64px rgba(0, 0, 0, 0.94)',
+              maxHeight: '92vh',
+              overflowY: 'auto'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
               <div>
-                <span className="card-step-label">STRIPE COMMERCIAL LICENSING &amp; B2B STUDIO</span>
-                <h2 className="card-title" style={{ fontSize: '21px', marginTop: '4px' }}>
+                <span className="card-step-label">SERVER-GATED STRIPE LICENSING &amp; B2B INTAKE</span>
+                <h2 className="card-title" style={{ fontSize: '20px', marginTop: '3px' }}>
                   {isProUnlocked
-                    ? `CleanSnap Studio Pro Active (${proLicenseKey})`
-                    : 'Upgrade to CleanSnap Studio Pro or Book a Bulk Catalog Batch'}
+                    ? `CleanSnap Studio Pro Unlocked (${proLicenseKey})`
+                    : 'Unlock Industry Backdrop Packs, All-Access Pro, or B2B Bulk Service'}
                 </h2>
               </div>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowProModal(false)}
-                style={{ padding: '6px 12px' }}
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-              {/* Tier 1: $14 Lifetime Studio Pro */}
-              <div className="workflow-section" style={{ borderColor: 'rgba(229, 193, 88, 0.45)', justifyContent: 'space-between' }}>
-                <div>
-                  <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--gold)', fontWeight: 600 }}>
-                    LIFETIME SOFTWARE KEY · ONE-TIME
-                  </span>
-                  <h3 style={{ margin: '4px 0', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Studio Pro — $14
-                  </h3>
-                  <p className="workflow-step-desc" style={{ marginBottom: '10px' }}>
-                    Unlocks multi-photo batch folders, Marching-Squares vector <code>.SVG</code> cutline packs (<code>.ZIP</code>), and custom brand watermarks across Windows, Android &amp; Web.
-                  </p>
-                </div>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <button
                   type="button"
-                  className="btn-gold"
-                  disabled={isCheckingOutStripe}
-                  onClick={() => handleStartStripeCheckout('pro')}
-                  style={{ width: '100%' }}
+                  className={proModalTab === 'packs' ? 'btn-gold' : 'btn-secondary'}
+                  onClick={() => setProModalTab('packs')}
+                  style={{ padding: '6px 11px', fontSize: '12px' }}
                 >
-                  <Sparkles size={14} /> Checkout with Stripe ($14) →
+                  Backdrop Packs &amp; Pro ($9–$19)
                 </button>
-              </div>
-
-              {/* Tier 2: $149 B2B Done-For-You Catalog Service */}
-              <div className="workflow-section" style={{ borderColor: 'rgba(16, 185, 129, 0.45)', justifyContent: 'space-between' }}>
-                <div>
-                  <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--emerald)', fontWeight: 600 }}>
-                    DONE-FOR-YOU B2B SERVICE
-                  </span>
-                  <h3 style={{ margin: '4px 0', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Bulk Catalog Batch — $149
-                  </h3>
-                  <p className="workflow-step-desc" style={{ marginBottom: '10px' }}>
-                    Have 100–200 messy rental, dealership, or product photos? Send us your folder—we clean, stage on custom brand backdrops, and deliver your master <code>.PNG</code> + <code>.SVG</code> vault.
-                  </p>
-                </div>
                 <button
                   type="button"
-                  className="btn-accent"
-                  disabled={isCheckingOutStripe}
-                  onClick={() => handleStartStripeCheckout('b2b')}
-                  style={{ width: '100%' }}
+                  className={proModalTab === 'b2b' ? 'btn-accent' : 'btn-secondary'}
+                  onClick={() => setProModalTab('b2b')}
+                  style={{ padding: '6px 11px', fontSize: '12px' }}
                 >
-                  <Package size={14} /> Book Bulk Catalog Batch ($149) →
+                  B2B 200-Photo Intake ($149)
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowProModal(false)}
+                  style={{ padding: '6px 10px' }}
+                >
+                  ✕
                 </button>
               </div>
             </div>
+
+            {proModalTab === 'packs' ? (
+              <>
+                {/* 3 Server-Gated Industry Backdrop Packs ($9 each) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))', gap: '10px' }}>
+                  {[
+                    {
+                      id: 'pack_rental',
+                      title: 'Event & Party Rental Pack',
+                      price: '$9',
+                      desc: 'Unlocks 06 Twilight String-Lit Patio Turf & 07 Grand Hardwood Event Pavilion (Server-Gated).'
+                    },
+                    {
+                      id: 'pack_auto',
+                      title: 'Auto & Showroom Pack',
+                      price: '$9',
+                      desc: 'Unlocks 08 Wet Obsidian Studio Cyclorama & 09 Architectural LED Dealership Bay (Server-Gated).'
+                    },
+                    {
+                      id: 'pack_ecom',
+                      title: 'E-Commerce & Apparel Pack',
+                      price: '$9',
+                      desc: 'Unlocks 10 Warm Travertine Limestone Studio & 11 Editorial Sand Linen Backdrop (Server-Gated).'
+                    }
+                  ].map((pk) => {
+                    const owned = isPackUnlocked(pk.id);
+                    return (
+                      <div key={pk.id} className="workflow-section" style={{ justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="mono-num" style={{ fontSize: '10px', color: 'var(--gold)', fontWeight: 600 }}>
+                              {owned ? '✓ UNLOCKED' : '🔒 SERVER-GATED PACK'}
+                            </span>
+                            <span className="mono-num" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {pk.price}
+                            </span>
+                          </div>
+                          <h3 style={{ margin: '4px 0', fontSize: '14.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {pk.title}
+                          </h3>
+                          <p className="workflow-step-desc" style={{ fontSize: '11.5px' }}>
+                            {pk.desc}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className={owned ? 'btn-accent' : 'btn-secondary'}
+                          disabled={isCheckingOutStripe || owned}
+                          onClick={() => handleStartStripeCheckout(pk.id)}
+                          style={{ width: '100%', padding: '7px 10px', fontSize: '12px' }}
+                        >
+                          {owned ? '✓ Pack Active' : `Unlock Pack (${pk.price} via Stripe)`}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* All-Access Studio Pro Bundle ($19) + B2B Quick Card ($149) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  <div className="workflow-section" style={{ borderColor: 'rgba(229, 193, 88, 0.55)', justifyContent: 'space-between' }}>
+                    <div>
+                      <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--gold)', fontWeight: 600 }}>
+                        ⭐ BEST VALUE · ALL-ACCESS LIFETIME BUNDLE
+                      </span>
+                      <h3 style={{ margin: '4px 0', fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        All-Access Studio Pro — $19
+                      </h3>
+                      <p className="workflow-step-desc" style={{ marginBottom: '8px' }}>
+                        Unlocks <strong>all 3 Industry Backdrop Packs (11 studio environments)</strong> + unlimited batch folder uploads, Marching-Squares vector <code>.SVG</code> cutline packs (<code>.ZIP</code>), and custom brand watermarks.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-gold"
+                      disabled={isCheckingOutStripe}
+                      onClick={() => handleStartStripeCheckout('pro')}
+                      style={{ width: '100%' }}
+                    >
+                      <Sparkles size={14} /> Unlock All-Access Pro ($19 via Stripe) →
+                    </button>
+                  </div>
+
+                  <div className="workflow-section" style={{ borderColor: 'rgba(16, 185, 129, 0.45)', justifyContent: 'space-between' }}>
+                    <div>
+                      <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--emerald)', fontWeight: 600 }}>
+                        DONE-FOR-YOU B2B CATALOG SERVICE
+                      </span>
+                      <h3 style={{ margin: '4px 0', fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        200-Photo Bulk Catalog Batch — $149
+                      </h3>
+                      <p className="workflow-step-desc" style={{ marginBottom: '8px' }}>
+                        Don&apos;t want to process hundreds of messy photos yourself? Pay via Stripe and submit your Google Drive / Dropbox folder link in the <strong>B2B Intake tab</strong>.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        className="btn-accent"
+                        disabled={isCheckingOutStripe}
+                        onClick={() => handleStartStripeCheckout('b2b')}
+                        style={{ flex: 1.2 }}
+                      >
+                        Pay $149 via Stripe →
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => setProModalTab('b2b')}
+                        style={{ flex: 1 }}
+                      >
+                        Submit Folder Link
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* TAB 2: VIP B2B 100-500 PHOTO FOLDER INTAKE PORTAL */
+              <form onSubmit={handleB2bIntakeSubmit} className="workflow-section" style={{ borderColor: 'rgba(16, 185, 129, 0.45)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--emerald)', fontWeight: 600 }}>
+                      VIP B2B BULK CATALOG INTAKE PORTAL (100–500 PHOTOS)
+                    </span>
+                    <h3 style={{ margin: '3px 0', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Send Us Your Raw Photo Folder for White-Glove Batch Processing
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-accent"
+                    disabled={isCheckingOutStripe}
+                    onClick={() => handleStartStripeCheckout('b2b')}
+                    style={{ padding: '7px 12px', fontSize: '12px' }}
+                  >
+                    1. Pay $149 Batch Deposit on Stripe →
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                  <div className="form-group">
+                    <label htmlFor="b2b-biz">Business / Studio Name</label>
+                    <input
+                      id="b2b-biz"
+                      type="text"
+                      value={b2bForm.businessName}
+                      onChange={(e) => setB2bForm({ ...b2bForm, businessName: e.target.value })}
+                      placeholder="e.g. Lone Star Event Rentals / Apex Motors"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="b2b-email">Delivery Email Address *</label>
+                    <input
+                      id="b2b-email"
+                      type="text"
+                      required
+                      value={b2bForm.contactEmail}
+                      onChange={(e) => setB2bForm({ ...b2bForm, contactEmail: e.target.value })}
+                      placeholder="you@yourbusiness.com"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="b2b-folder">
+                    Raw Photo Folder Link (Google Drive, Dropbox, OneDrive, or WeTransfer URL) *
+                  </label>
+                  <input
+                    id="b2b-folder"
+                    type="text"
+                    required
+                    value={b2bForm.folderUrl}
+                    onChange={(e) => setB2bForm({ ...b2bForm, folderUrl: e.target.value })}
+                    placeholder="https://drive.google.com/drive/folders/... or https://we.tl/..."
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                  <div className="form-group">
+                    <label htmlFor="b2b-watermark">Custom Brand Watermark Text (Optional)</label>
+                    <input
+                      id="b2b-watermark"
+                      type="text"
+                      value={b2bForm.watermarkText}
+                      onChange={(e) => setB2bForm({ ...b2bForm, watermarkText: e.target.value })}
+                      placeholder="e.g. LONE STAR RENTALS • (512) 555-0199"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="b2b-pack">Target Backdrop Environment Pack</label>
+                    <select
+                      id="b2b-pack"
+                      value={b2bForm.backdropPack}
+                      onChange={(e) => setB2bForm({ ...b2bForm, backdropPack: e.target.value })}
+                    >
+                      <option value="Event & Party Rental Pack + Alpha .PNG + Vector .SVG">
+                        Event &amp; Party Rental Pack (Sunny Lawn + Twilight Patio + Event Hall)
+                      </option>
+                      <option value="Auto & Dealership Showroom Pack + Alpha .PNG + Vector .SVG">
+                        Auto &amp; Dealership Showroom Pack (Obsidian Cyclorama + LED Bay)
+                      </option>
+                      <option value="E-Commerce & Apparel Editorial Pack + Alpha .PNG + Vector .SVG">
+                        E-Commerce &amp; Apparel Pack (Travertine + Sand Linen + Chalkboard)
+                      </option>
+                      <option value="All 11 Studio Backdrops + Alpha .PNG + Vector .SVG">
+                        Complete Master Archive (All 11 Backdrops + Alpha .PNG + Vector .SVG)
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="submit" className="btn-gold" style={{ width: '100%' }}>
+                  <CheckCircle2 size={14} /> 2. Submit Photo Folder to Studio Pipeline
+                </button>
+
+                {b2bOrderReceipt && (
+                  <div
+                    className="mono-num"
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(6, 78, 59, 0.88)',
+                      border: '1px solid rgba(16, 185, 129, 0.45)',
+                      color: '#6ee7b7',
+                      fontSize: '11.5px'
+                    }}
+                  >
+                    <strong>✓ {b2bOrderReceipt.orderId} Confirmed:</strong> {b2bOrderReceipt.message}
+                  </div>
+                )}
+              </form>
+            )}
 
             {/* Restore Purchase by Stripe Email or License Key */}
             <form onSubmit={handleVerifyStripeKeyOrEmail} className="workflow-section">
@@ -1846,7 +2211,7 @@ export default function App() {
                   style={{ flex: 1, minWidth: '220px' }}
                 />
                 <button type="submit" className="btn-gold">
-                  <CheckCircle2 size={14} /> Activate Pro
+                  <CheckCircle2 size={14} /> Activate License
                 </button>
               </div>
               {proStatusMsg && (
@@ -2245,21 +2610,53 @@ export default function App() {
                     <span>Choose Background</span>
                   </h3>
                   <span className="mono-num" style={{ fontSize: '11px', color: 'var(--gold)' }}>
-                    {activeBackdropInfo.index} / 05
+                    {activeBackdropInfo.index} / 11
                   </span>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="backdrop-select">Active Studio Environment</label>
+                  <label htmlFor="backdrop-select">
+                    <span>Active Studio Environment</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProModalTab('packs');
+                        setShowProModal(true);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--gold)',
+                        fontSize: '11px',
+                        textDecoration: 'underline',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Unlock Backdrop Packs
+                    </button>
+                  </label>
                   <select
                     id="backdrop-select"
                     value={backdropStyle}
-                    onChange={(e) => setBackdropStyle(e.target.value)}
+                    onChange={(e) => handleSelectBackdropStyle(e.target.value)}
                   >
-                    {FIVE_BACKDROP_OPTIONS.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.index} — {opt.label}
-                      </option>
-                    ))}
+                    <optgroup label="Included Starter Studio Backdrops (01–05)">
+                      {FIVE_BACKDROP_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.index} — {opt.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label=" Industry Upsell Backdrop Packs (Server-Gated 06–11)">
+                      {PREMIUM_BACKDROP_OPTIONS.map((opt) => {
+                        const unlocked = isPackUnlocked(opt.packId);
+                        return (
+                          <option key={opt.id} value={opt.id}>
+                            {unlocked ? '✓' : '🔒'} {opt.index} — {opt.label} ({opt.packName})
+                          </option>
+                        );
+                      })}
+                    </optgroup>
                   </select>
                 </div>
                 <p className="workflow-step-desc">{activeBackdropInfo.description}</p>
