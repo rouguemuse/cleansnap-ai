@@ -1042,8 +1042,8 @@ input[type="range"]::-webkit-slider-thumb {
 
 .landing-hero-grid {
   display: grid;
-  grid-template-columns: 1.04fr 1.16fr;
-  gap: 24px;
+  grid-template-columns: 0.92fr 1.28fr;
+  gap: 22px;
   align-items: stretch;
   background:
     radial-gradient(circle at 14% 18%, rgba(229, 193, 88, 0.11), transparent 46%),
@@ -1051,15 +1051,82 @@ input[type="range"]::-webkit-slider-thumb {
     rgba(11, 14, 21, 0.92);
   border: 1px solid rgba(229, 193, 88, 0.28);
   border-radius: 18px;
-  padding: 28px;
+  padding: 24px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }
 
 @media (max-width: 1080px) {
   .landing-hero-grid {
     grid-template-columns: 1fr;
-    padding: 20px;
+    padding: 18px;
   }
+}
+
+.catalog-five-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+@media (max-width: 1180px) {
+  .catalog-five-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+.hero-visual-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.hero-metric-tile {
+  background: rgba(6, 8, 14, 0.78);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 11px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.hero-metric-tile:hover {
+  border-color: rgba(229, 193, 88, 0.55);
+  transform: translateY(-2px);
+}
+
+.prototype-thumb-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.prototype-thumb-btn {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid var(--border-subtle);
+  background: #05070b;
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.prototype-thumb-btn.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(229, 193, 88, 0.25);
+  transform: translateY(-1px);
+}
+
+.prototype-thumb-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .hero-copy-col {
