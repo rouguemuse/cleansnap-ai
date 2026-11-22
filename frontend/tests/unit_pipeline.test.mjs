@@ -132,6 +132,8 @@ test('Unit 6: All required public studio backdrops, showcase cutouts, ONNX model
   const requiredFiles = [
     'manifest.webmanifest',
     'sw.js',
+    'manual.html',
+    'privacy.html',
     'icons/icon-192.png',
     'icons/icon-512.png',
     'icons/icon-maskable-512.png',

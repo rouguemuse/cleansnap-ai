@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CleanSnap Studio — Official User Manual, Vector .SVG Guide & License Activation Walkthrough</title>
+  <meta name="description" content="Official user manual and quick-start walkthrough for CleanSnap Studio: on-device U²-Net AI background removal, sub-pixel edge brush refinement, 11 studio backdrops, vector .SVG cutlines, and Stripe license activation." />
+  <link rel="canonical" href="https://bold-oppenheimer.vercel.app/manual.html" />
+  <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+  <style>
+    :root {
+      --bg-void: #07090e;
+      --bg-card: #0d1018;
+      --bg-elevated: #131824;
+      --border-subtle: rgba(255, 255, 255, 0.1);
+      --border-gold: rgba(229, 193, 88, 0.42);
+      --gold: #e5c158;
+      --emerald: #10b981;
+      --cyan: #38bdf8;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(229, 193, 88, 0.08), transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.07), transparent 45%),
+        var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 32px 18px 64px;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-gold);
+      border-radius: 14px;
+      padding: 18px 22px;
+    }
+    .kicker {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 4px 0 0;
+      font-size: clamp(22px, 3vw, 30px);
+      letter-spacing: -0.02em;
+    }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, #f3d77d 0%, #d4af37 100%);
+      color: #090b10;
+      border-color: #f3d77d;
+      font-weight: 700;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card h2 {
+      margin: 0;
+      font-size: 18px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .step-num {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold);
+      background: rgba(229, 193, 88, 0.14);
+      border: 1px solid rgba(229, 193, 88, 0.38);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    p, li {
+      color: var(--text-secondary);
+      font-size: 13.8px;
+      margin: 0;
+    }
+    ul, ol {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    strong {
+      color: var(--text-primary);
+    }
+    code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--gold);
+      padding: 2px 6px;
+      border-radius: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    th {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+    @media print {
+      body {
+        background: #fff;
+        color: #111;
+        padding: 0;
+      }
+      .card, .top-bar {
+        background: #fff;
+        border: 1px solid #ccc;
+        color: #111;
+      }
+      p, li, td {
+        color: #333;
+      }
+      strong, h1, h2, th {
+        color: #000;
+      }
+      .btn-row {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="top-bar">
+      <div>
+        <div class="kicker">CONTEXT &amp; MUSE LLC · OFFICIAL PRODUCT DOCUMENTATION</div>
+        <h1>CleanSnap Studio — User Manual &amp; Quick-Start Walkthrough</h1>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn" onclick="window.print()">🖨️ Print / Save PDF Manual</button>
+        <a href="/?view=studio" class="btn btn-gold">Launch Studio Workspace →</a>
+      </div>
+    </header>
+
+    <!-- 60-SECOND QUICK START -->
+    <section class="card">
+      <div class="kicker">PART 01 · 60-SECOND QUICK-START WORKFLOW</div>
+      <h2>How to Cut Out Subjects, Stage Backdrops &amp; Export Vector .SVG Cutlines</h2>
+      <div class="grid-2">
+        <div>
+          <ol>
+            <li>
+              <strong>Drop Photos or a Batch Folder:</strong> In the left sidebar under <strong>Step 1: Add Images</strong>, click <strong>+ Photos</strong> (for individual files) or <strong>+ Folder</strong> (to ingest an entire inventory directory of up to 200 images). All segmentation runs 100% locally on your device using the embedded <code>U²-Net ONNX</code> neural engine.
+            </li>
+            <li>
+              <strong>Select Your Studio Backdrop:</strong> Under <strong>Step 2: Studio Environment</strong>, choose from the 5 built-in environments (<em>01 Green Screen</em>, <em>02 Corkboard</em>, <em>03 Belgian Slate Chalkboard</em>, <em>04 Sunny Grass Yard</em>, or <em>05 Alpha Cutout .PNG/.SVG</em>) or any unlocked <strong>Industry Backdrop Pack</strong> (<em>06–11</em>).
+            </li>
+          </ol>
+        </div>
+        <div>
+          <ol start="3">
+            <li>
+              <strong>Inspect or Refine Cutout Edges:</strong> Drag the <strong>Before / After Slider</strong> in the center stage (or use <code>←</code> / <code>→</code> arrow keys) to inspect edge fidelity. Click <strong>Refine Edges (Brush)</strong> to paint/erase mask pixels at up to 400% zoom.
+            </li>
+            <li>
+              <strong>Export Master Assets:</strong> Click <strong>Download Master (.JPG / .PNG)</strong> for full-resolution imagery, <strong>Vector-Clipped .SVG</strong> for die-cut sticker paths, or switch to the <strong>03 Export Vault</strong> tab to download a single batch <code>.ZIP</code> archive.
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- MANUAL EDGE BRUSH & HALO DECONTAMINATION -->
+    <div class="grid-2">
+      <section class="card">
+        <h2><span class="step-num">PART 02</span> Sub-Pixel Edge Brush Refiner</h2>
+        <p>When working with intricate hair, fur, translucent glass, or complex product straps, switch the stage header from <strong>Before / After Slider</strong> to <strong>Refine Edges (Brush)</strong>:</p>
+        <ul>
+          <li><strong>Restore Subject (+ Brush):</strong> Paints opaque foreground alpha back into areas that were over-trimmed.</li>
+          <li><strong>Erase Background (- Eraser):</strong> Removes trapped background pockets (e.g., between chair legs or wheel spokes).</li>
+          <li><strong>Ruby Mask Inspection Mode:</strong> Overlays a high-contrast crimson tint over removed background pixels so you can spot stray 1px artifacts immediately.</li>
+          <li><strong>Morphological Choke / Expand (<code>-12px</code> to <code>+12px</code>):</strong> Tightens or expands the entire silhouette perimeter uniformly.</li>
+          <li><strong>RGB Halo Decontamination (<code>0%–100%</code>):</strong> Purges green-screen or bright driveway color spill from semi-transparent edge pixels.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2><span class="step-num">PART 03</span> License Key &amp; Backdrop Pack Activation</h2>
+        <p>When you purchase any <strong>Industry Backdrop Pack ($9)</strong>, the <strong>Studio Pro All-Access Bundle ($19)</strong>, or the <strong>200-Photo B2B Batch ($149)</strong> via Stripe:</p>
+        <ul>
+          <li><strong>Automatic Instant Unlock:</strong> Completing Stripe Checkout automatically redirects you back to CleanSnap Studio and activates your cryptographic license key (<code>CSPRO-XXXX-XXXX-XXXX</code>) in your browser/app storage.</li>
+          <li><strong>Restoring on Another Device (Windows, Mac, Android, iOS):</strong> Click <strong>Unlock Studio Pro ($19)</strong> in the top header, enter the <strong>email address used at Stripe Checkout</strong> (or your saved <code>CSPRO-...</code> key), and click <strong>Activate / Restore</strong>.</li>
+          <li><strong>Offline Portability:</strong> Your signed <code>CSPRO-...</code> license key is cryptographically self-verifying and works even when your laptop or tablet is offline.</li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- VECTOR SVG & B2B WORKFLOW -->
+    <div class="grid-2">
+      <section class="card">
+        <h2><span class="step-num">PART 04</span> Using Vector-Clipped .SVG Cutlines</h2>
+        <p>Every processed photo automatically generates a mathematical <strong>Marching-Squares vector contour</strong> embedded inside an industry-standard <code>.SVG</code> file:</p>
+        <ul>
+          <li><strong>Figma &amp; Adobe Illustrator:</strong> Drag the exported <code>_vector_clipped.svg</code> directly onto your canvas. The outer <code>&lt;clipPath&gt;</code> path is an editable cubic Bézier/polygon vector curve.</li>
+          <li><strong>Cricut Design Space, Silhouette &amp; Roland VersaWorks:</strong> Use the vector path as a kiss-cut or die-cut sticker contour line around the embedded high-resolution transparent PNG.</li>
+          <li><strong>Batch .ZIP Export Vault:</strong> Open <strong>03 Export Vault</strong> in the top navigation bar, type a custom folder name, and click <strong>Export Batch Archive (.ZIP)</strong> to package all completed cutouts at once.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2><span class="step-num">PART 05</span> Done-For-You 200-Photo B2B Service</h2>
+        <p>If you ordered the <strong>200-Photo Bulk Catalog Studio Batch ($149)</strong>:</p>
+        <ol>
+          <li>After checkout, the <strong>B2B 200-Photo Folder Intake</strong> tab opens automatically (or click <strong>Unlock Studio Pro → B2B 200-Photo Intake</strong> anytime).</li>
+          <li>Paste your shared <strong>Google Drive, Dropbox, or OneDrive folder link</strong> containing up to 200 raw inventory photos.</li>
+          <li>Specify your preferred studio backdrop pack and optional custom brand watermark text.</li>
+          <li>Click <strong>Submit 200-Photo Catalog Batch</strong>—you will receive an instant order receipt ID (<code>CS-B2B-...</code>) and your finished <code>.PNG + .SVG</code> master archive within 24–48 hours.</li>
+        </ol>
+      </section>
+    </div>
+
+    <!-- REFERENCE TABLE: 11 STUDIO BACKDROPS -->
+    <section class="card">
+      <div class="kicker">PART 06 · STUDIO ENVIRONMENT REFERENCE</div>
+      <h2>All 11 Commercial Studio Backdrops &amp; Pack Entitlements</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Environment Name</th>
+            <th>Included In</th>
+            <th>Recommended Use Case</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>01</code></td>
+            <td><strong>Figure on Green Screen</strong></td>
+            <td>Free Built-In Studio</td>
+            <td>VFX chroma-key compositing &amp; broadcast talent isolation</td>
+          </tr>
+          <tr>
+            <td><code>02</code></td>
+            <td><strong>Cork Bulletin Board</strong></td>
+            <td>Free Built-In Studio</td>
+            <td>Die-cut stickers, pins, stationery &amp; craft product previews</td>
+          </tr>
+          <tr>
+            <td><code>03</code></td>
+            <td><strong>Belgian Slate Chalkboard</strong></td>
+            <td>Free Built-In Studio</td>
+            <td>High-contrast dark studio product &amp; culinary staging</td>
+          </tr>
+          <tr>
+            <td><code>04</code></td>
+            <td><strong>Sunny Grass Yard</strong></td>
+            <td>Free Built-In Studio</td>
+            <td>Outdoor gear, lawn equipment &amp; backyard recreation</td>
+          </tr>
+          <tr>
+            <td><code>05</code></td>
+            <td><strong>Alpha Cutout (.PNG / .SVG)</strong></td>
+            <td>Free Built-In Studio</td>
+            <td>Zero-background transparent PNG &amp; vector cutline export</td>
+          </tr>
+          <tr>
+            <td><code>06</code></td>
+            <td><strong>Twilight String-Lit Patio Turf</strong></td>
+            <td>Event &amp; Party Rental Pack ($9) / Pro ($19)</td>
+            <td>Bounce houses, event tents, wedding &amp; party rentals</td>
+          </tr>
+          <tr>
+            <td><code>07</code></td>
+            <td><strong>Grand Hardwood Event Pavilion</strong></td>
+            <td>Event &amp; Party Rental Pack ($9) / Pro ($19)</td>
+            <td>Banquet furniture, photo booths &amp; indoor event rentals</td>
+          </tr>
+          <tr>
+            <td><code>08</code></td>
+            <td><strong>Wet Obsidian Studio Cyclorama</strong></td>
+            <td>Auto &amp; Showroom Pack ($9) / Pro ($19)</td>
+            <td>Exotic cars, motorcycles, detailing &amp; dealership inventory</td>
+          </tr>
+          <tr>
+            <td><code>09</code></td>
+            <td><strong>Architectural LED Dealership Bay</strong></td>
+            <td>Auto &amp; Showroom Pack ($9) / Pro ($19)</td>
+            <td>Modern automotive showroom &amp; powersports listings</td>
+          </tr>
+          <tr>
+            <td><code>10</code></td>
+            <td><strong>Warm Travertine Limestone Podium</strong></td>
+            <td>E-Commerce &amp; Apparel Pack ($9) / Pro ($19)</td>
+            <td>Footwear, handbags, cosmetics &amp; luxury accessories</td>
+          </tr>
+          <tr>
+            <td><code>11</code></td>
+            <td><strong>Editorial Sand Linen Backdrop</strong></td>
+            <td>E-Commerce &amp; Apparel Pack ($9) / Pro ($19)</td>
+            <td>Shopify, Poshmark, Depop &amp; Etsy apparel lookbooks</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</body>
+</html>

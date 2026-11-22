@@ -931,6 +931,7 @@ export default function App() {
     }
   });
   const [showProModal, setShowProModal] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
   const [proModalTab, setProModalTab] = useState('packs'); // 'packs' | 'b2b'
   const [proInputVal, setProInputVal] = useState('');
   const [proStatusMsg, setProStatusMsg] = useState('');
@@ -2067,6 +2068,17 @@ export default function App() {
 
           <button
             type="button"
+            data-testid="manual-guide-btn"
+            className="btn-secondary"
+            onClick={() => setShowManualModal(true)}
+            style={{ padding: '9px 14px', fontSize: '12.5px' }}
+          >
+            <FileCode size={14} />
+            <span>Manual &amp; Guide</span>
+          </button>
+
+          <button
+            type="button"
             data-testid="install-app-btn"
             className="btn-secondary"
             onClick={handleInstallAppClick}
@@ -2077,6 +2089,167 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {showManualModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="CleanSnap Studio Interactive Quick-Start Manual & Walkthrough"
+          onClick={() => setShowManualModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(5, 6, 10, 0.86)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            className="card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '720px',
+              width: '100%',
+              border: '1px solid rgba(229, 193, 88, 0.5)',
+              boxShadow: '0 24px 64px rgba(0, 0, 0, 0.85)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div className="card-header">
+              <div className="card-title-group">
+                <span className="card-step-label">INTERACTIVE USER MANUAL &amp; WALKTHROUGH</span>
+                <h2 className="card-title">How to Use CleanSnap Studio &amp; Activate Packs</h2>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <a
+                  href="/manual.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-gold"
+                  style={{ textDecoration: 'none', padding: '6px 12px', fontSize: '12px' }}
+                >
+                  Open Printable PDF Manual ↗
+                </a>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowManualModal(false)}
+                  style={{ padding: '6px 10px' }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+              <div className="workflow-section" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--gold)', fontWeight: 700 }}>
+                    STEP 01 · UPLOAD &amp; COMPOSITE
+                  </span>
+                  <h3 style={{ margin: '5px 0 4px', fontSize: '14.5px', color: 'var(--text-primary)' }}>
+                    Single Photo or 200-Image Folder
+                  </h3>
+                  <p className="workflow-step-desc" style={{ fontSize: '12px' }}>
+                    Drop individual photos or a full directory. Our local U²-Net ONNX engine isolates your subject on-device and composites it across 11 studio backdrops.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowManualModal(false);
+                    launchStudioWithTransition({ stageMode: 'compare', tab: 'cleaner' });
+                  }}
+                  style={{ width: '100%', marginTop: '8px', fontSize: '12px' }}
+                >
+                  Jump to Studio Compare Stage →
+                </button>
+              </div>
+
+              <div className="workflow-section" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: '#34d399', fontWeight: 700 }}>
+                    STEP 02 · SUB-PIXEL BRUSH REFINER
+                  </span>
+                  <h3 style={{ margin: '5px 0 4px', fontSize: '14.5px', color: 'var(--text-primary)' }}>
+                    400% Ruby Mask &amp; Halo Cleanup
+                  </h3>
+                  <p className="workflow-step-desc" style={{ fontSize: '12px' }}>
+                    Use the + Restore Brush, - Eraser, Morphological Choke (-12px to +12px), and RGB Halo Decontamination slider to perfect hair, fur, and glass edges.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowManualModal(false);
+                    launchStudioWithTransition({ stageMode: 'refine', tab: 'cleaner' });
+                  }}
+                  style={{ width: '100%', marginTop: '8px', fontSize: '12px' }}
+                >
+                  Jump to Edge Brush Refiner →
+                </button>
+              </div>
+
+              <div className="workflow-section" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: '#38bdf8', fontWeight: 700 }}>
+                    STEP 03 · VECTOR .SVG &amp; .ZIP VAULT
+                  </span>
+                  <h3 style={{ margin: '5px 0 4px', fontSize: '14.5px', color: 'var(--text-primary)' }}>
+                    Die-Cut Sticker Paths &amp; Batch Export
+                  </h3>
+                  <p className="workflow-step-desc" style={{ fontSize: '12px' }}>
+                    Download 4K transparent .PNGs, Marching-Squares vector .SVG cutlines (for Figma, Illustrator, Cricut &amp; Roland), or a complete batch .ZIP archive.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowManualModal(false);
+                    setActiveTab('vault');
+                  }}
+                  style={{ width: '100%', marginTop: '8px', fontSize: '12px' }}
+                >
+                  Open Batch Export Vault →
+                </button>
+              </div>
+
+              <div className="workflow-section" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--gold)', fontWeight: 700 }}>
+                    STEP 04 · LICENSE &amp; PACK UNLOCK
+                  </span>
+                  <h3 style={{ margin: '5px 0 4px', fontSize: '14.5px', color: 'var(--text-primary)' }}>
+                    Stripe Auto-Unlock &amp; Device Restore
+                  </h3>
+                  <p className="workflow-step-desc" style={{ fontSize: '12px' }}>
+                    Stripe purchases unlock automatically on redirect. To restore on another device, enter your Stripe checkout email or signed <code>CSPRO-...</code> key.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-gold"
+                  onClick={() => {
+                    setShowManualModal(false);
+                    setShowProModal(true);
+                  }}
+                  style={{ width: '100%', marginTop: '8px', fontSize: '12px' }}
+                >
+                  Activate or Restore License Key →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showProModal && (
         <div
