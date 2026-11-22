@@ -2004,7 +2004,17 @@ export default function App() {
         >
           <div className="brand-eyebrow">
             <span className="brand-eyebrow-dot" />
-            <span>CONTEXT &amp; MUSE · COMMERCIAL ASSET LAB · 100% ON-DEVICE</span>
+            <a
+              href="https://www.contextmuse.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{ color: 'var(--gold)', textDecoration: 'none' }}
+              title="Visit Context & Muse LLC (contextmuse.com)"
+            >
+              CONTEXTMUSE.COM ↗
+            </a>
+            <span>· CLEANSNAP.CONTEXTMUSE.COM · 100% ON-DEVICE</span>
           </div>
           <h1 className="brand-title">
             <span>CleanSnap</span>
