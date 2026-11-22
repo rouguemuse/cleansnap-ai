@@ -17,8 +17,6 @@ export const TIER_CATALOG = {
     priceId: 'price_1UegvSBrNU5pKwT3KlUHypLI',
     paymentLinkId: 'plink_1UegwCBrNU5pKwT3JYWpRBGJ',
     paymentLinkUrl: 'https://buy.stripe.com/3cI7sKezXbKq3036tLebu03',
-    sandboxProductId: 'prod_VfXrfpOqOvVA6D',
-    sandboxPriceId: 'price_1UeClsBfbNYsdzMhUuEAYTJS',
     priceCents: '1900',
     name: 'CleanSnap Studio Pro — All-Access Lifetime Bundle',
     description:
@@ -31,8 +29,6 @@ export const TIER_CATALOG = {
     priceId: 'price_1UegvVBrNU5pKwT3EZP0p7rp',
     paymentLinkId: 'plink_1UegwJBrNU5pKwT3ygUYqTso',
     paymentLinkUrl: 'https://buy.stripe.com/fZuaEWajHaGm1VZf0hebu04',
-    sandboxProductId: 'prod_VfXrT1MkibbEhD',
-    sandboxPriceId: 'price_1UeClsBfbNYsdzMhq8yKstse',
     priceCents: '900',
     name: 'CleanSnap Studio — Event & Party Rental Backdrop Pack',
     description:
@@ -45,8 +41,6 @@ export const TIER_CATALOG = {
     priceId: 'price_1UegvYBrNU5pKwT3a6JO4lUj',
     paymentLinkId: 'plink_1UegwMBrNU5pKwT3EAKaSK43',
     paymentLinkUrl: 'https://buy.stripe.com/7sY8wOezX15M9orf0hebu05',
-    sandboxProductId: 'prod_VfXrrRH3c9XCbz',
-    sandboxPriceId: 'price_1UeClsBfbNYsdzMhi6h2HYmj',
     priceCents: '900',
     name: 'CleanSnap Studio — Auto & Dealership Showroom Backdrop Pack',
     description:
@@ -59,8 +53,6 @@ export const TIER_CATALOG = {
     priceId: 'price_1UegvrBrNU5pKwT3iheKJ5yf',
     paymentLinkId: 'plink_1UegwZBrNU5pKwT3VoC15fUW',
     paymentLinkUrl: 'https://buy.stripe.com/6oU28qajH3dUfMPbO5ebu06',
-    sandboxProductId: 'prod_VfXr1ckoKwvMZf',
-    sandboxPriceId: 'price_1UeCltBfbNYsdzMhHgs81pvF',
     priceCents: '900',
     name: 'CleanSnap Studio — E-Commerce & Apparel Editorial Backdrop Pack',
     description:
@@ -73,8 +65,6 @@ export const TIER_CATALOG = {
     priceId: 'price_1UegvuBrNU5pKwT3gZmscjcS',
     paymentLinkId: 'plink_1UegwdBrNU5pKwT3TCPKrBb0',
     paymentLinkUrl: 'https://buy.stripe.com/4gMeVcezXaGmcAD8BTebu07',
-    sandboxProductId: 'prod_VfXrN7Lvph7noH',
-    sandboxPriceId: 'price_1UeCltBfbNYsdzMhq3A8VqxN',
     priceCents: '14900',
     name: 'CleanSnap Studio — Done-For-You 200-Photo Bulk Catalog Batch',
     description:
