@@ -853,9 +853,25 @@ async function buildSubjectAndActiveBackdrop(
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('cleaner'); // 'cleaner' | 'vault'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'studio' || params.get('stripe_session')) return 'cleaner';
+    } catch {
+      // ignore
+    }
+    return 'landing'; // 'landing' | 'cleaner' | 'vault'
+  });
   const [stageMode, setStageMode] = useState('compare'); // 'compare' | 'refine'
   const [filmstripFilter, setFilmstripFilter] = useState('all'); // 'all' | 'uploads' | 'samples'
+  const [isAutoSweepHero, setIsAutoSweepHero] = useState(true);
+  const [portalTransition, setPortalTransition] = useState({
+    active: false,
+    subjectTitle: '',
+    backdropLabel: '',
+    modeLabel: ''
+  });
+  const heroSliderRef = useRef(null);
 
   const [backdropStyle, setBackdropStyle] = useState('corkboard');
   const [polishIntensity, setPolishIntensity] = useState('high');
@@ -1445,6 +1461,11 @@ export default function App() {
     const rawFiles = Array.from(fileList || []);
     if (rawFiles.length === 0) return;
 
+    if (activeTab === 'landing') {
+      setIsAutoSweepHero(false);
+      setActiveTab('cleaner');
+    }
+
     const tBatchStart = performance.now();
     batchCancelRef.current = false;
     setIsProcessingBatch(true);
@@ -1663,6 +1684,63 @@ export default function App() {
     setSliderPos((x / rect.width) * 100);
   };
 
+  const updateHeroSliderFromPointer = (clientX) => {
+    if (!heroSliderRef.current) return;
+    setIsAutoSweepHero(false);
+    const rect = heroSliderRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    setSliderPos((x / rect.width) * 100);
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'landing' || !isAutoSweepHero) return;
+    let rafId = null;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const elapsed = (now - t0) / 1000;
+      const pos = 50 + Math.sin(elapsed * 1.45) * 31;
+      setSliderPos(pos);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [activeTab, isAutoSweepHero]);
+
+  const launchStudioWithTransition = (opts = {}) => {
+    const nextJob = opts.job || selectedJob || jobs[0];
+    const nextBackdrop = opts.backdrop || backdropStyle;
+    const nextStageMode = opts.stageMode || 'compare';
+    const nextTab = opts.tab || 'cleaner';
+    const bInfo = ALL_BACKDROP_OPTIONS.find((b) => b.id === nextBackdrop) || FIVE_BACKDROP_OPTIONS[0];
+
+    setIsAutoSweepHero(false);
+    if (opts.job) setSelectedJob(opts.job);
+    if (opts.backdrop) setBackdropStyle(opts.backdrop);
+    setStageMode(nextStageMode);
+
+    setPortalTransition({
+      active: true,
+      subjectTitle: nextJob?.title || nextJob?.original_filename || 'Active Studio Cutout',
+      backdropLabel: bInfo.label,
+      modeLabel:
+        nextTab === 'vault'
+          ? 'Batch .PNG + Vector .SVG Export Vault'
+          : nextStageMode === 'refine'
+          ? 'Sub-Pixel Manual Edge Refiner & Halo Decontamination'
+          : 'Full 3-Column Studio Environment & Cutline Workspace'
+    });
+
+    setTimeout(() => {
+      setActiveTab(nextTab);
+      setSliderPos(50);
+      setPortalTransition((prev) => ({ ...prev, active: false }));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 640);
+  };
+
   const handleSliderKeyDown = (e) => {
     const step = e.shiftKey ? 10 : 2;
     if (e.key === 'ArrowLeft') {
@@ -1828,9 +1906,94 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Global Hidden File & Folder Upload Inputs (Available on Landing Page & Studio Workspace) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        data-testid="file-upload-input"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          handleFilesSelected(e.target.files);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        webkitdirectory="true"
+        directory="true"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          handleFilesSelected(e.target.files);
+          e.target.value = '';
+        }}
+      />
+
+      {/* ==================== ANIMATED STUDIO PORTAL TRANSITION OVERLAY ==================== */}
+      {portalTransition.active && (
+        <div
+          className="studio-portal-overlay"
+          role="status"
+          aria-live="polite"
+          data-testid="studio-portal-transition"
+        >
+          <div className="studio-portal-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hero-kicker-badge">
+                <span className="prototype-live-dot" />
+                <span>LAUNCHING CLEANSNAP STUDIO ENGINE</span>
+              </span>
+              <span className="mono-num" style={{ fontSize: '11px', color: 'var(--gold)' }}>
+                U²-NET ONNX · LOCAL
+              </span>
+            </div>
+            <h2 style={{ margin: 0, fontSize: '21px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Transitioning Prototype to Full Studio Workspace...
+            </h2>
+            <div className="portal-progress-track">
+              <div className="portal-progress-fill" />
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                fontSize: '12.5px',
+                color: 'var(--text-secondary)',
+                background: 'rgba(6, 8, 14, 0.8)',
+                padding: '12px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-subtle)'
+              }}
+            >
+              <div>
+                <strong style={{ color: 'var(--gold)' }}>01 · Subject Locked:</strong>{' '}
+                {portalTransition.subjectTitle}
+              </div>
+              <div>
+                <strong style={{ color: '#34d399' }}>02 · Studio Environment:</strong>{' '}
+                {portalTransition.backdropLabel}
+              </div>
+              <div>
+                <strong style={{ color: 'var(--text-primary)' }}>03 · Workspace Mode:</strong>{' '}
+                {portalTransition.modeLabel}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ==================== TOP STUDIO HEADER ==================== */}
       <header className="studio-header">
-        <div className="brand-lockup">
+        <div
+          className="brand-lockup"
+          onClick={() => setActiveTab('landing')}
+          style={{ cursor: 'pointer' }}
+          title="Return to CleanSnap Studio Overview & Interactive Prototype"
+        >
           <div className="brand-eyebrow">
             <span className="brand-eyebrow-dot" />
             <span>CONTEXT &amp; MUSE · COMMERCIAL ASSET LAB · 100% ON-DEVICE</span>
@@ -1840,7 +2003,7 @@ export default function App() {
             <span className="brand-title-serif">Studio</span>
           </h1>
           <p className="brand-subtitle">
-            Automated Subject Cutout, Edge Refinement, 5 Studio Environments &amp; Vector-Clipped .SVG Export
+            Automated Subject Cutout, Edge Refinement, 11 Studio Environments &amp; Vector-Clipped .SVG Export
           </p>
         </div>
 
@@ -1848,19 +2011,37 @@ export default function App() {
           <nav className="nav-pill-group" aria-label="Workspace Mode">
             <button
               type="button"
-              className={`nav-pill ${activeTab === 'cleaner' ? 'active' : ''}`}
-              onClick={() => setActiveTab('cleaner')}
+              data-testid="nav-landing-btn"
+              className={`nav-pill ${activeTab === 'landing' ? 'active' : ''}`}
+              onClick={() => setActiveTab('landing')}
             >
               <span className="nav-pill-index">01</span>
+              <ImageIcon size={15} />
+              <span>Overview &amp; Demo</span>
+            </button>
+            <button
+              type="button"
+              data-testid="nav-studio-btn"
+              className={`nav-pill ${activeTab === 'cleaner' ? 'active' : ''}`}
+              onClick={() => {
+                if (activeTab === 'landing') {
+                  launchStudioWithTransition({ tab: 'cleaner' });
+                } else {
+                  setActiveTab('cleaner');
+                }
+              }}
+            >
+              <span className="nav-pill-index">02</span>
               <Sparkles size={15} />
               <span>Studio Workspace</span>
             </button>
             <button
               type="button"
+              data-testid="nav-vault-btn"
               className={`nav-pill ${activeTab === 'vault' ? 'active' : ''}`}
               onClick={() => setActiveTab('vault')}
             >
-              <span className="nav-pill-index">02</span>
+              <span className="nav-pill-index">03</span>
               <Package size={15} />
               <span>Export Vault ({completedJobs.length})</span>
             </button>
@@ -1874,7 +2055,7 @@ export default function App() {
             style={{ padding: '9px 14px', fontSize: '12.5px' }}
           >
             <Sparkles size={14} />
-            <span>{isProUnlocked ? 'STUDIO PRO ACTIVE' : 'Unlock Studio Pro ($14)'}</span>
+            <span>{isProUnlocked ? 'STUDIO PRO ACTIVE' : 'Unlock Studio Pro ($19)'}</span>
           </button>
 
           <button
@@ -2397,6 +2578,470 @@ export default function App() {
         </div>
       )}
 
+      {/* ==================== TAB 0: FRONT-DOOR INTERACTIVE PRODUCT LANDING PAGE ==================== */}
+      {activeTab === 'landing' && (
+        <div className="landing-wrapper" data-testid="landing-page-view">
+          {/* HERO SPLIT: PRODUCT STORY + LIVE INTERACTIVE PROTOTYPE SANDBOX */}
+          <section className="landing-hero-grid" aria-label="Interactive Product Overview and Live Prototype">
+            {/* LEFT COLUMN: NARRATIVE, ARCHITECTURE PILLARS & LAUNCH CTAS */}
+            <div className="hero-copy-col">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className="hero-kicker-badge">
+                  <span className="prototype-live-dot" />
+                  <span>100% ON-DEVICE U²-NET AI · ZERO CLOUD LATENCY · VECTOR .SVG CUTLINES</span>
+                </div>
+
+                <h2 className="hero-headline">
+                  Turn Messy Product &amp; Studio Photos into{' '}
+                  <span className="hero-headline-accent">
+                    Commercial Backdrops &amp; Vector .SVG Cutlines
+                  </span>{' '}
+                  in 1.4 Seconds.
+                </h2>
+
+                <p className="hero-lead">
+                  Most background removers charge per-image cloud credits and leave jagged color halos.{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>CleanSnap Studio</strong> runs a dedicated{' '}
+                  <strong style={{ color: 'var(--gold)' }}>U²-Net ONNX neural engine</strong> 100% locally on your device, strips chromatic background bleed, stages your subject across{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>11 studio environments</strong>, and traces true{' '}
+                  <strong style={{ color: '#34d399' }}>Marching-Squares vector .SVG cutlines</strong> for print, stickers, and e-commerce catalogs.
+                </p>
+
+                <div className="hero-pillars-list">
+                  <div className="hero-pillar-item">
+                    <span className="hero-pillar-num">01</span>
+                    <div>
+                      <strong style={{ color: 'var(--text-primary)' }}>
+                        Test the Live Prototype Right Now →
+                      </strong>{' '}
+                      Pick any sample subject on the right, scrub the live neural scanner, and swap studio environments before entering the workspace.
+                    </div>
+                  </div>
+                  <div className="hero-pillar-item">
+                    <span className="hero-pillar-num">02</span>
+                    <div>
+                      <strong style={{ color: 'var(--text-primary)' }}>
+                        Sub-Pixel Halo Decontamination &amp; Brush Refiner:
+                      </strong>{' '}
+                      Inspect edges under ruby mask overlay, feather transitions, and paint/erase fine details at 400% zoom.
+                    </div>
+                  </div>
+                  <div className="hero-pillar-item">
+                    <span className="hero-pillar-num">03</span>
+                    <div>
+                      <strong style={{ color: 'var(--text-primary)' }}>
+                        11 Commercial Backdrops + Batch .ZIP Vault:
+                      </strong>{' '}
+                      5 built-in studio backdrops free forever, plus specialized Event Rental, Automotive Dealership, and E-Commerce Apparel studio packs.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* PRIMARY HERO CTA ROW */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    data-testid="hero-launch-studio-btn"
+                    className="btn-gold"
+                    onClick={() =>
+                      launchStudioWithTransition({
+                        job: selectedJob,
+                        backdrop: backdropStyle,
+                        stageMode: 'compare'
+                      })
+                    }
+                    style={{
+                      flex: '1 1 230px',
+                      padding: '13px 18px',
+                      fontSize: '13.5px',
+                      fontWeight: 700
+                    }}
+                  >
+                    <Sparkles size={16} />
+                    <span>Launch Full Studio Workspace →</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="hero-upload-photo-btn"
+                    className="btn-accent"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      flex: '1 1 200px',
+                      padding: '13px 18px',
+                      fontSize: '13.5px',
+                      fontWeight: 700
+                    }}
+                  >
+                    <Upload size={16} />
+                    <span>Drop Your Own Photo to Test</span>
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    fontSize: '11.5px',
+                    color: 'var(--text-secondary)'
+                  }}
+                >
+                  <span>✓ No account required · ✓ 100% private on-device processing</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document
+                        .getElementById('commercial-catalog-section')
+                        ?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--gold)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '11.5px',
+                      cursor: 'pointer',
+                      padding: 0,
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Explore 5 Commercial Packs ($9–$149) ↓
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: LIVE INTERACTIVE PRODUCT-TO-PROTOTYPE SANDBOX */}
+            <div className="prototype-stage-card" data-testid="hero-interactive-prototype">
+              <div className="prototype-top-bar">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="prototype-live-dot" />
+                  <span
+                    className="mono-num"
+                    style={{ fontSize: '11px', fontWeight: 700, color: 'var(--gold)' }}
+                  >
+                    STEP 1 · PICK A DEMO SUBJECT &amp; SCRUB LIVE SCANNER
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="filter-chip"
+                  onClick={() => setIsAutoSweepHero((v) => !v)}
+                  style={{ fontSize: '10.5px', padding: '4px 9px' }}
+                >
+                  {isAutoSweepHero ? '⏸ Pause Auto-Scanner' : '▶ Resume Auto-Scanner'}
+                </button>
+              </div>
+
+              {/* SUBJECT SELECTOR PILLS */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {jobs
+                  .filter((j) => j.is_showcase && j.status === 'completed')
+                  .map((sampleJob, idx) => {
+                    const isCurrent = selectedJob?.job_id === sampleJob.job_id;
+                    return (
+                      <button
+                        key={sampleJob.job_id}
+                        type="button"
+                        onClick={() => setSelectedJob(sampleJob)}
+                        className={`filter-chip ${isCurrent ? 'active' : ''}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          fontSize: '11.5px'
+                        }}
+                      >
+                        <span className="mono-num" style={{ opacity: 0.75 }}>
+                          0{idx + 1}
+                        </span>
+                        <span>{sampleJob.title}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              {/* INTERACTIVE BEFORE/AFTER LASER SCANNER VIEWPORT */}
+              <div
+                ref={heroSliderRef}
+                className="slider-container"
+                role="slider"
+                tabIndex={0}
+                aria-label="Interactive Prototype Before and After Cutout Scanner"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(sliderPos)}
+                onKeyDown={handleSliderKeyDown}
+                onPointerDown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  updateHeroSliderFromPointer(e.clientX);
+                }}
+                onPointerMove={(e) => {
+                  if (e.buttons === 1) {
+                    updateHeroSliderFromPointer(e.clientX);
+                  }
+                }}
+                style={{ minHeight: '305px', maxHeight: '340px' }}
+              >
+                {/* AFTER: Studio Composite */}
+                <img
+                  src={
+                    activePreviewUrl ||
+                    selectedJob?.thumb_url ||
+                    '/samples/sports_coupe_after.jpg'
+                  }
+                  alt="Cleaned Studio Composite"
+                  className="slider-image-layer"
+                  draggable={false}
+                />
+
+                {/* BEFORE: Raw Photo Clipped by Slider */}
+                <img
+                  src={
+                    selectedJob?.aligned_before_url ||
+                    selectedJob?.original_url ||
+                    '/samples/sports_coupe_before.jpg'
+                  }
+                  alt="Raw Original Subject"
+                  className="slider-image-layer"
+                  draggable={false}
+                  style={{
+                    clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
+                  }}
+                />
+
+                <div className="slider-divider" style={{ left: `${sliderPos}%` }}>
+                  <div className="slider-handle-circle">⇄</div>
+                </div>
+
+                <div className="stage-pill before">RAW INPUT PHOTO</div>
+                <div className="stage-pill after">
+                  STUDIO COMPOSITE · {activeBackdropInfo.shortLabel.toUpperCase()}
+                </div>
+              </div>
+
+              {/* STEP 2: LIVE BACKDROP ENVIRONMENT SWITCHER */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '7px',
+                  background: 'rgba(12, 15, 23, 0.85)',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-subtle)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span
+                    className="mono-num"
+                    style={{ fontSize: '10.5px', color: 'var(--text-secondary)', fontWeight: 600 }}
+                  >
+                    STEP 2 · SWAP STUDIO BACKDROP LIVE ({activeBackdropInfo.label})
+                  </span>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: '#34d399' }}>
+                    {selectedJob?.subtitle || 'Real-time canvas composite'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {FIVE_BACKDROP_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setBackdropStyle(opt.id)}
+                      className={`filter-chip ${backdropStyle === opt.id ? 'active' : ''}`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 10px',
+                        fontSize: '11.5px'
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '11px',
+                          height: '11px',
+                          borderRadius: '3px',
+                          background: opt.swatchBg,
+                          border: '1px solid rgba(255,255,255,0.28)',
+                          display: 'inline-block'
+                        }}
+                      />
+                      <span>{opt.shortLabel}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* STEP 3: TRANSITION PROTOTYPE directly into FULL STUDIO EDITOR */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  data-testid="prototype-open-in-studio-btn"
+                  className="btn-gold"
+                  onClick={() =>
+                    launchStudioWithTransition({
+                      job: selectedJob,
+                      backdrop: backdropStyle,
+                      stageMode: 'compare'
+                    })
+                  }
+                  style={{ flex: '1 1 220px', padding: '10px 14px', fontSize: '12.5px' }}
+                >
+                  <Sparkles size={14} />
+                  <span>
+                    Open &ldquo;{selectedJob?.title || 'Subject'}&rdquo; in Full Studio Workspace →
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="prototype-open-refiner-btn"
+                  className="btn-secondary"
+                  onClick={() =>
+                    launchStudioWithTransition({
+                      job: selectedJob,
+                      backdrop: backdropStyle,
+                      stageMode: 'refine'
+                    })
+                  }
+                  style={{ padding: '10px 14px', fontSize: '12.5px' }}
+                >
+                  <Brush size={14} />
+                  <span>Open in Edge Brush Refiner →</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* 3-STAGE INTERACTIVE ARCHITECTURE & PIPELINE EXPLAINER */}
+          <section className="card" aria-label="How CleanSnap Studio Works Under the Hood">
+            <div className="card-header">
+              <div className="card-title-group">
+                <span className="card-step-label">INTERACTIVE PIPELINE WALKTHROUGH · CLICK ANY STAGE TO TEST</span>
+                <h2 className="card-title">
+                  How CleanSnap Transforms Raw Inventory into Print &amp; E-Commerce Assets
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="btn-gold"
+                onClick={() =>
+                  launchStudioWithTransition({
+                    job: selectedJob,
+                    backdrop: backdropStyle,
+                    stageMode: 'compare'
+                  })
+                }
+              >
+                <Sparkles size={14} /> Enter Full 3-Column Studio →
+              </button>
+            </div>
+
+            <div className="pipeline-explainer-grid">
+              <article className="workflow-section" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="hero-pillar-num">STAGE 01 · NEURAL SALIENCY</span>
+                    <span className="mono-num" style={{ fontSize: '11px', color: '#34d399' }}>
+                      U²-NET ONNX WASM
+                    </span>
+                  </div>
+                  <h3 style={{ margin: '10px 0 6px', fontSize: '16px', color: 'var(--text-primary)' }}>
+                    On-Device Neural Cutout &amp; High-Res Bilateral Edge Snap
+                  </h3>
+                  <p className="workflow-step-desc" style={{ fontSize: '12.5px' }}>
+                    Drop a single image or a 200-photo folder. Our local U²-Net ONNX engine computes a 320×320 neural saliency probability field and snaps alpha boundaries to full-resolution RGB edges without uploading a single byte to the cloud.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    launchStudioWithTransition({
+                      job: selectedJob,
+                      backdrop: backdropStyle,
+                      stageMode: 'compare'
+                    })
+                  }
+                  style={{ width: '100%', marginTop: '10px' }}
+                >
+                  <Sliders size={14} /> Launch Before / After Compare Stage →
+                </button>
+              </article>
+
+              <article className="workflow-section" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="hero-pillar-num">STAGE 02 · SUB-PIXEL REFINER</span>
+                    <span className="mono-num" style={{ fontSize: '11px', color: 'var(--gold)' }}>
+                      400% ZOOM + RUBY MASK
+                    </span>
+                  </div>
+                  <h3 style={{ margin: '10px 0 6px', fontSize: '16px', color: 'var(--text-primary)' }}>
+                    Chromatic Halo Decontamination &amp; Manual Brush Workspace
+                  </h3>
+                  <p className="workflow-step-desc" style={{ fontSize: '12.5px' }}>
+                    Eliminate green-screen spill and white driveway fringes automatically. Need surgical control? Switch to the Manual Edge Refiner to paint/erase mask pixels, adjust morphological choke (-12px to +12px), and inspect against a Ruby Mask overlay.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    launchStudioWithTransition({
+                      job: selectedJob,
+                      backdrop: backdropStyle,
+                      stageMode: 'refine'
+                    })
+                  }
+                  style={{ width: '100%', marginTop: '10px' }}
+                >
+                  <Brush size={14} /> Try Manual Edge Brush Workspace →
+                </button>
+              </article>
+
+              <article className="workflow-section" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="hero-pillar-num">STAGE 03 · COMMERCIAL EXPORT</span>
+                    <span className="mono-num" style={{ fontSize: '11px', color: '#38bdf8' }}>
+                      .PNG + VECTOR .SVG + .ZIP
+                    </span>
+                  </div>
+                  <h3 style={{ margin: '10px 0 6px', fontSize: '16px', color: 'var(--text-primary)' }}>
+                    11 Studio Environments &amp; True Marching-Squares .SVG Cutlines
+                  </h3>
+                  <p className="workflow-step-desc" style={{ fontSize: '12.5px' }}>
+                    Composite subjects with natural contact shadows onto 11 commercial backdrops, or export 4K transparent alpha .PNGs alongside mathematical Marching-Squares vector .SVG <code>&lt;clipPath&gt;</code> contours ready for Roland/Cricut vinyl cutters and Figma.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    launchStudioWithTransition({
+                      job: selectedJob,
+                      backdrop: backdropStyle,
+                      tab: 'vault'
+                    })
+                  }
+                  style={{ width: '100%', marginTop: '10px' }}
+                >
+                  <Package size={14} /> Explore Batch .PNG &amp; .SVG Export Vault →
+                </button>
+              </article>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* ==================== TAB 1: STUDIO WORKSPACE ==================== */}
       {activeTab === 'cleaner' && (
         <>
@@ -2518,31 +3163,6 @@ export default function App() {
                   <h2 className="card-title">Clean, Refine &amp; Export</h2>
                 </div>
               </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*"
-                data-testid="file-upload-input"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  handleFilesSelected(e.target.files);
-                  e.target.value = '';
-                }}
-              />
-              <input
-                ref={folderInputRef}
-                type="file"
-                webkitdirectory="true"
-                directory="true"
-                multiple
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  handleFilesSelected(e.target.files);
-                  e.target.value = '';
-                }}
-              />
 
               {/* STEP 1: ADD IMAGES */}
               <div className="workflow-section">
@@ -3428,150 +4048,168 @@ export default function App() {
         </div>
       )}
 
-      {/* ==================== COMMERCIAL PRODUCT SHOWCASE, PRICING & SEO LANDING SECTION ==================== */}
-      <section
-        className="card"
-        aria-label="Studio Backdrop Packs, All-Access Pro & B2B Bulk Catalog Pricing"
-        style={{ marginTop: '8px' }}
-      >
-        <div className="card-header">
-          <div className="card-title-group">
-            <span className="card-step-label">COMMERCIAL STUDIO CATALOG · POWERED BY STRIPE</span>
-            <h2 className="card-title">
-              Industry Backdrop Packs, All-Access Studio Pro &amp; White-Glove B2B Catalog Service
-            </h2>
-          </div>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setProModalTab('b2b');
-              setShowProModal(true);
-            }}
-          >
-            <Package size={14} /> Open B2B 200-Photo Folder Intake
-          </button>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(235px, 1fr))',
-            gap: '14px'
-          }}
+      {/* ==================== COMMERCIAL PRODUCT SHOWCASE, PRICING & SEO LANDING SECTION (SHOWN ON LANDING PAGE) ==================== */}
+      {activeTab === 'landing' && (
+        <section
+          id="commercial-catalog-section"
+          className="card"
+          aria-label="Studio Backdrop Packs, All-Access Pro & B2B Bulk Catalog Pricing"
+          style={{ marginTop: '4px' }}
         >
-          {[
-            {
-              tier: 'pro',
-              badge: '⭐ BEST VALUE · ALL 11 BACKDROPS',
-              title: 'CleanSnap Studio Pro — All-Access Bundle',
-              price: '$19',
-              sub: 'One-Time Lifetime Key',
-              img: '/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png',
-              desc: 'Unlocks all 3 Industry Backdrop Packs (11 studio environments), multi-photo batch folder ingest, Marching-Squares vector .SVG cutlines, batch .ZIP exports, and custom brand watermarks.',
-              btnClass: 'btn-gold',
-              btnLabel: 'Buy All-Access Pro ($19) →'
-            },
-            {
-              tier: 'pack_rental',
-              badge: 'PACK 01 · EVENT & PARTY RENTAL',
-              title: 'Event & Party Rental Backdrop Pack',
-              price: '$9',
-              sub: 'One-Time Pack Unlock',
-              img: '/products/02_CleanSnap_Event_Party_Rental_Pack_1080x1080.png',
-              desc: 'Built for bounce house, tent, and event rental operators. Unlocks 06 Twilight String-Lit Patio Turf & 07 Grand Hardwood Event Pavilion.',
-              btnClass: 'btn-secondary',
-              btnLabel: 'Unlock Rental Pack ($9) →'
-            },
-            {
-              tier: 'pack_auto',
-              badge: 'PACK 02 · AUTOMOTIVE & DEALERSHIP',
-              title: 'Auto & Dealership Showroom Pack',
-              price: '$9',
-              sub: 'One-Time Pack Unlock',
-              img: '/products/03_CleanSnap_Auto_Showroom_Pack_1080x1080.png',
-              desc: 'Built for auto lots, detailers, and powersports sellers. Unlocks 08 Wet Obsidian Studio Cyclorama & 09 Architectural LED Dealership Bay.',
-              btnClass: 'btn-secondary',
-              btnLabel: 'Unlock Auto Pack ($9) →'
-            },
-            {
-              tier: 'pack_ecom',
-              badge: 'PACK 03 · E-COMMERCE & APPAREL',
-              title: 'E-Commerce & Apparel Editorial Pack',
-              price: '$9',
-              sub: 'One-Time Pack Unlock',
-              img: '/products/04_CleanSnap_ECommerce_Apparel_Pack_1080x1080.png',
-              desc: 'Built for Etsy, Poshmark, Depop, and Shopify brands. Unlocks 10 Warm Travertine Limestone Podium & 11 Editorial Sand Linen Backdrop.',
-              btnClass: 'btn-secondary',
-              btnLabel: 'Unlock E-Com Pack ($9) →'
-            },
-            {
-              tier: 'b2b',
-              badge: 'DONE-FOR-YOU B2B SERVICE',
-              title: '200-Photo Bulk Catalog Studio Batch',
-              price: '$149',
-              sub: 'White-Glove Turnkey Batch',
-              img: '/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png',
-              desc: 'Send us your Google Drive or Dropbox folder of up to 200 messy inventory photos. We isolate subjects, stage on custom brand backdrops, and deliver your master .PNG + .SVG archive.',
-              btnClass: 'btn-accent',
-              btnLabel: 'Order 200-Photo Batch ($149) →'
-            }
-          ].map((item) => (
-            <article
-              key={item.tier}
-              className="workflow-section"
-              style={{
-                justifyContent: 'space-between',
-                borderColor:
-                  item.tier === 'pro'
-                    ? 'rgba(229, 193, 88, 0.5)'
-                    : item.tier === 'b2b'
-                    ? 'rgba(16, 185, 129, 0.45)'
-                    : 'var(--border-subtle)'
-              }}
-            >
-              <div>
-                <img
-                  src={item.img}
-                  alt={item.title}
-                  loading="lazy"
-                  style={{
-                    width: '100%',
-                    aspectRatio: '1 / 1',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    marginBottom: '10px',
-                    border: '1px solid var(--border-subtle)'
-                  }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
-                  <span className="mono-num" style={{ fontSize: '10px', color: 'var(--gold)', fontWeight: 600 }}>
-                    {item.badge}
-                  </span>
-                  <span className="mono-num" style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {item.price}
-                  </span>
-                </div>
-                <h3 style={{ margin: '5px 0 3px', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {item.title}
-                </h3>
-                <p className="workflow-step-desc" style={{ fontSize: '11.5px', marginBottom: '10px' }}>
-                  {item.desc}
-                </p>
-              </div>
+          <div className="card-header">
+            <div className="card-title-group">
+              <span className="card-step-label">COMMERCIAL STUDIO CATALOG · POWERED BY STRIPE</span>
+              <h2 className="card-title">
+                Industry Backdrop Packs, All-Access Studio Pro &amp; White-Glove B2B Catalog Service
+              </h2>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                className={item.btnClass}
-                disabled={isCheckingOutStripe}
-                onClick={() => handleStartStripeCheckout(item.tier)}
-                style={{ width: '100%' }}
+                className="btn-gold"
+                onClick={() =>
+                  launchStudioWithTransition({
+                    job: selectedJob,
+                    backdrop: backdropStyle,
+                    stageMode: 'compare'
+                  })
+                }
               >
-                {item.btnLabel}
+                <Sparkles size={14} /> Try Free Studio Workspace First →
               </button>
-            </article>
-          ))}
-        </div>
-      </section>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setProModalTab('b2b');
+                  setShowProModal(true);
+                }}
+              >
+                <Package size={14} /> Open B2B 200-Photo Folder Intake
+              </button>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(235px, 1fr))',
+              gap: '14px'
+            }}
+          >
+            {[
+              {
+                tier: 'pro',
+                badge: '⭐ BEST VALUE · ALL 11 BACKDROPS',
+                title: 'CleanSnap Studio Pro — All-Access Bundle',
+                price: '$19',
+                sub: 'One-Time Lifetime Key',
+                img: '/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png',
+                desc: 'Unlocks all 3 Industry Backdrop Packs (11 studio environments), multi-photo batch folder ingest, Marching-Squares vector .SVG cutlines, batch .ZIP exports, and custom brand watermarks.',
+                btnClass: 'btn-gold',
+                btnLabel: 'Buy All-Access Pro ($19) →'
+              },
+              {
+                tier: 'pack_rental',
+                badge: 'PACK 01 · EVENT & PARTY RENTAL',
+                title: 'Event & Party Rental Backdrop Pack',
+                price: '$9',
+                sub: 'One-Time Pack Unlock',
+                img: '/products/02_CleanSnap_Event_Party_Rental_Pack_1080x1080.png',
+                desc: 'Built for bounce house, tent, and event rental operators. Unlocks 06 Twilight String-Lit Patio Turf & 07 Grand Hardwood Event Pavilion.',
+                btnClass: 'btn-secondary',
+                btnLabel: 'Unlock Rental Pack ($9) →'
+              },
+              {
+                tier: 'pack_auto',
+                badge: 'PACK 02 · AUTOMOTIVE & DEALERSHIP',
+                title: 'Auto & Dealership Showroom Pack',
+                price: '$9',
+                sub: 'One-Time Pack Unlock',
+                img: '/products/03_CleanSnap_Auto_Showroom_Pack_1080x1080.png',
+                desc: 'Built for auto lots, detailers, and powersports sellers. Unlocks 08 Wet Obsidian Studio Cyclorama & 09 Architectural LED Dealership Bay.',
+                btnClass: 'btn-secondary',
+                btnLabel: 'Unlock Auto Pack ($9) →'
+              },
+              {
+                tier: 'pack_ecom',
+                badge: 'PACK 03 · E-COMMERCE & APPAREL',
+                title: 'E-Commerce & Apparel Editorial Pack',
+                price: '$9',
+                sub: 'One-Time Pack Unlock',
+                img: '/products/04_CleanSnap_ECommerce_Apparel_Pack_1080x1080.png',
+                desc: 'Built for Etsy, Poshmark, Depop, and Shopify brands. Unlocks 10 Warm Travertine Limestone Podium & 11 Editorial Sand Linen Backdrop.',
+                btnClass: 'btn-secondary',
+                btnLabel: 'Unlock E-Com Pack ($9) →'
+              },
+              {
+                tier: 'b2b',
+                badge: 'DONE-FOR-YOU B2B SERVICE',
+                title: '200-Photo Bulk Catalog Studio Batch',
+                price: '$149',
+                sub: 'White-Glove Turnkey Batch',
+                img: '/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png',
+                desc: 'Send us your Google Drive or Dropbox folder of up to 200 messy inventory photos. We isolate subjects, stage on custom brand backdrops, and deliver your master .PNG + .SVG archive.',
+                btnClass: 'btn-accent',
+                btnLabel: 'Order 200-Photo Batch ($149) →'
+              }
+            ].map((item) => (
+              <article
+                key={item.tier}
+                className="workflow-section"
+                style={{
+                  justifyContent: 'space-between',
+                  borderColor:
+                    item.tier === 'pro'
+                      ? 'rgba(229, 193, 88, 0.5)'
+                      : item.tier === 'b2b'
+                      ? 'rgba(16, 185, 129, 0.45)'
+                      : 'var(--border-subtle)'
+                }}
+              >
+                <div>
+                  <img
+                    src={item.img}
+                    alt={item.title}
+                    loading="lazy"
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      objectFit: 'cover',
+                      borderRadius: '8px',
+                      marginBottom: '10px',
+                      border: '1px solid var(--border-subtle)'
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+                    <span className="mono-num" style={{ fontSize: '10px', color: 'var(--gold)', fontWeight: 600 }}>
+                      {item.badge}
+                    </span>
+                    <span className="mono-num" style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {item.price}
+                    </span>
+                  </div>
+                  <h3 style={{ margin: '5px 0 3px', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {item.title}
+                  </h3>
+                  <p className="workflow-step-desc" style={{ fontSize: '11.5px', marginBottom: '10px' }}>
+                    {item.desc}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={item.btnClass}
+                  disabled={isCheckingOutStripe}
+                  onClick={() => handleStartStripeCheckout(item.tier)}
+                  style={{ width: '100%' }}
+                >
+                  {item.btnLabel}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
