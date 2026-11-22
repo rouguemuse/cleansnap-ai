@@ -1972,18 +1972,21 @@ export default function App() {
                       id: 'pack_rental',
                       title: 'Event & Party Rental Pack',
                       price: '$9',
+                      img: '/products/02_CleanSnap_Event_Party_Rental_Pack_1080x1080.png',
                       desc: 'Unlocks 06 Twilight String-Lit Patio Turf & 07 Grand Hardwood Event Pavilion (Server-Gated).'
                     },
                     {
                       id: 'pack_auto',
                       title: 'Auto & Showroom Pack',
                       price: '$9',
+                      img: '/products/03_CleanSnap_Auto_Showroom_Pack_1080x1080.png',
                       desc: 'Unlocks 08 Wet Obsidian Studio Cyclorama & 09 Architectural LED Dealership Bay (Server-Gated).'
                     },
                     {
                       id: 'pack_ecom',
                       title: 'E-Commerce & Apparel Pack',
                       price: '$9',
+                      img: '/products/04_CleanSnap_ECommerce_Apparel_Pack_1080x1080.png',
                       desc: 'Unlocks 10 Warm Travertine Limestone Studio & 11 Editorial Sand Linen Backdrop (Server-Gated).'
                     }
                   ].map((pk) => {
@@ -1991,6 +1994,19 @@ export default function App() {
                     return (
                       <div key={pk.id} className="workflow-section" style={{ justifyContent: 'space-between' }}>
                         <div>
+                          <img
+                            src={pk.img}
+                            alt={pk.title}
+                            loading="lazy"
+                            style={{
+                              width: '100%',
+                              aspectRatio: '16 / 10',
+                              objectFit: 'cover',
+                              borderRadius: '7px',
+                              marginBottom: '8px',
+                              border: '1px solid var(--border-subtle)'
+                            }}
+                          />
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span className="mono-num" style={{ fontSize: '10px', color: 'var(--gold)', fontWeight: 600 }}>
                               {owned ? '✓ UNLOCKED' : '🔒 SERVER-GATED PACK'}
@@ -2024,12 +2040,21 @@ export default function App() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
                   <div className="workflow-section" style={{ borderColor: 'rgba(229, 193, 88, 0.55)', justifyContent: 'space-between' }}>
                     <div>
-                      <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--gold)', fontWeight: 600 }}>
-                        ⭐ BEST VALUE · ALL-ACCESS LIFETIME BUNDLE
-                      </span>
-                      <h3 style={{ margin: '4px 0', fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        All-Access Studio Pro — $19
-                      </h3>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '6px' }}>
+                        <img
+                          src="/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png"
+                          alt="All-Access Studio Pro Bundle"
+                          style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--gold)' }}
+                        />
+                        <div>
+                          <span className="mono-num" style={{ fontSize: '10px', color: 'var(--gold)', fontWeight: 600 }}>
+                            ⭐ BEST VALUE · ALL-ACCESS LIFETIME
+                          </span>
+                          <h3 style={{ margin: '2px 0', fontSize: '16.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            All-Access Studio Pro — $19
+                          </h3>
+                        </div>
+                      </div>
                       <p className="workflow-step-desc" style={{ marginBottom: '8px' }}>
                         Unlocks <strong>all 3 Industry Backdrop Packs (11 studio environments)</strong> + unlimited batch folder uploads, Marching-Squares vector <code>.SVG</code> cutline packs (<code>.ZIP</code>), and custom brand watermarks.
                       </p>
@@ -2047,12 +2072,21 @@ export default function App() {
 
                   <div className="workflow-section" style={{ borderColor: 'rgba(16, 185, 129, 0.45)', justifyContent: 'space-between' }}>
                     <div>
-                      <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--emerald)', fontWeight: 600 }}>
-                        DONE-FOR-YOU B2B CATALOG SERVICE
-                      </span>
-                      <h3 style={{ margin: '4px 0', fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        200-Photo Bulk Catalog Batch — $149
-                      </h3>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '6px' }}>
+                        <img
+                          src="/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png"
+                          alt="200-Photo Bulk Catalog Batch"
+                          style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--emerald)' }}
+                        />
+                        <div>
+                          <span className="mono-num" style={{ fontSize: '10px', color: 'var(--emerald)', fontWeight: 600 }}>
+                            DONE-FOR-YOU B2B CATALOG SERVICE
+                          </span>
+                          <h3 style={{ margin: '2px 0', fontSize: '16.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            200-Photo Bulk Batch — $149
+                          </h3>
+                        </div>
+                      </div>
                       <p className="workflow-step-desc" style={{ marginBottom: '8px' }}>
                         Don&apos;t want to process hundreds of messy photos yourself? Pay via Stripe and submit your Google Drive / Dropbox folder link in the <strong>B2B Intake tab</strong>.
                       </p>
@@ -3393,6 +3427,151 @@ export default function App() {
           )}
         </div>
       )}
+
+      {/* ==================== COMMERCIAL PRODUCT SHOWCASE, PRICING & SEO LANDING SECTION ==================== */}
+      <section
+        className="card"
+        aria-label="Studio Backdrop Packs, All-Access Pro & B2B Bulk Catalog Pricing"
+        style={{ marginTop: '8px' }}
+      >
+        <div className="card-header">
+          <div className="card-title-group">
+            <span className="card-step-label">COMMERCIAL STUDIO CATALOG · POWERED BY STRIPE</span>
+            <h2 className="card-title">
+              Industry Backdrop Packs, All-Access Studio Pro &amp; White-Glove B2B Catalog Service
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setProModalTab('b2b');
+              setShowProModal(true);
+            }}
+          >
+            <Package size={14} /> Open B2B 200-Photo Folder Intake
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(235px, 1fr))',
+            gap: '14px'
+          }}
+        >
+          {[
+            {
+              tier: 'pro',
+              badge: '⭐ BEST VALUE · ALL 11 BACKDROPS',
+              title: 'CleanSnap Studio Pro — All-Access Bundle',
+              price: '$19',
+              sub: 'One-Time Lifetime Key',
+              img: '/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png',
+              desc: 'Unlocks all 3 Industry Backdrop Packs (11 studio environments), multi-photo batch folder ingest, Marching-Squares vector .SVG cutlines, batch .ZIP exports, and custom brand watermarks.',
+              btnClass: 'btn-gold',
+              btnLabel: 'Buy All-Access Pro ($19) →'
+            },
+            {
+              tier: 'pack_rental',
+              badge: 'PACK 01 · EVENT & PARTY RENTAL',
+              title: 'Event & Party Rental Backdrop Pack',
+              price: '$9',
+              sub: 'One-Time Pack Unlock',
+              img: '/products/02_CleanSnap_Event_Party_Rental_Pack_1080x1080.png',
+              desc: 'Built for bounce house, tent, and event rental operators. Unlocks 06 Twilight String-Lit Patio Turf & 07 Grand Hardwood Event Pavilion.',
+              btnClass: 'btn-secondary',
+              btnLabel: 'Unlock Rental Pack ($9) →'
+            },
+            {
+              tier: 'pack_auto',
+              badge: 'PACK 02 · AUTOMOTIVE & DEALERSHIP',
+              title: 'Auto & Dealership Showroom Pack',
+              price: '$9',
+              sub: 'One-Time Pack Unlock',
+              img: '/products/03_CleanSnap_Auto_Showroom_Pack_1080x1080.png',
+              desc: 'Built for auto lots, detailers, and powersports sellers. Unlocks 08 Wet Obsidian Studio Cyclorama & 09 Architectural LED Dealership Bay.',
+              btnClass: 'btn-secondary',
+              btnLabel: 'Unlock Auto Pack ($9) →'
+            },
+            {
+              tier: 'pack_ecom',
+              badge: 'PACK 03 · E-COMMERCE & APPAREL',
+              title: 'E-Commerce & Apparel Editorial Pack',
+              price: '$9',
+              sub: 'One-Time Pack Unlock',
+              img: '/products/04_CleanSnap_ECommerce_Apparel_Pack_1080x1080.png',
+              desc: 'Built for Etsy, Poshmark, Depop, and Shopify brands. Unlocks 10 Warm Travertine Limestone Podium & 11 Editorial Sand Linen Backdrop.',
+              btnClass: 'btn-secondary',
+              btnLabel: 'Unlock E-Com Pack ($9) →'
+            },
+            {
+              tier: 'b2b',
+              badge: 'DONE-FOR-YOU B2B SERVICE',
+              title: '200-Photo Bulk Catalog Studio Batch',
+              price: '$149',
+              sub: 'White-Glove Turnkey Batch',
+              img: '/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png',
+              desc: 'Send us your Google Drive or Dropbox folder of up to 200 messy inventory photos. We isolate subjects, stage on custom brand backdrops, and deliver your master .PNG + .SVG archive.',
+              btnClass: 'btn-accent',
+              btnLabel: 'Order 200-Photo Batch ($149) →'
+            }
+          ].map((item) => (
+            <article
+              key={item.tier}
+              className="workflow-section"
+              style={{
+                justifyContent: 'space-between',
+                borderColor:
+                  item.tier === 'pro'
+                    ? 'rgba(229, 193, 88, 0.5)'
+                    : item.tier === 'b2b'
+                    ? 'rgba(16, 185, 129, 0.45)'
+                    : 'var(--border-subtle)'
+              }}
+            >
+              <div>
+                <img
+                  src={item.img}
+                  alt={item.title}
+                  loading="lazy"
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1 / 1',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    marginBottom: '10px',
+                    border: '1px solid var(--border-subtle)'
+                  }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+                  <span className="mono-num" style={{ fontSize: '10px', color: 'var(--gold)', fontWeight: 600 }}>
+                    {item.badge}
+                  </span>
+                  <span className="mono-num" style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {item.price}
+                  </span>
+                </div>
+                <h3 style={{ margin: '5px 0 3px', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {item.title}
+                </h3>
+                <p className="workflow-step-desc" style={{ fontSize: '11.5px', marginBottom: '10px' }}>
+                  {item.desc}
+                </p>
+              </div>
+              <button
+                type="button"
+                className={item.btnClass}
+                disabled={isCheckingOutStripe}
+                onClick={() => handleStartStripeCheckout(item.tier)}
+                style={{ width: '100%' }}
+              >
+                {item.btnLabel}
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

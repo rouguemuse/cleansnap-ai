@@ -1,7 +1,8 @@
 /**
  * Vercel Serverless API Route: /api/verify-stripe
- * 100% Stripe-Native Checkout Session Creator (Backdrop Packs $9, All-Access Studio Pro $19, B2B Bulk Catalog $149),
- * Email Purchase Restore & Server-Signed HMAC Access Token Issuer (Un-bypassable in DevTools).
+ * 100% Stripe-Native Checkout Session Creator wired directly to the 5 official
+ * ContextMuse Living Systems Products & Prices (with Product Image thumbnails),
+ * Email Purchase Restore & Server-Signed HMAC Access Token Issuer.
  */
 import crypto from 'node:crypto';
 
@@ -12,38 +13,53 @@ const MASTER_KEYS = new Set([
 
 const TIER_CATALOG = {
   pack_rental: {
+    productId: 'prod_VfXrT1MkibbEhD',
+    priceId: 'price_1UeClsBfbNYsdzMhq8yKstse',
     priceCents: '900',
     name: 'CleanSnap Studio — Event & Party Rental Backdrop Pack',
     description:
-      'Unlocks Twilight String-Lit Patio Turf & Grand Hardwood Event Pavilion studio backdrops.',
+      'Unlocks 06 Twilight String-Lit Patio Turf & 07 Grand Hardwood Event Pavilion studio backdrops.',
+    image: 'https://bold-oppenheimer.vercel.app/products/02_CleanSnap_Event_Party_Rental_Pack_1080x1080.png',
     entitlements: ['pack_rental']
   },
   pack_auto: {
+    productId: 'prod_VfXrrRH3c9XCbz',
+    priceId: 'price_1UeClsBfbNYsdzMhi6h2HYmj',
     priceCents: '900',
     name: 'CleanSnap Studio — Auto & Dealership Showroom Backdrop Pack',
     description:
-      'Unlocks Wet Obsidian Studio Cyclorama & Architectural LED Dealership Bay studio backdrops.',
+      'Unlocks 08 Wet Obsidian Studio Cyclorama & 09 Architectural LED Dealership Bay studio backdrops.',
+    image: 'https://bold-oppenheimer.vercel.app/products/03_CleanSnap_Auto_Showroom_Pack_1080x1080.png',
     entitlements: ['pack_auto']
   },
   pack_ecom: {
+    productId: 'prod_VfXr1ckoKwvMZf',
+    priceId: 'price_1UeCltBfbNYsdzMhHgs81pvF',
     priceCents: '900',
     name: 'CleanSnap Studio — E-Commerce & Apparel Editorial Backdrop Pack',
     description:
-      'Unlocks Warm Travertine Limestone Podium & Editorial Sand Linen studio backdrops.',
+      'Unlocks 10 Warm Travertine Limestone Podium & 11 Editorial Sand Linen studio backdrops.',
+    image: 'https://bold-oppenheimer.vercel.app/products/04_CleanSnap_ECommerce_Apparel_Pack_1080x1080.png',
     entitlements: ['pack_ecom']
   },
   pro: {
+    productId: 'prod_VfXrfpOqOvVA6D',
+    priceId: 'price_1UeClsBfbNYsdzMhUuEAYTJS',
     priceCents: '1900',
     name: 'CleanSnap Studio Pro — All-Access Lifetime Bundle (All Backdrop Packs + Batch .SVG .ZIP)',
     description:
       'Unlocks all 11 studio backdrops (Rental, Auto & E-Commerce packs), unlimited batch folder uploads, Marching-Squares vector .SVG cutlines, batch .ZIP exports, and custom brand watermarks.',
+    image: 'https://bold-oppenheimer.vercel.app/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png',
     entitlements: ['all', 'pack_rental', 'pack_auto', 'pack_ecom']
   },
   b2b: {
+    productId: 'prod_VfXrN7Lvph7noH',
+    priceId: 'price_1UeCltBfbNYsdzMhq3A8VqxN',
     priceCents: '14900',
-    name: 'CleanSnap Studio — Done-For-You Bulk Catalog Batch (Up to 200 Photos + Custom Brand Backdrops)',
+    name: 'CleanSnap Studio — Done-For-You 200-Photo Bulk Catalog Batch',
     description:
-      'White-glove commercial catalog cleanup, custom brand backdrops, watermarked web previews, die-cut .SVG/.PNG master archive, plus complimentary All-Access Studio Pro key.',
+      'White-glove commercial catalog cleanup (up to 200 photos), custom brand backdrops, watermarked web previews, die-cut .SVG/.PNG master archive, plus complimentary All-Access Studio Pro key.',
+    image: 'https://bold-oppenheimer.vercel.app/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png',
     entitlements: ['all', 'pack_rental', 'pack_auto', 'pack_ecom', 'b2b_order']
   }
 };
@@ -79,9 +95,6 @@ export function verifySignedLicenseKey(rawKey) {
   return computeBlockChecksum(partA, partB) === check;
 }
 
-/**
- * Issues a tamper-proof HMAC-SHA256 Server Access Token required by /api/pro-assets
- */
 export function issueHmacAccessToken(licenseKey, entitlements = ['all'], email = null) {
   const payload = {
     sub: licenseKey,
@@ -128,7 +141,7 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const action = body.action || req.query?.action || 'verify';
 
-    // 1. CREATE STRIPE CHECKOUT SESSION (Pack $9, All-Access Pro $19, or B2B $149)
+    // 1. CREATE STRIPE CHECKOUT SESSION WIRED TO CATALOG PRODUCT & PRICE ID
     if (action === 'create_checkout') {
       const tierKey = TIER_CATALOG[body.tier] ? body.tier : 'pro';
       const tierInfo = TIER_CATALOG[tierKey];
@@ -144,32 +157,62 @@ export default async function handler(req, res) {
         return;
       }
 
-      const params = new URLSearchParams();
-      params.append('mode', 'payment');
-      params.append(
+      // First attempt using the official ContextMuse Living Systems catalog Price ID (includes attached Stripe product image)
+      const catalogParams = new URLSearchParams();
+      catalogParams.append('mode', 'payment');
+      catalogParams.append(
         'success_url',
         `${origin}/?stripe_session={CHECKOUT_SESSION_ID}&tier=${tierKey}`
       );
-      params.append('cancel_url', `${origin}/`);
-      params.append('allow_promotion_codes', 'true');
-      params.append('metadata[tier]', tierKey);
-      params.append('line_items[0][price_data][currency]', 'usd');
-      params.append('line_items[0][price_data][unit_amount]', tierInfo.priceCents);
-      params.append('line_items[0][price_data][product_data][name]', tierInfo.name);
-      params.append(
-        'line_items[0][price_data][product_data][description]',
-        tierInfo.description
-      );
-      params.append('line_items[0][quantity]', '1');
+      catalogParams.append('cancel_url', `${origin}/`);
+      catalogParams.append('allow_promotion_codes', 'true');
+      catalogParams.append('metadata[tier]', tierKey);
+      catalogParams.append('metadata[product_id]', tierInfo.productId);
+      catalogParams.append('line_items[0][price]', tierInfo.priceId);
+      catalogParams.append('line_items[0][quantity]', '1');
 
-      const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      let stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${stripeSecret}`,
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: params.toString()
+        body: catalogParams.toString()
       });
+
+      // Fallback if key is switched to another Stripe mode/account where priceId doesn't exist yet
+      if (!stripeRes.ok) {
+        const fallbackParams = new URLSearchParams();
+        fallbackParams.append('mode', 'payment');
+        fallbackParams.append(
+          'success_url',
+          `${origin}/?stripe_session={CHECKOUT_SESSION_ID}&tier=${tierKey}`
+        );
+        fallbackParams.append('cancel_url', `${origin}/`);
+        fallbackParams.append('allow_promotion_codes', 'true');
+        fallbackParams.append('metadata[tier]', tierKey);
+        fallbackParams.append('line_items[0][price_data][currency]', 'usd');
+        fallbackParams.append('line_items[0][price_data][unit_amount]', tierInfo.priceCents);
+        fallbackParams.append('line_items[0][price_data][product_data][name]', tierInfo.name);
+        fallbackParams.append(
+          'line_items[0][price_data][product_data][description]',
+          tierInfo.description
+        );
+        fallbackParams.append(
+          'line_items[0][price_data][product_data][images][0]',
+          tierInfo.image
+        );
+        fallbackParams.append('line_items[0][quantity]', '1');
+
+        stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${stripeSecret}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: fallbackParams.toString()
+        });
+      }
 
       const sessionData = await stripeRes.json();
       if (!stripeRes.ok) {
@@ -179,7 +222,13 @@ export default async function handler(req, res) {
         return;
       }
 
-      res.status(200).json({ url: sessionData.url, sessionId: sessionData.id, tier: tierKey });
+      res.status(200).json({
+        url: sessionData.url,
+        sessionId: sessionData.id,
+        tier: tierKey,
+        productId: tierInfo.productId,
+        priceId: tierInfo.priceId
+      });
       return;
     }
 
