@@ -4080,6 +4080,110 @@ export default function App() {
               </article>
             ))}
           </div>
+
+          {/* COMPANION CATALOG SHELF: 3 LITERARY BRUTALISM LIVE PRODUCTS IN CONTEXT & MUSE LLC (acct_1UeNRLBrNU5pKwT3) */}
+          <div
+            style={{
+              marginTop: '14px',
+              paddingTop: '14px',
+              borderTop: '1px solid var(--border-subtle)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                COMPANION DESIGN SYSTEM BY CONTEXT &amp; MUSE LLC · LITERARY BRUTALISM EDITION 001
+              </span>
+              <a
+                href="https://literary-brutalism.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mono-num"
+                style={{ fontSize: '11px', color: 'var(--gold)', textDecoration: 'none' }}
+              >
+                Preview Literary Brutalism Studio ↗
+              </a>
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: '12px'
+              }}
+            >
+              {[
+                {
+                  tier: 'lb_standard_49',
+                  badge: 'EDITION 001 · STANDARD',
+                  title: 'Literary Brutalism — Standard Studio Template',
+                  price: '$49',
+                  desc: 'Browser Studio Editor · Static .ZIP Exporter · 23 Vector SVGs'
+                },
+                {
+                  tier: 'lb_complete_89',
+                  badge: 'EDITION 001 · COMPLETE KIT',
+                  title: 'Literary Brutalism — Complete Studio + Figma Bundle',
+                  price: '$89',
+                  desc: 'Standard Template + 5-Board 1440px Editable Figma Kit & Catalog'
+                },
+                {
+                  tier: 'lb_agency_199',
+                  badge: 'EDITION 001 · AGENCY LICENSE',
+                  title: 'Literary Brutalism — Agency / Unlimited Commercial',
+                  price: '$199',
+                  desc: 'Complete Kit + Unlimited Client Builds & Full Modular Source Repo'
+                }
+              ].map((lb) => (
+                <article
+                  key={lb.tier}
+                  className="workflow-section"
+                  style={{
+                    padding: '11px 13px',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="mono-num" style={{ fontSize: '9.5px', color: 'var(--gold)', fontWeight: 700 }}>
+                        {lb.badge}
+                      </span>
+                      <span className="mono-num" style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {lb.price}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        margin: '2px 0'
+                      }}
+                    >
+                      {lb.title}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{lb.desc}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={isCheckingOutStripe}
+                    onClick={() => handleStartStripeCheckout(lb.tier)}
+                    style={{ padding: '7px 11px', fontSize: '11px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  >
+                    Buy ({lb.price}) →
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
         </section>
       )}
     </div>

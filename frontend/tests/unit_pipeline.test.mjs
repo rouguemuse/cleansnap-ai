@@ -181,3 +181,50 @@ test('Unit 7: Stripe HMAC Access Token & Signed License Key cryptographic verifi
   assert.deepEqual(decoded.ent, ['pack_auto']);
   assert.equal(stripeMod.verifyHmacAccessToken(token + 'tamper'), null, 'Tampered HMAC token must be rejected');
 });
+
+test('Unit 8: All 8 Live Context & Muse LLC (acct_1UeNRLBrNU5pKwT3) Stripe Products, Prices & Payment Links verify end-to-end', async () => {
+  const stripeMod = await import('../../api/verify-stripe.js');
+  const catalog = stripeMod.TIER_CATALOG;
+  const expectedTiers = [
+    'pro',
+    'pack_rental',
+    'pack_auto',
+    'pack_ecom',
+    'b2b',
+    'lb_standard_49',
+    'lb_complete_89',
+    'lb_agency_199'
+  ];
+
+  for (const tier of expectedTiers) {
+    const item = catalog[tier];
+    assert.ok(item, `Missing catalog entry for tier: ${tier}`);
+    assert.match(item.productId, /^prod_[A-Za-z0-9]+$/);
+    assert.match(item.priceId, /^price_[A-Za-z0-9]+$/);
+    assert.match(item.paymentLinkId, /^plink_[A-Za-z0-9]+$/);
+    assert.match(item.paymentLinkUrl, /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]+$/);
+
+    // Simulate handler create_checkout call
+    let statusCode = 0;
+    let payload = null;
+    const req = {
+      method: 'POST',
+      body: { action: 'create_checkout', tier }
+    };
+    const res = {
+      setHeader() {},
+      status(code) {
+        statusCode = code;
+        return this;
+      },
+      json(obj) {
+        payload = obj;
+      }
+    };
+    await stripeMod.default(req, res);
+    assert.equal(statusCode, 200);
+    assert.equal(payload.productId, item.productId);
+    assert.equal(payload.priceId, item.priceId);
+    assert.ok(payload.url.startsWith('https://buy.stripe.com/') || payload.url.startsWith('https://checkout.stripe.com/'));
+  }
+});

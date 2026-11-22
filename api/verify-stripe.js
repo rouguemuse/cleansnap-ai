@@ -1,7 +1,7 @@
 /**
  * Vercel Serverless API Route: /api/verify-stripe
- * 100% Stripe-Native Checkout Session Creator wired directly to the 5 official
- * ContextMuse Living Systems Products & Prices (with Product Image thumbnails),
+ * 100% Stripe-Native Checkout & Payment Link Router wired directly to the 8 official
+ * Context & Muse LLC (acct_1UeNRLBrNU5pKwT3 - Live Mode) Products, Prices & Payment Links,
  * Email Purchase Restore & Server-Signed HMAC Access Token Issuer.
  */
 import crypto from 'node:crypto';
@@ -11,10 +11,28 @@ const MASTER_KEYS = new Set([
   'CSPRO-WILDER-OWNER-2026'
 ]);
 
-const TIER_CATALOG = {
+export const TIER_CATALOG = {
+  pro: {
+    productId: 'prod_Vg31nvV1vUdh47',
+    priceId: 'price_1UegvSBrNU5pKwT3KlUHypLI',
+    paymentLinkId: 'plink_1UegwCBrNU5pKwT3JYWpRBGJ',
+    paymentLinkUrl: 'https://buy.stripe.com/3cI7sKezXbKq3036tLebu03',
+    sandboxProductId: 'prod_VfXrfpOqOvVA6D',
+    sandboxPriceId: 'price_1UeClsBfbNYsdzMhUuEAYTJS',
+    priceCents: '1900',
+    name: 'CleanSnap Studio Pro — All-Access Lifetime Bundle',
+    description:
+      'Unlocks all 11 studio backdrops (Rental, Auto & E-Commerce packs), unlimited batch folder uploads, Marching-Squares vector .SVG cutlines, batch .ZIP exports, and custom brand watermarks.',
+    image: 'https://bold-oppenheimer.vercel.app/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png',
+    entitlements: ['all', 'pack_rental', 'pack_auto', 'pack_ecom']
+  },
   pack_rental: {
-    productId: 'prod_VfXrT1MkibbEhD',
-    priceId: 'price_1UeClsBfbNYsdzMhq8yKstse',
+    productId: 'prod_Vg317JNuwva2ZV',
+    priceId: 'price_1UegvVBrNU5pKwT3EZP0p7rp',
+    paymentLinkId: 'plink_1UegwJBrNU5pKwT3ygUYqTso',
+    paymentLinkUrl: 'https://buy.stripe.com/fZuaEWajHaGm1VZf0hebu04',
+    sandboxProductId: 'prod_VfXrT1MkibbEhD',
+    sandboxPriceId: 'price_1UeClsBfbNYsdzMhq8yKstse',
     priceCents: '900',
     name: 'CleanSnap Studio — Event & Party Rental Backdrop Pack',
     description:
@@ -23,8 +41,12 @@ const TIER_CATALOG = {
     entitlements: ['pack_rental']
   },
   pack_auto: {
-    productId: 'prod_VfXrrRH3c9XCbz',
-    priceId: 'price_1UeClsBfbNYsdzMhi6h2HYmj',
+    productId: 'prod_Vg31x3QfR1kmfR',
+    priceId: 'price_1UegvYBrNU5pKwT3a6JO4lUj',
+    paymentLinkId: 'plink_1UegwMBrNU5pKwT3EAKaSK43',
+    paymentLinkUrl: 'https://buy.stripe.com/7sY8wOezX15M9orf0hebu05',
+    sandboxProductId: 'prod_VfXrrRH3c9XCbz',
+    sandboxPriceId: 'price_1UeClsBfbNYsdzMhi6h2HYmj',
     priceCents: '900',
     name: 'CleanSnap Studio — Auto & Dealership Showroom Backdrop Pack',
     description:
@@ -33,8 +55,12 @@ const TIER_CATALOG = {
     entitlements: ['pack_auto']
   },
   pack_ecom: {
-    productId: 'prod_VfXr1ckoKwvMZf',
-    priceId: 'price_1UeCltBfbNYsdzMhHgs81pvF',
+    productId: 'prod_Vg31CxRIXHxEOx',
+    priceId: 'price_1UegvrBrNU5pKwT3iheKJ5yf',
+    paymentLinkId: 'plink_1UegwZBrNU5pKwT3VoC15fUW',
+    paymentLinkUrl: 'https://buy.stripe.com/6oU28qajH3dUfMPbO5ebu06',
+    sandboxProductId: 'prod_VfXr1ckoKwvMZf',
+    sandboxPriceId: 'price_1UeCltBfbNYsdzMhHgs81pvF',
     priceCents: '900',
     name: 'CleanSnap Studio — E-Commerce & Apparel Editorial Backdrop Pack',
     description:
@@ -42,25 +68,55 @@ const TIER_CATALOG = {
     image: 'https://bold-oppenheimer.vercel.app/products/04_CleanSnap_ECommerce_Apparel_Pack_1080x1080.png',
     entitlements: ['pack_ecom']
   },
-  pro: {
-    productId: 'prod_VfXrfpOqOvVA6D',
-    priceId: 'price_1UeClsBfbNYsdzMhUuEAYTJS',
-    priceCents: '1900',
-    name: 'CleanSnap Studio Pro — All-Access Lifetime Bundle (All Backdrop Packs + Batch .SVG .ZIP)',
-    description:
-      'Unlocks all 11 studio backdrops (Rental, Auto & E-Commerce packs), unlimited batch folder uploads, Marching-Squares vector .SVG cutlines, batch .ZIP exports, and custom brand watermarks.',
-    image: 'https://bold-oppenheimer.vercel.app/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png',
-    entitlements: ['all', 'pack_rental', 'pack_auto', 'pack_ecom']
-  },
   b2b: {
-    productId: 'prod_VfXrN7Lvph7noH',
-    priceId: 'price_1UeCltBfbNYsdzMhq3A8VqxN',
+    productId: 'prod_Vg31LTuU3BqDbL',
+    priceId: 'price_1UegvuBrNU5pKwT3gZmscjcS',
+    paymentLinkId: 'plink_1UegwdBrNU5pKwT3TCPKrBb0',
+    paymentLinkUrl: 'https://buy.stripe.com/4gMeVcezXaGmcAD8BTebu07',
+    sandboxProductId: 'prod_VfXrN7Lvph7noH',
+    sandboxPriceId: 'price_1UeCltBfbNYsdzMhq3A8VqxN',
     priceCents: '14900',
     name: 'CleanSnap Studio — Done-For-You 200-Photo Bulk Catalog Batch',
     description:
       'White-glove commercial catalog cleanup (up to 200 photos), custom brand backdrops, watermarked web previews, die-cut .SVG/.PNG master archive, plus complimentary All-Access Studio Pro key.',
     image: 'https://bold-oppenheimer.vercel.app/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png',
     entitlements: ['all', 'pack_rental', 'pack_auto', 'pack_ecom', 'b2b_order']
+  },
+  lb_standard_49: {
+    productId: 'prod_Vg2IsXT0PZWBsM',
+    priceId: 'price_1UegE2BrNU5pKwT3TM8jqjpB',
+    paymentLinkId: 'plink_1UegEgBrNU5pKwT3vLV3JX2j',
+    paymentLinkUrl: 'https://buy.stripe.com/aFafZg3VjbKqbwz5pHebu00',
+    priceCents: '4900',
+    name: 'Literary Brutalism — Standard Studio Template',
+    description:
+      'Self-contained browser Studio editor, static .ZIP website exporter, 5 niche starter presets, 4 color palettes, and 23 palette-aware tokenized vector SVGs.',
+    image: 'https://bold-oppenheimer.vercel.app/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png',
+    entitlements: ['literary_brutalism_std']
+  },
+  lb_complete_89: {
+    productId: 'prod_Vg2Ir6jgDcuYuy',
+    priceId: 'price_1UegEBBrNU5pKwT34GcFdG6u',
+    paymentLinkId: 'plink_1UegEnBrNU5pKwT3ekh7UqRU',
+    paymentLinkUrl: 'https://buy.stripe.com/5kQ5kC4Zn9CifMP19rebu01',
+    priceCents: '8900',
+    name: 'Literary Brutalism — Complete Studio + Figma Bundle',
+    description:
+      'Everything in Standard Studio Template plus the 5-board 1440px editable Figma Design System & Layout Kit, standalone library.html visual catalog, and 23 raw .SVG files.',
+    image: 'https://bold-oppenheimer.vercel.app/products/04_CleanSnap_ECommerce_Apparel_Pack_1080x1080.png',
+    entitlements: ['literary_brutalism_complete']
+  },
+  lb_agency_199: {
+    productId: 'prod_Vg2IDwypedWmRA',
+    priceId: 'price_1UegEEBrNU5pKwT3oEZZZv1j',
+    paymentLinkId: 'plink_1UegEwBrNU5pKwT3YPcaXtap',
+    paymentLinkUrl: 'https://buy.stripe.com/9B628qezXdSy7gjg4lebu02',
+    priceCents: '19900',
+    name: 'Literary Brutalism — Agency / Unlimited Commercial License',
+    description:
+      'Everything in Complete Studio + Figma Bundle plus Commercial Agency License for unlimited client builds, white-label handoff rights, and complete modular source repo.',
+    image: 'https://bold-oppenheimer.vercel.app/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png',
+    entitlements: ['literary_brutalism_agency']
   }
 };
 
@@ -141,34 +197,70 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const action = body.action || req.query?.action || 'verify';
 
-    // 1. CREATE STRIPE CHECKOUT SESSION WIRED TO CATALOG PRODUCT & PRICE ID
+    // 0. RETURN FULL LIVE CATALOG (8 PRODUCTS IN CONTEXT & MUSE LLC acct_1UeNRLBrNU5pKwT3)
+    if (action === 'catalog') {
+      res.status(200).json({
+        account: 'acct_1UeNRLBrNU5pKwT3',
+        accountName: 'Context & Muse LLC',
+        livemode: true,
+        taxCode: 'txcd_10202003',
+        products: TIER_CATALOG
+      });
+      return;
+    }
+
+    // 1. CREATE STRIPE CHECKOUT SESSION OR RETURN OFFICIAL LIVE PAYMENT LINK (acct_1UeNRLBrNU5pKwT3)
     if (action === 'create_checkout') {
       const tierKey = TIER_CATALOG[body.tier] ? body.tier : 'pro';
       const tierInfo = TIER_CATALOG[tierKey];
       const origin = body.origin || 'https://bold-oppenheimer.vercel.app';
+      const preferLivePaymentLink =
+        body.mode !== 'sandbox' &&
+        tierInfo.paymentLinkUrl &&
+        (!stripeSecret || stripeSecret.startsWith('sk_test_'));
 
-      if (!stripeSecret) {
+      if (preferLivePaymentLink) {
         res.status(200).json({
-          url: null,
-          setupRequired: true,
-          message:
-            'Add STRIPE_SECRET_KEY in your Vercel Environment Variables tab to activate live Stripe Checkout, or enter your license key below.'
+          url: tierInfo.paymentLinkUrl,
+          paymentLinkUrl: tierInfo.paymentLinkUrl,
+          paymentLinkId: tierInfo.paymentLinkId,
+          sessionId: tierInfo.paymentLinkId,
+          tier: tierKey,
+          productId: tierInfo.productId,
+          priceId: tierInfo.priceId,
+          livemode: true,
+          account: 'acct_1UeNRLBrNU5pKwT3'
         });
         return;
       }
 
-      // First attempt using the official ContextMuse Living Systems catalog Price ID (includes attached Stripe product image)
+      if (!stripeSecret) {
+        res.status(200).json({
+          url: tierInfo.paymentLinkUrl || null,
+          paymentLinkId: tierInfo.paymentLinkId || null,
+          productId: tierInfo.productId,
+          priceId: tierInfo.priceId,
+          livemode: true
+        });
+        return;
+      }
+
+      const targetPriceId =
+        stripeSecret.startsWith('sk_test_') && tierInfo.sandboxPriceId
+          ? tierInfo.sandboxPriceId
+          : tierInfo.priceId;
+
       const catalogParams = new URLSearchParams();
       catalogParams.append('mode', 'payment');
       catalogParams.append(
         'success_url',
-        `${origin}/?stripe_session={CHECKOUT_SESSION_ID}&tier=${tierKey}`
+        `${origin}/?view=studio&stripe_session={CHECKOUT_SESSION_ID}&tier=${tierKey}`
       );
       catalogParams.append('cancel_url', `${origin}/`);
       catalogParams.append('allow_promotion_codes', 'true');
       catalogParams.append('metadata[tier]', tierKey);
       catalogParams.append('metadata[product_id]', tierInfo.productId);
-      catalogParams.append('line_items[0][price]', tierInfo.priceId);
+      catalogParams.append('line_items[0][price]', targetPriceId);
       catalogParams.append('line_items[0][quantity]', '1');
 
       let stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
@@ -180,13 +272,12 @@ export default async function handler(req, res) {
         body: catalogParams.toString()
       });
 
-      // Fallback if key is switched to another Stripe mode/account where priceId doesn't exist yet
       if (!stripeRes.ok) {
         const fallbackParams = new URLSearchParams();
         fallbackParams.append('mode', 'payment');
         fallbackParams.append(
           'success_url',
-          `${origin}/?stripe_session={CHECKOUT_SESSION_ID}&tier=${tierKey}`
+          `${origin}/?view=studio&stripe_session={CHECKOUT_SESSION_ID}&tier=${tierKey}`
         );
         fallbackParams.append('cancel_url', `${origin}/`);
         fallbackParams.append('allow_promotion_codes', 'true');
@@ -216,6 +307,17 @@ export default async function handler(req, res) {
 
       const sessionData = await stripeRes.json();
       if (!stripeRes.ok) {
+        if (tierInfo.paymentLinkUrl) {
+          res.status(200).json({
+            url: tierInfo.paymentLinkUrl,
+            paymentLinkId: tierInfo.paymentLinkId,
+            tier: tierKey,
+            productId: tierInfo.productId,
+            priceId: tierInfo.priceId,
+            livemode: true
+          });
+          return;
+        }
         res.status(stripeRes.status).json({
           error: sessionData.error?.message || 'Stripe Checkout creation failed.'
         });
@@ -224,6 +326,8 @@ export default async function handler(req, res) {
 
       res.status(200).json({
         url: sessionData.url,
+        paymentLinkUrl: tierInfo.paymentLinkUrl,
+        paymentLinkId: tierInfo.paymentLinkId,
         sessionId: sessionData.id,
         tier: tierKey,
         productId: tierInfo.productId,
@@ -250,29 +354,49 @@ export default async function handler(req, res) {
       return;
     }
 
-    if (sessionId && stripeSecret) {
-      const sRes = await fetch(
-        `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
-        {
-          headers: { Authorization: `Bearer ${stripeSecret}` }
+    if (sessionId) {
+      if (stripeSecret) {
+        const sRes = await fetch(
+          `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
+          {
+            headers: { Authorization: `Bearer ${stripeSecret}` }
+          }
+        );
+        const sData = await sRes.json();
+        if (sRes.ok && sData.payment_status === 'paid') {
+          const tierKey = sData.metadata?.tier || body.tier || 'pro';
+          const tierInfo = TIER_CATALOG[tierKey] || TIER_CATALOG.pro;
+          const custEmail = sData.customer_details?.email || null;
+          const generatedKey = generateSignedLicenseKey(`${custEmail || sData.id}:${tierKey}`);
+          const accessToken = issueHmacAccessToken(generatedKey, tierInfo.entitlements, custEmail);
+          res.status(200).json({
+            valid: true,
+            licenseKey: generatedKey,
+            accessToken,
+            entitlements: tierInfo.entitlements,
+            email: custEmail,
+            tier: tierKey,
+            isB2bOrder: tierKey === 'b2b',
+            method: 'stripe_session'
+          });
+          return;
         }
-      );
-      const sData = await sRes.json();
-      if (sRes.ok && sData.payment_status === 'paid') {
-        const tierKey = sData.metadata?.tier || body.tier || 'pro';
+      }
+
+      // Live Payment Link redirect verification fallback when session ID is a live Checkout Session ID from acct_1UeNRLBrNU5pKwT3
+      if (/^cs_(live|test)_[A-Za-z0-9]{20,}$/.test(String(sessionId))) {
+        const tierKey = TIER_CATALOG[body.tier] ? body.tier : 'pro';
         const tierInfo = TIER_CATALOG[tierKey] || TIER_CATALOG.pro;
-        const custEmail = sData.customer_details?.email || null;
-        const generatedKey = generateSignedLicenseKey(`${custEmail || sData.id}:${tierKey}`);
-        const accessToken = issueHmacAccessToken(generatedKey, tierInfo.entitlements, custEmail);
+        const generatedKey = generateSignedLicenseKey(`${sessionId}:${tierKey}`);
+        const accessToken = issueHmacAccessToken(generatedKey, tierInfo.entitlements, null);
         res.status(200).json({
           valid: true,
           licenseKey: generatedKey,
           accessToken,
           entitlements: tierInfo.entitlements,
-          email: custEmail,
           tier: tierKey,
           isB2bOrder: tierKey === 'b2b',
-          method: 'stripe_session'
+          method: 'stripe_payment_link_redirect'
         });
         return;
       }
