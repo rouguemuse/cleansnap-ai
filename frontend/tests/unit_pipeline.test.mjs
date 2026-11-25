@@ -133,6 +133,7 @@ test('Unit 6: All required public studio backdrops, showcase cutouts, ONNX model
     'manifest.webmanifest',
     'sw.js',
     'manual.html',
+    'prompt-pack.html',
     'privacy.html',
     'icons/icon-192.png',
     'icons/icon-512.png',

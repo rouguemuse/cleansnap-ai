@@ -2479,6 +2479,26 @@ export default function App() {
             <span>Techniques</span>
           </button>
 
+          <a
+            href="/prompt-pack.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="prompt-vault-btn"
+            className="btn-secondary"
+            style={{
+              padding: '9px 12px',
+              fontSize: '12.5px',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title="Open Interactive Commercial Backdrop & Lighting Prompt Vault"
+          >
+            <Sparkles size={14} style={{ color: 'var(--gold)' }} />
+            <span>Prompt Vault ↗</span>
+          </a>
+
           <button
             type="button"
             data-testid="studio-pro-btn"
