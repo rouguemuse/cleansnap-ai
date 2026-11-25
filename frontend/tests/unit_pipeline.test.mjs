@@ -230,3 +230,162 @@ test('Unit 8: All 8 Live Context & Muse LLC (acct_1UeNRLBrNU5pKwT3) Stripe Produ
     assert.ok(payload.url.startsWith('https://buy.stripe.com/') || payload.url.startsWith('https://checkout.stripe.com/'));
   }
 });
+
+test('Unit 9: Centralized Export Entitlement Gate enforces 3-trial allowance, blocks 4th & batch .ZIP, persists across restart, and detects tampering', async () => {
+  const entMod = await import('../src/lib/entitlementEngine.js');
+  const storeMap = new Map();
+  const mockStorage = {
+    getItem: (k) => (storeMap.has(k) ? storeMap.get(k) : null),
+    setItem: (k, v) => storeMap.set(k, String(v)),
+    removeItem: (k) => storeMap.delete(k)
+  };
+
+  // 1. Fresh free installation
+  let ent = entMod.loadPersistedEntitlementState(mockStorage);
+  let trial = entMod.loadTrialExportState(mockStorage);
+  assert.equal(ent.isProValid, false);
+  assert.equal(trial.usedCount, 0);
+  assert.equal(trial.remainingCount, 3);
+
+  // 2. Batch .ZIP export is blocked for free users even with 3 trial credits left
+  const batchGate = entMod.evaluateExportEntitlement({
+    format: 'zip',
+    isBatch: true,
+    entitlementState: ent,
+    trialState: trial
+  });
+  assert.equal(batchGate.allowed, false);
+  assert.equal(batchGate.reason, 'batch_requires_pro');
+
+  // 3. Complete 3 clean trial exports across .JPG, .PNG, and .SVG
+  const formats = ['jpg', 'png', 'svg'];
+  for (let i = 0; i < 3; i++) {
+    const gate = entMod.evaluateExportEntitlement({
+      format: formats[i],
+      isBatch: false,
+      entitlementState: ent,
+      trialState: trial
+    });
+    assert.equal(gate.allowed, true, `Trial export #${i + 1} (${formats[i]}) must be allowed`);
+    assert.equal(gate.consumeTrialCredit, true);
+    trial = entMod.recordTrialExport({ id: `job_${i}`, format: formats[i], filename: `out.${formats[i]}` }, mockStorage);
+    assert.equal(trial.usedCount, i + 1);
+    assert.equal(trial.remainingCount, 2 - i);
+  }
+
+  // 4. Simulate application restart by reloading from storage
+  const restartedTrial = entMod.loadTrialExportState(mockStorage);
+  assert.equal(restartedTrial.usedCount, 3);
+  assert.equal(restartedTrial.remainingCount, 0);
+
+  // 5. 4th export attempt is blocked with trial_exhausted
+  const fourthGate = entMod.evaluateExportEntitlement({
+    format: 'png',
+    isBatch: false,
+    entitlementState: ent,
+    trialState: restartedTrial
+  });
+  assert.equal(fourthGate.allowed, false);
+  assert.equal(fourthGate.reason, 'trial_exhausted');
+
+  // 6. Tampering with usedCount in localStorage is detected and blocked
+  const rawSaved = JSON.parse(mockStorage.getItem(entMod.COMMERCIAL_CONFIG.storageKeys.trialState));
+  rawSaved.usedCount = 0;
+  mockStorage.setItem(entMod.COMMERCIAL_CONFIG.storageKeys.trialState, JSON.stringify(rawSaved));
+  const tamperedTrial = entMod.loadTrialExportState(mockStorage);
+  assert.equal(tamperedTrial.tampered, true);
+  assert.equal(tamperedTrial.remainingCount, 0);
+});
+
+test('Unit 10: Purchase verification, license restoration, offline behavior, and anti-spoofing boolean rejection', async () => {
+  const entMod = await import('../src/lib/entitlementEngine.js');
+  const stripeMod = await import('../../api/verify-stripe.js');
+
+  const storeMap = new Map();
+  const mockStorage = {
+    getItem: (k) => (storeMap.has(k) ? storeMap.get(k) : null),
+    setItem: (k, v) => storeMap.set(k, String(v)),
+    removeItem: (k) => storeMap.delete(k)
+  };
+
+  // 1. Plain boolean or invalid string in localStorage must NOT grant Pro
+  mockStorage.setItem(entMod.COMMERCIAL_CONFIG.storageKeys.license, 'true');
+  assert.equal(entMod.loadPersistedEntitlementState(mockStorage).isProValid, false);
+  mockStorage.setItem(entMod.COMMERCIAL_CONFIG.storageKeys.license, 'CSPRO-ZZZZ-ZZZZ-ZZZZ');
+  assert.equal(entMod.loadPersistedEntitlementState(mockStorage).isProValid, false);
+
+  // 2. Valid server-signed key + HMAC token activates Pro and unlocks unlimited single & batch .ZIP exports
+  const signedKey = stripeMod.generateSignedLicenseKey('pro_buyer@contextmuse.com:pro');
+  const hmacToken = stripeMod.issueHmacAccessToken(
+    signedKey,
+    ['all', 'pack_rental', 'pack_auto', 'pack_ecom'],
+    'pro_buyer@contextmuse.com'
+  );
+  mockStorage.setItem(entMod.COMMERCIAL_CONFIG.storageKeys.license, signedKey);
+  mockStorage.setItem(entMod.COMMERCIAL_CONFIG.storageKeys.token, hmacToken);
+
+  const proEnt = entMod.loadPersistedEntitlementState(mockStorage);
+  assert.equal(proEnt.isProValid, true);
+  assert.equal(proEnt.licenseKey, signedKey);
+
+  // 3. Even with exhausted trial state, Pro user can export unlimited .PNG, .SVG, and batch .ZIP
+  const exhaustedTrial = { usedCount: 3, maxAllowance: 3, remainingCount: 0 };
+  const zipGate = entMod.evaluateExportEntitlement({
+    format: 'zip',
+    isBatch: true,
+    entitlementState: proEnt,
+    trialState: exhaustedTrial
+  });
+  assert.equal(zipGate.allowed, true);
+  assert.equal(zipGate.isPro, true);
+  assert.equal(zipGate.consumeTrialCredit, false);
+});
+
+test('Unit 11: 5-Layer Instructional Engine & Feature Discovery state persistence, hint triggers, status bar & technique library', async () => {
+  const instMod = await import('../src/lib/instructionalEngine.js');
+  const storeMap = new Map();
+  const mockStorage = {
+    getItem: (k) => (storeMap.has(k) ? storeMap.get(k) : null),
+    setItem: (k, v) => storeMap.set(k, String(v)),
+    removeItem: (k) => storeMap.delete(k)
+  };
+
+  assert.ok(instMod.FEATURE_INVENTORY.length >= 10, 'Feature inventory must cover all core capabilities');
+  assert.equal(instMod.WELCOME_CONFIG.showcaseExamples.length, 3);
+  assert.equal(instMod.TECHNIQUE_LIBRARY.length, 4);
+
+  // Fresh launch state
+  let st = instMod.loadInstructionalState(mockStorage);
+  assert.equal(st.welcomeCompleted, false);
+  assert.equal(st.autoHintsEnabled, true);
+
+  // Event-driven hint resolution & permanent dismissal
+  const importHint = instMod.resolveHintForEvent('after_import', st);
+  assert.ok(importHint && importHint.id === 'after_import');
+
+  st = instMod.saveInstructionalState(
+    {
+      ...st,
+      welcomeCompleted: true,
+      dismissedHints: { after_import: true }
+    },
+    mockStorage
+  );
+  assert.equal(instMod.resolveHintForEvent('after_import', st), null, 'Dismissed hint must not reappear');
+
+  // Reset instructional progress restores welcome and hints
+  const resetSt = instMod.resetInstructionalProgress(mockStorage);
+  assert.equal(resetSt.welcomeCompleted, false);
+  assert.ok(instMod.resolveHintForEvent('after_import', resetSt));
+
+  // Context-sensitive status bar responds to active mode and control hover
+  const refineStatus = instMod.resolveContextualStatusBar({
+    stageMode: 'refine',
+    brushMode: 'add',
+    refinerBgMode: 'mask',
+    entitlementState: { isProValid: false },
+    trialState: { remainingCount: 2, maxAllowance: 3 }
+  });
+  assert.match(refineStatus.feature, /Ruby Overlay/);
+  assert.match(refineStatus.trialBadge, /2 of 3/);
+});

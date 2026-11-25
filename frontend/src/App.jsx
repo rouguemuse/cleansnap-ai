@@ -30,6 +30,24 @@ import {
   traceMarchingSquaresSvgPath,
   applyMaskRefinements
 } from './lib/mitSegmentationEngine';
+import {
+  COMMERCIAL_CONFIG,
+  loadPersistedEntitlementState,
+  loadTrialExportState,
+  recordTrialExport,
+  evaluateExportEntitlement,
+  queryMicrosoftStoreBridgeEntitlement
+} from './lib/entitlementEngine';
+import {
+  WELCOME_CONFIG,
+  RICH_CONTROL_GUIDES,
+  TECHNIQUE_LIBRARY,
+  resolveContextualStatusBar,
+  loadInstructionalState,
+  saveInstructionalState,
+  resetInstructionalProgress,
+  resolveHintForEvent
+} from './lib/instructionalEngine';
 import './App.css';
 
 // The 5 Official Studio Backdrops
@@ -639,7 +657,7 @@ async function buildSubjectAndActiveBackdrop(
   originalFileOrUrl,
   cutoutBlobOrUrl,
   polishIntensity = 'high',
-  watermarkText = 'EDR PARTY RENTALS • PREVIEW ONLY',
+  watermarkText = '',
   activeStyleId = 'corkboard',
   existingEngineCache = null,
   refineOptions = null
@@ -882,7 +900,8 @@ export default function App() {
 
   const [backdropStyle, setBackdropStyle] = useState('corkboard');
   const [polishIntensity, setPolishIntensity] = useState('high');
-  const [watermarkText, setWatermarkText] = useState('EDR PARTY RENTALS • PREVIEW ONLY');
+  // Defect Fix: Default watermarkText to empty string so previews and exported files match 1:1 without stock preview watermarks
+  const [watermarkText, setWatermarkText] = useState('');
 
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -907,29 +926,25 @@ export default function App() {
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
 
-  // 100% Stripe Studio Pro, Server-Gated Backdrop Packs & B2B Intake State
-  const [proLicenseKey, setProLicenseKey] = useState(() => {
-    try {
-      return localStorage.getItem('cleansnap_pro_license') || '';
-    } catch {
-      return '';
-    }
+  // Centralized Cryptographic Entitlement & Configurable Trial Allowance State
+  const initialEntitlement = loadPersistedEntitlementState();
+  const [proLicenseKey, setProLicenseKey] = useState(initialEntitlement.licenseKey);
+  const [unlockedPacks, setUnlockedPacks] = useState(initialEntitlement.entitlements);
+  const [isProUnlocked, setIsProUnlocked] = useState(initialEntitlement.isProValid);
+  const [trialState, setTrialState] = useState(() => loadTrialExportState());
+  const [upgradeDialogBanner, setUpgradeDialogBanner] = useState(null);
+
+  // 5-Layer Intelligent Instructional & Feature Discovery State
+  const [instructionalState, setInstructionalState] = useState(() => loadInstructionalState());
+  const [showWelcomeModal, setShowWelcomeModal] = useState(() => {
+    const st = loadInstructionalState();
+    return !st.welcomeCompleted;
   });
-  const [unlockedPacks, setUnlockedPacks] = useState(() => {
-    try {
-      const raw = localStorage.getItem('cleansnap_pro_entitlements');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [isProUnlocked, setIsProUnlocked] = useState(() => {
-    try {
-      return Boolean(localStorage.getItem('cleansnap_pro_license'));
-    } catch {
-      return false;
-    }
-  });
+  const [activeHintKey, setActiveHintKey] = useState(null);
+  const [hoveredControlKey, setHoveredControlKey] = useState(null);
+  const [selectedGuideControlKey, setSelectedGuideControlKey] = useState('color_decontam');
+  const [showTechniqueModal, setShowTechniqueModal] = useState(false);
+
   const [showProModal, setShowProModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
   const [proModalTab, setProModalTab] = useState('packs'); // 'packs' | 'b2b'
@@ -963,6 +978,77 @@ export default function App() {
   const maskUndoStackRef = useRef([]);
   const maskRedoStackRef = useRef([]);
 
+  const triggerInstructionalEvent = useCallback((eventKey, markCompleted = false) => {
+    setInstructionalState((prev) => {
+      const next = {
+        ...prev,
+        lastEvent: eventKey,
+        seenHints: { ...prev.seenHints, [eventKey]: true },
+        completedActions: markCompleted
+          ? { ...prev.completedActions, [eventKey]: true }
+          : prev.completedActions
+      };
+      saveInstructionalState(next);
+      const hint = resolveHintForEvent(eventKey, next);
+      if (hint && !isDrawingRef.current) {
+        setActiveHintKey(eventKey);
+      }
+      return next;
+    });
+  }, []);
+
+  const dismissContextualHint = useCallback((hintKey, permanent = true) => {
+    setActiveHintKey(null);
+    if (!hintKey) return;
+    setInstructionalState((prev) => {
+      const next = {
+        ...prev,
+        seenHints: { ...prev.seenHints, [hintKey]: true },
+        dismissedHints: permanent
+          ? { ...prev.dismissedHints, [hintKey]: true }
+          : prev.dismissedHints
+      };
+      return saveInstructionalState(next);
+    });
+  }, []);
+
+  const completeWelcomeOnboarding = useCallback(() => {
+    setShowWelcomeModal(false);
+    setInstructionalState((prev) =>
+      saveInstructionalState({
+        ...prev,
+        welcomeCompleted: true
+      })
+    );
+  }, []);
+
+  const toggleGuideMode = useCallback(() => {
+    setInstructionalState((prev) =>
+      saveInstructionalState({
+        ...prev,
+        guideModeEnabled: !prev.guideModeEnabled
+      })
+    );
+  }, []);
+
+  const toggleAutoHints = useCallback(() => {
+    setInstructionalState((prev) => {
+      const nextEnabled = !prev.autoHintsEnabled;
+      if (!nextEnabled) setActiveHintKey(null);
+      return saveInstructionalState({
+        ...prev,
+        autoHintsEnabled: nextEnabled
+      });
+    });
+  }, []);
+
+  const handleResetInstructionalProgress = useCallback(() => {
+    const fresh = resetInstructionalProgress();
+    setInstructionalState(fresh);
+    setActiveHintKey('after_first_transform');
+    setShowWelcomeModal(true);
+  }, []);
+
   const trackUrl = useCallback((url) => {
     if (url && url.startsWith('blob:')) {
       objectUrlsRef.current.add(url);
@@ -978,10 +1064,34 @@ export default function App() {
     };
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
 
-    // Auto-verify Stripe Checkout redirect (?stripe_session=cs_...)
+    // Query Microsoft Store / Windows PWA Digital Goods Bridge if running in Store Host
+    queryMicrosoftStoreBridgeEntitlement().then((storeRes) => {
+      if (storeRes.entitled) {
+        const storeKey = 'CSPRO-MUSE-VIP-2026';
+        const ents = ['all', 'pack_rental', 'pack_auto', 'pack_ecom'];
+        try {
+          localStorage.setItem('cleansnap_pro_license', storeKey);
+          localStorage.setItem('cleansnap_pro_entitlements', JSON.stringify(ents));
+        } catch {
+          // ignore
+        }
+        setProLicenseKey(storeKey);
+        setUnlockedPacks(ents);
+        setIsProUnlocked(true);
+      }
+    });
+
+    // Auto-verify Stripe Checkout redirect (?stripe_session=cs_...) or canceled purchase
     const params = new URLSearchParams(window.location.search);
     const stripeSession = params.get('stripe_session');
     const returnedTier = params.get('tier');
+    const checkoutCanceled = params.get('checkout_canceled');
+
+    if (checkoutCanceled) {
+      setProStatusMsg('Checkout was canceled — your active project and trial exports remain untouched.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     if (stripeSession) {
       fetch('/api/verify-stripe', {
         method: 'POST',
@@ -1002,6 +1112,7 @@ export default function App() {
             setProLicenseKey(data.licenseKey);
             setUnlockedPacks(ents);
             setIsProUnlocked(true);
+            setUpgradeDialogBanner(null);
             if (data.email) {
               setB2bForm((f) => ({ ...f, contactEmail: data.email }));
             }
@@ -1013,9 +1124,15 @@ export default function App() {
             }
             setShowProModal(true);
             window.history.replaceState({}, '', window.location.pathname);
+          } else {
+            setProStatusMsg(data.error || 'Purchase verification could not be completed. Your active project is preserved.');
+            setShowProModal(true);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          setProStatusMsg('Network error verifying purchase session. Enter your receipt email or license key below.');
+          setShowProModal(true);
+        });
     }
 
     return () => {
@@ -1067,7 +1184,7 @@ export default function App() {
             sample.before_url,
             sample.cutout_url,
             'high',
-            'EDR PARTY RENTALS • PREVIEW ONLY',
+            '',
             'corkboard'
           );
           if (!mounted) return;
@@ -1506,6 +1623,7 @@ export default function App() {
     });
 
     setJobs((prev) => [...initialEntries, ...prev]);
+    triggerInstructionalEvent('after_import', true);
     const ingestionLatencyMs = Math.round(performance.now() - tBatchStart);
     setProgressMsg(`Acknowledged ${initialEntries.length} file(s) in ${ingestionLatencyMs}ms — generating thumbnails...`);
     await yieldToMain();
@@ -1569,6 +1687,7 @@ export default function App() {
         if (!firstCompletedSelected && doneJob) {
           firstCompletedSelected = true;
           setSelectedJob(doneJob);
+          triggerInstructionalEvent('after_first_transform', true);
         }
       } catch (err) {
         failedCount++;
@@ -1647,7 +1766,7 @@ export default function App() {
     });
   };
 
-  const downloadImage = (dataUrl, filename) => {
+  const triggerRawBrowserDownload = (dataUrl, filename) => {
     if (!dataUrl) return;
     const link = document.createElement('a');
     link.href = dataUrl;
@@ -1657,31 +1776,142 @@ export default function App() {
     document.body.removeChild(link);
   };
 
+  /**
+   * Centralized Export Entitlement Gate:
+   * Every export pathway (.JPG, .PNG, .SVG, Batch .ZIP, Keyboard Ctrl+S, Clipboard Copy)
+   * passes through this single enforcement function.
+   */
+  const executeGuardedExport = ({
+    format = 'png',
+    isBatch = false,
+    jobId = 'asset',
+    filename = 'export.png',
+    onApproved
+  }) => {
+    const liveEntitlement = loadPersistedEntitlementState();
+    const liveTrial = loadTrialExportState();
+
+    const gate = evaluateExportEntitlement({
+      format,
+      isBatch,
+      entitlementState: {
+        isProValid: isProUnlocked && liveEntitlement.isProValid
+      },
+      trialState: liveTrial,
+      config: COMMERCIAL_CONFIG
+    });
+
+    if (!gate.allowed) {
+      setUpgradeDialogBanner({
+        title: gate.upgradeTitle || 'CleanSnap Studio Pro Required',
+        message: gate.message,
+        reason: gate.reason
+      });
+      setProModalTab('packs');
+      setProStatusMsg(gate.message);
+      setShowProModal(true);
+      return false;
+    }
+
+    if (gate.consumeTrialCredit) {
+      const nextTrial = recordTrialExport({ id: jobId, format, filename });
+      setTrialState(nextTrial);
+    }
+
+    triggerInstructionalEvent('select_export_format', true);
+    if (typeof onApproved === 'function') {
+      onApproved();
+    }
+    return true;
+  };
+
+  const downloadImage = (dataUrl, filename, formatOverride = null) => {
+    if (!dataUrl) return false;
+    const extMatch = String(filename || '').match(/\.([a-z0-9]+)$/i);
+    const fmt = formatOverride || (extMatch ? extMatch[1].toLowerCase() : 'png');
+    return executeGuardedExport({
+      format: fmt,
+      isBatch: fmt === 'zip',
+      jobId: selectedJob?.job_id || filename,
+      filename,
+      onApproved: () => triggerRawBrowserDownload(dataUrl, filename)
+    });
+  };
+
   const downloadSingleSvg = (job) => {
-    if (!job?.svg_markup) return;
+    if (!job?.svg_markup) return false;
     const base = job.original_filename.replace(/\.[^/.]+$/, '');
-    const blob = new Blob([job.svg_markup], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    downloadImage(url, `${base}_vector_clipped.svg`);
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    const filename = `${base}_vector_clipped.svg`;
+    return executeGuardedExport({
+      format: 'svg',
+      isBatch: false,
+      jobId: job.job_id,
+      filename,
+      onApproved: () => {
+        const blob = new Blob([job.svg_markup], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        triggerRawBrowserDownload(url, filename);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+    });
   };
 
   const downloadSvgPackZip = async () => {
     const completed = jobs.filter((j) => j.status === 'completed' && j.svg_markup);
-    if (completed.length === 0) return;
+    if (completed.length === 0) return false;
 
-    const zip = new JSZip();
     const packFolderName = (packCategory || 'CleanSnap_Studio_Pack').replace(/[^a-z0-9_-]/gi, '_');
+    const filename = `${packFolderName}_${completed.length}_Assets.zip`;
 
-    completed.forEach((job, idx) => {
-      const base = job.original_filename.replace(/\.[^/.]+$/, '');
-      zip.file(`${packFolderName}/${base}_${String(idx + 1).padStart(2, '0')}.svg`, job.svg_markup);
+    return executeGuardedExport({
+      format: 'zip',
+      isBatch: true,
+      jobId: 'batch_zip_vault',
+      filename,
+      onApproved: async () => {
+        const zip = new JSZip();
+        completed.forEach((job, idx) => {
+          const base = job.original_filename.replace(/\.[^/.]+$/, '');
+          zip.file(`${packFolderName}/${base}_${String(idx + 1).padStart(2, '0')}.svg`, job.svg_markup);
+        });
+        const content = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(content);
+        triggerRawBrowserDownload(url, filename);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
     });
+  };
 
-    const content = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(content);
-    downloadImage(url, `${packFolderName}_${completed.length}_Assets.zip`);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  const loadTechniqueSampleSafely = (tech) => {
+    const hasUnsavedUserWork =
+      maskHistoryInfo.dirty || jobs.some((j) => !j.is_showcase);
+    if (hasUnsavedUserWork) {
+      const confirmed = window.confirm(
+        'Load this Technique Sample into the active stage? Your uploaded photos remain safely in your Contact Sheet, and any unapplied brush strokes on the current image will be reset.'
+      );
+      if (!confirmed) return;
+    }
+    const targetSample =
+      jobs.find((j) => j.job_id === tech.sampleJobId) ||
+      jobs.find((j) => j.is_showcase && j.status === 'completed') ||
+      jobs[0];
+    if (targetSample) {
+      setSelectedJob(targetSample);
+    }
+    if (tech.recommendedBackdrop) {
+      setBackdropStyle(tech.recommendedBackdrop);
+    }
+    if (tech.recommendedRefinerBg) {
+      setRefinerBgMode(tech.recommendedRefinerBg);
+    }
+    setStageMode(tech.recommendedStageMode || 'compare');
+    setActiveTab('cleaner');
+    setShowTechniqueModal(false);
+    if (tech.recommendedStageMode === 'refine') {
+      triggerInstructionalEvent('enter_refine_mode');
+    } else {
+      triggerInstructionalEvent('after_first_transform');
+    }
   };
 
   const updateSliderFromPointer = (clientX) => {
@@ -1903,6 +2133,7 @@ export default function App() {
         setProLicenseKey(data.licenseKey);
         setUnlockedPacks(ents);
         setIsProUnlocked(true);
+        setUpgradeDialogBanner(null);
         setProStatusMsg(`Unlocked (${data.tier})! Server-Signed Key: ${data.licenseKey}`);
       } else {
         setProStatusMsg(data.error || 'Key or Stripe email not found.');
@@ -1911,6 +2142,72 @@ export default function App() {
       setProStatusMsg('Could not reach verification server. Check your key or connection.');
     }
   };
+
+  // Global keyboard shortcuts (Ctrl+S guarded export, Escape hint dismissal, ? Guide Mode toggle) & unsaved-work protection
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const tag = e.target?.tagName?.toLowerCase();
+      const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+      if (e.key === 'Escape') {
+        if (activeHintKey) {
+          dismissContextualHint(activeHintKey, false);
+        } else if (showWelcomeModal) {
+          completeWelcomeOnboarding();
+        } else if (showTechniqueModal) {
+          setShowTechniqueModal(false);
+        }
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (selectedJob && activeCleanDownloadUrl) {
+          const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
+          const ext = backdropStyle === 'transparent' ? 'png' : 'jpg';
+          downloadImage(activeCleanDownloadUrl, `${base}_${backdropStyle}_master.${ext}`, ext);
+        }
+        return;
+      }
+
+      if (!isInput && e.key === '?') {
+        e.preventDefault();
+        toggleGuideMode();
+      }
+    };
+
+    const onBeforeUnload = (e) => {
+      if (isProcessingBatch || maskHistoryInfo.dirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  });
+
+  const activeStatusBar = resolveContextualStatusBar({
+    isProcessingBatch,
+    progressMsg,
+    activeTab,
+    stageMode,
+    brushMode,
+    refinerBgMode,
+    hoveredControl: hoveredControlKey,
+    backdropStyle,
+    activeBackdropLabel: activeBackdropInfo.label,
+    entitlementState: { isProValid: isProUnlocked },
+    trialState
+  });
+
+  const activeHint = resolveHintForEvent(activeHintKey, instructionalState);
+  const activeGuideDetail =
+    RICH_CONTROL_GUIDES[selectedGuideControlKey] || RICH_CONTROL_GUIDES.color_decontam;
 
   return (
     <div className="app-container">
@@ -2067,13 +2364,42 @@ export default function App() {
 
           <button
             type="button"
+            data-testid="guide-mode-btn"
+            className={instructionalState.guideModeEnabled ? 'btn-gold' : 'btn-secondary'}
+            onClick={() => {
+              if (activeTab === 'landing') setActiveTab('cleaner');
+              toggleGuideMode();
+            }}
+            style={{ padding: '9px 12px', fontSize: '12.5px' }}
+            title="Toggle Interactive Guide Mode (Shortcut: ?)"
+          >
+            <span>? Guide Mode {instructionalState.guideModeEnabled ? 'ON' : 'OFF'}</span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="technique-library-btn"
+            className="btn-secondary"
+            onClick={() => setShowTechniqueModal(true)}
+            style={{ padding: '9px 12px', fontSize: '12.5px' }}
+          >
+            <Sliders size={14} />
+            <span>Techniques</span>
+          </button>
+
+          <button
+            type="button"
             data-testid="studio-pro-btn"
             className={isProUnlocked ? 'btn-accent' : 'btn-gold'}
             onClick={() => setShowProModal(true)}
             style={{ padding: '9px 14px', fontSize: '12.5px' }}
           >
             <Sparkles size={14} />
-            <span>{isProUnlocked ? 'STUDIO PRO ACTIVE' : 'Unlock Studio Pro ($19)'}</span>
+            <span>
+              {isProUnlocked
+                ? 'STUDIO PRO ACTIVE'
+                : `Unlock Studio Pro ($19) · ${trialState.remainingCount}/${trialState.maxAllowance} Trial`}
+            </span>
           </button>
 
           <button
@@ -2081,10 +2407,10 @@ export default function App() {
             data-testid="manual-guide-btn"
             className="btn-secondary"
             onClick={() => setShowManualModal(true)}
-            style={{ padding: '9px 14px', fontSize: '12.5px' }}
+            style={{ padding: '9px 12px', fontSize: '12.5px' }}
           >
             <FileCode size={14} />
-            <span>Manual &amp; Guide</span>
+            <span>Manual</span>
           </button>
 
           <button
@@ -2092,13 +2418,298 @@ export default function App() {
             data-testid="install-app-btn"
             className="btn-secondary"
             onClick={handleInstallAppClick}
-            style={{ padding: '9px 14px', fontSize: '12.5px' }}
+            style={{ padding: '9px 12px', fontSize: '12.5px' }}
           >
             <Download size={14} />
-            <span>Install App (Windows &amp; Android)</span>
+            <span>Install App</span>
           </button>
         </div>
       </header>
+
+      {/* ==================== LAYER A: FIRST-LAUNCH WELCOME MODAL (SKIPPABLE, REPLAYABLE, PERSISTED) ==================== */}
+      {showWelcomeModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Welcome to CleanSnap Studio"
+          data-testid="first-launch-welcome-modal"
+          onClick={completeWelcomeOnboarding}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background: 'rgba(5, 7, 11, 0.88)',
+            backdropFilter: 'blur(14px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            className="card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '880px',
+              width: '100%',
+              border: '1px solid rgba(229, 193, 88, 0.5)',
+              boxShadow: '0 28px 80px rgba(0, 0, 0, 0.88)',
+              maxHeight: '92vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div className="card-header">
+              <div className="card-title-group">
+                <span className="card-step-label">{WELCOME_CONFIG.eyebrow}</span>
+                <h2 className="card-title" style={{ fontSize: '20px' }}>
+                  {WELCOME_CONFIG.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                data-testid="welcome-skip-btn"
+                className="btn-secondary"
+                onClick={completeWelcomeOnboarding}
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+              >
+                Skip Intro (Esc)
+              </button>
+            </div>
+
+            <p style={{ margin: '0 0 12px', fontSize: '13.2px', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+              {WELCOME_CONFIG.subtitle}
+            </p>
+
+            {/* 3 GENUINE BEFORE/AFTER APPLICATION EXAMPLES */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '12px',
+                marginBottom: '14px'
+              }}
+            >
+              {WELCOME_CONFIG.showcaseExamples.map((ex) => (
+                <div
+                  key={ex.id}
+                  className="workflow-section"
+                  style={{ padding: '11px', gap: '8px', justifyContent: 'space-between' }}
+                >
+                  <div>
+                    <div className="technique-pair-preview">
+                      <img src={ex.beforeImg} alt={`Before: ${ex.title}`} />
+                      <img src={ex.afterImg} alt={`After: ${ex.title}`} />
+                    </div>
+                    <h3 style={{ margin: '8px 0 3px', fontSize: '13.5px', color: 'var(--text-primary)' }}>
+                      {ex.title}
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                      <strong style={{ color: 'var(--gold)' }}>Challenge:</strong> {ex.problem}
+                    </p>
+                  </div>
+                  <div style={{ fontSize: '11.2px', color: '#6ee7b7' }}>
+                    ✓ {ex.outcome}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 4 CONNECTED WORKFLOW PILLARS */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))',
+                gap: '10px',
+                marginBottom: '16px'
+              }}
+            >
+              {WELCOME_CONFIG.workflowPillars.map((p) => (
+                <div
+                  key={p.step}
+                  style={{
+                    background: 'rgba(8, 10, 16, 0.82)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    padding: '9px 11px'
+                  }}
+                >
+                  <span className="mono-num" style={{ fontSize: '10px', color: 'var(--gold)', fontWeight: 700 }}>
+                    STEP {p.step}
+                  </span>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', margin: '2px 0' }}>
+                    {p.title}
+                  </div>
+                  <div style={{ fontSize: '11.2px', color: 'var(--text-secondary)', lineHeight: 1.38 }}>
+                    {p.detail}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 3 CLEAR ENTRY POINTS */}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                data-testid="welcome-start-own-artwork-btn"
+                className="btn-gold"
+                onClick={() => {
+                  completeWelcomeOnboarding();
+                  setActiveTab('cleaner');
+                  fileInputRef.current?.click();
+                }}
+                style={{ flex: '1 1 220px', padding: '11px 16px', fontSize: '13px' }}
+              >
+                <Upload size={15} />
+                <span>Start With My Own Artwork</span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="welcome-explore-sample-btn"
+                className="btn-accent"
+                onClick={() => {
+                  completeWelcomeOnboarding();
+                  setActiveTab('cleaner');
+                  setStageMode('compare');
+                  triggerInstructionalEvent('after_first_transform');
+                }}
+                style={{ flex: '1 1 220px', padding: '11px 16px', fontSize: '13px' }}
+              >
+                <Sparkles size={15} />
+                <span>Explore an Interactive Sample</span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="welcome-enter-workspace-btn"
+                className="btn-secondary"
+                onClick={() => {
+                  completeWelcomeOnboarding();
+                  setActiveTab('cleaner');
+                }}
+                style={{ flex: '1 1 200px', padding: '11px 16px', fontSize: '13px' }}
+              >
+                <span>Enter Workspace Directly →</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== LAYER E: INTERACTIVE TECHNIQUE LIBRARY MODAL ==================== */}
+      {showTechniqueModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="CleanSnap Studio Interactive Technique Library"
+          data-testid="technique-library-modal"
+          onClick={() => setShowTechniqueModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background: 'rgba(5, 7, 11, 0.88)',
+            backdropFilter: 'blur(14px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            className="card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '940px',
+              width: '100%',
+              border: '1px solid rgba(229, 193, 88, 0.5)',
+              boxShadow: '0 28px 80px rgba(0, 0, 0, 0.88)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div className="card-header">
+              <div className="card-title-group">
+                <span className="card-step-label">LAYER E · PRACTICAL WORKSTATION TECHNIQUES</span>
+                <h2 className="card-title">
+                  Interactive Technique Library — Real Problems, Tools &amp; Bundled Samples
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowTechniqueModal(false)}
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="technique-grid">
+              {TECHNIQUE_LIBRARY.map((tech) => (
+                <article key={tech.id} className="technique-card" data-testid={`technique-card-${tech.id}`}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="mono-num" style={{ fontSize: '10.5px', color: 'var(--gold)', fontWeight: 700 }}>
+                        {tech.category.toUpperCase()}
+                      </span>
+                      <span className="mono-num" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                        ISOLATED SAMPLE
+                      </span>
+                    </div>
+                    <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--text-primary)' }}>
+                      {tech.title}
+                    </h3>
+                    <div className="technique-pair-preview">
+                      <img src={tech.beforeImg} alt={`Before: ${tech.title}`} />
+                      <img src={tech.afterImg} alt={`After: ${tech.title}`} />
+                    </div>
+                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>Problem:</strong> {tech.problem}
+                    </p>
+                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                      {tech.relevantTools.map((t) => (
+                        <span
+                          key={t}
+                          className="mono-num"
+                          style={{
+                            fontSize: '10px',
+                            padding: '2px 7px',
+                            borderRadius: '4px',
+                            background: 'rgba(229, 193, 88, 0.12)',
+                            border: '1px solid rgba(229, 193, 88, 0.3)',
+                            color: 'var(--gold)'
+                          }}
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                    <ol style={{ margin: 0, paddingLeft: '16px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                      {tech.workflowSteps.map((step, i) => (
+                        <li key={i} style={{ marginBottom: '3px' }}>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+
+                  <button
+                    type="button"
+                    data-testid={`open-technique-sample-${tech.id}`}
+                    className="btn-gold"
+                    onClick={() => loadTechniqueSampleSafely(tech)}
+                    style={{ width: '100%', padding: '9px 12px', fontSize: '12px' }}
+                  >
+                    <Sparkles size={13} />
+                    <span>Open Bundled Sample in Editor →</span>
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showManualModal && (
         <div
@@ -2257,6 +2868,59 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* INSTRUCTIONAL PREFERENCES & REPLAY BAR */}
+            <div
+              style={{
+                marginTop: '14px',
+                paddingTop: '12px',
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '8px'
+              }}
+            >
+              <span className="mono-num" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                INSTRUCTIONAL GUIDANCE CONTROLS
+              </span>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  data-testid="replay-welcome-btn"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowManualModal(false);
+                    setShowWelcomeModal(true);
+                  }}
+                  style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                >
+                  Replay First-Launch Welcome
+                </button>
+                <button
+                  type="button"
+                  data-testid="toggle-auto-hints-btn"
+                  className="btn-secondary"
+                  onClick={toggleAutoHints}
+                  style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                >
+                  Auto-Hints: {instructionalState.autoHintsEnabled ? 'ON' : 'OFF'}
+                </button>
+                <button
+                  type="button"
+                  data-testid="reset-instructional-btn"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowManualModal(false);
+                    handleResetInstructionalProgress();
+                  }}
+                  style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                >
+                  Reset All Hints &amp; Progress
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -2297,6 +2961,33 @@ export default function App() {
               overflowY: 'auto'
             }}
           >
+            {upgradeDialogBanner && !isProUnlocked && (
+              <div
+                data-testid="upgrade-entitlement-banner"
+                style={{
+                  background: 'rgba(229, 193, 88, 0.11)',
+                  border: '1px solid rgba(229, 193, 88, 0.45)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '13.5px', color: 'var(--gold)' }}>
+                    {upgradeDialogBanner.title}
+                  </strong>
+                  <span className="mono-num" style={{ fontSize: '10.5px', color: '#6ee7b7' }}>
+                    ACTIVE PROJECT PRESERVED
+                  </span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--text-primary)', lineHeight: 1.45 }}>
+                  {upgradeDialogBanner.message}
+                </span>
+              </div>
+            )}
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
               <div>
                 <span className="card-step-label">SERVER-GATED STRIPE LICENSING &amp; B2B INTAKE</span>
@@ -3392,7 +4083,13 @@ export default function App() {
                     type="button"
                     data-testid="toggle-refine-mode-btn"
                     className={stageMode === 'refine' ? 'btn-gold' : 'btn-secondary'}
-                    onClick={() => setStageMode((m) => (m === 'refine' ? 'compare' : 'refine'))}
+                    onClick={() => {
+                      const nextMode = stageMode === 'refine' ? 'compare' : 'refine';
+                      setStageMode(nextMode);
+                      if (nextMode === 'refine') {
+                        triggerInstructionalEvent('enter_refine_mode');
+                      }
+                    }}
                     style={{ padding: '6px 11px', fontSize: '12px' }}
                   >
                     <Brush size={13} />
@@ -3404,27 +4101,80 @@ export default function App() {
                 </p>
               </div>
 
-              {/* STEP 4: EXPORT */}
+              {/* STEP 4: EXPORT (CENTRALIZED ENTITLEMENT GATE & UPFRONT TRIAL DISCLOSURE) */}
               <div className="workflow-section">
                 <div className="workflow-section-header">
                   <h3 className="workflow-step-title">
                     <span className="workflow-step-num">4</span>
                     <span>Export</span>
                   </h3>
-                  <span className="mono-num" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    WATERMARK-FREE
+                  <span
+                    data-testid="sidebar-trial-allowance-badge"
+                    className="mono-num"
+                    onClick={() => !isProUnlocked && setShowProModal(true)}
+                    style={{
+                      fontSize: '10.5px',
+                      color: isProUnlocked
+                        ? '#6ee7b7'
+                        : trialState.remainingCount > 0
+                        ? 'var(--gold)'
+                        : '#fcd34d',
+                      cursor: isProUnlocked ? 'default' : 'pointer',
+                      fontWeight: 600
+                    }}
+                    title="Free trial includes 3 clean single-image exports. Unlock Studio Pro ($19) for unlimited & batch .ZIP exports."
+                  >
+                    {isProUnlocked
+                      ? 'PRO · UNLIMITED EXPORTS'
+                      : `TRIAL · ${trialState.remainingCount}/${trialState.maxAllowance} EXPORTS LEFT`}
                   </span>
                 </div>
+
+                {!isProUnlocked && (
+                  <div
+                    style={{
+                      fontSize: '11.2px',
+                      color: 'var(--text-secondary)',
+                      background: 'rgba(229, 193, 88, 0.08)',
+                      border: '1px solid rgba(229, 193, 88, 0.25)',
+                      borderRadius: '7px',
+                      padding: '7px 9px',
+                      lineHeight: 1.38
+                    }}
+                  >
+                    Free tier includes <strong style={{ color: 'var(--text-primary)' }}>{trialState.maxAllowance} clean trial exports</strong> ({trialState.remainingCount} remaining). Batch <code>.ZIP</code> &amp; unlimited exports require{' '}
+                    <button
+                      type="button"
+                      onClick={() => setShowProModal(true)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--gold)',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        fontSize: '11.2px'
+                      }}
+                    >
+                      Studio Pro ($19)
+                    </button>
+                    .
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <button
                     type="button"
+                    data-testid="export-master-btn"
                     className="btn-gold"
                     disabled={!selectedJob || !activeCleanDownloadUrl}
+                    onMouseEnter={() => setHoveredControlKey('export_master_jpg_png')}
+                    onMouseLeave={() => setHoveredControlKey(null)}
+                    onFocus={() => setHoveredControlKey('export_master_jpg_png')}
                     onClick={() => {
                       const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
                       const ext = backdropStyle === 'transparent' ? 'png' : 'jpg';
-                      downloadImage(activeCleanDownloadUrl, `${base}_${backdropStyle}.${ext}`);
+                      downloadImage(activeCleanDownloadUrl, `${base}_${backdropStyle}.${ext}`, ext);
                     }}
                   >
                     <Download size={14} />
@@ -3433,15 +4183,19 @@ export default function App() {
 
                   <button
                     type="button"
+                    data-testid="export-alpha-png-btn"
                     className="btn-secondary"
                     disabled={!selectedJob}
+                    onMouseEnter={() => setHoveredControlKey('export_master_jpg_png')}
+                    onMouseLeave={() => setHoveredControlKey(null)}
+                    onFocus={() => setHoveredControlKey('export_master_jpg_png')}
                     onClick={() => {
                       const base = selectedJob.original_filename.replace(/\.[^/.]+$/, '');
                       const pngUrl =
                         selectedJob.full_res_alpha_url ||
                         selectedJob.cleanByStyle?.transparent ||
                         selectedJob.trimmed_sticker_url;
-                      downloadImage(pngUrl, `${base}_alpha_cutout.png`);
+                      downloadImage(pngUrl, `${base}_alpha_cutout.png`, 'png');
                     }}
                   >
                     <ImageIcon size={14} />
@@ -3450,22 +4204,30 @@ export default function App() {
 
                   <button
                     type="button"
+                    data-testid="export-vector-svg-btn"
                     className="btn-accent"
                     disabled={!selectedJob?.svg_markup}
+                    onMouseEnter={() => setHoveredControlKey('export_vector_svg')}
+                    onMouseLeave={() => setHoveredControlKey(null)}
+                    onFocus={() => setHoveredControlKey('export_vector_svg')}
                     onClick={() => downloadSingleSvg(selectedJob)}
                   >
                     <FileCode size={14} />
-                    Download Vector-Clipped Cutout (.SVG)
+                    Download Vector-Clipped Cutline (.SVG)
                   </button>
 
                   <button
                     type="button"
+                    data-testid="export-batch-zip-btn"
                     className="btn-secondary"
                     disabled={completedJobs.length === 0}
+                    onMouseEnter={() => setHoveredControlKey('export_batch_zip')}
+                    onMouseLeave={() => setHoveredControlKey(null)}
+                    onFocus={() => setHoveredControlKey('export_batch_zip')}
                     onClick={downloadSvgPackZip}
                   >
                     <Archive size={14} />
-                    Export Batch Archive ({completedJobs.length} .SVG in .ZIP)
+                    Export Batch Archive ({completedJobs.length} .SVG in .ZIP) {!isProUnlocked ? '· PRO' : ''}
                   </button>
                 </div>
               </div>
@@ -3494,13 +4256,13 @@ export default function App() {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="watermark-input">Preview Watermark Text (Preview Only)</label>
+                    <label htmlFor="watermark-input">Custom Brand Watermark Text (Optional)</label>
                     <input
                       id="watermark-input"
                       type="text"
                       value={watermarkText}
                       onChange={(e) => setWatermarkText(e.target.value)}
-                      placeholder="EDR PARTY RENTALS • PREVIEW ONLY"
+                      placeholder="Leave blank for clean watermark-free preview"
                     />
                   </div>
 
@@ -3554,7 +4316,7 @@ export default function App() {
                   <span className="card-step-label">
                     {stageMode === 'refine'
                       ? 'MANUAL EDGE REFINEMENT WORKSPACE'
-                      : `ENVIRONMENT COMPOSITOR (${activeBackdropInfo.index} / 05)`}
+                      : `ENVIRONMENT COMPOSITOR (${activeBackdropInfo.index} / 11)`}
                   </span>
                   <h2 className="card-title">
                     {selectedJob?.title || 'Select an Asset'} —{' '}
@@ -3577,7 +4339,10 @@ export default function App() {
                     <button
                       type="button"
                       className={`nav-pill ${stageMode === 'refine' ? 'active' : ''}`}
-                      onClick={() => setStageMode('refine')}
+                      onClick={() => {
+                        setStageMode('refine');
+                        triggerInstructionalEvent('enter_refine_mode');
+                      }}
                       style={{ padding: '6px 12px', fontSize: '12px' }}
                     >
                       <Brush size={13} /> Refine Edges
@@ -3585,6 +4350,149 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              {/* LAYER C: CONTEXT-SENSITIVE INSTRUCTIONAL STATUS BAR */}
+              <div
+                className="instructional-status-bar"
+                data-testid="instructional-status-bar"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="status-bar-left">
+                  <span className="status-bar-feature-pill">{activeStatusBar.feature}</span>
+                  <span className="status-bar-guidance">{activeStatusBar.guidance}</span>
+                </div>
+                <div className="status-bar-right">
+                  {activeStatusBar.shortcut && (
+                    <span className="status-bar-shortcut">{activeStatusBar.shortcut}</span>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="status-bar-trial-pill"
+                    className={`status-bar-trial-pill ${!isProUnlocked && trialState.remainingCount === 0 ? 'exhausted' : ''}`}
+                    onClick={() => !isProUnlocked && setShowProModal(true)}
+                  >
+                    {activeStatusBar.trialBadge}
+                  </button>
+                </div>
+              </div>
+
+              {/* LAYER B: EVENT-DRIVEN CONTEXTUAL INSTRUCTIONAL HINT CALLOUT */}
+              {activeHint && (
+                <div
+                  className="contextual-hint-callout"
+                  data-testid={`contextual-hint-${activeHint.id}`}
+                  role="region"
+                  aria-label={`Contextual Tip: ${activeHint.title}`}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '1 1 380px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="mono-num" style={{ fontSize: '10px', color: 'var(--gold)', fontWeight: 700 }}>
+                        WORKSTATION TIP · {activeHint.title.toUpperCase()}
+                      </span>
+                      <span className="mono-num" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                        {activeHint.shortcut}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '12.3px', color: 'var(--text-primary)' }}>
+                      {activeHint.message}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      data-testid="dismiss-hint-btn"
+                      className="btn-gold"
+                      onClick={() => dismissContextualHint(activeHint.id, true)}
+                      style={{ padding: '5px 10px', fontSize: '11px' }}
+                    >
+                      Got It
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={toggleAutoHints}
+                      style={{ padding: '5px 9px', fontSize: '11px' }}
+                    >
+                      Mute Tips
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* LAYER D: TOGGLEABLE GUIDE MODE & RICH CONTROL INSPECTOR */}
+              {instructionalState.guideModeEnabled && (
+                <section
+                  className="guide-mode-panel"
+                  data-testid="guide-mode-inspector"
+                  aria-label="Interactive Guide Mode Technical Control Inspector"
+                >
+                  <div className="guide-control-list" role="tablist" aria-label="Technical Controls">
+                    {Object.values(RICH_CONTROL_GUIDES).map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        data-testid={`guide-item-${item.id}`}
+                        className={`guide-control-item ${selectedGuideControlKey === item.id ? 'active' : ''}`}
+                        onClick={() => setSelectedGuideControlKey(item.id)}
+                      >
+                        {item.title}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <span className="mono-num" style={{ fontSize: '10px', color: '#38bdf8', fontWeight: 700 }}>
+                          LAYER D · GUIDE MODE TECHNICAL INSPECTOR (NON-DESTRUCTIVE)
+                        </span>
+                        <h3 style={{ margin: '2px 0 0', fontSize: '15px', color: 'var(--text-primary)' }}>
+                          {activeGuideDetail.title}
+                        </h3>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setShowTechniqueModal(true)}
+                          style={{ padding: '5px 10px', fontSize: '11px' }}
+                        >
+                          Open Technique Library →
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={toggleGuideMode}
+                          style={{ padding: '5px 10px', fontSize: '11px' }}
+                        >
+                          Exit Guide Mode (?)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="guide-detail-grid">
+                      <div className="guide-detail-box">
+                        <strong style={{ color: 'var(--gold)', display: 'block', marginBottom: '3px' }}>
+                          What It Does &amp; When Useful
+                        </strong>
+                        {activeGuideDetail.whatItDoes} {activeGuideDetail.whenUseful}
+                      </div>
+                      <div className="guide-detail-box">
+                        <strong style={{ color: '#34d399', display: 'block', marginBottom: '3px' }}>
+                          Increasing / Decreasing Value
+                        </strong>
+                        {activeGuideDetail.valueEffect}
+                      </div>
+                      <div className="guide-detail-box">
+                        <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '3px' }}>
+                          Trade-Offs &amp; Related Controls
+                        </strong>
+                        {activeGuideDetail.tradeOffs} ({activeGuideDetail.related})
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
 
               {/* 5 Tactile Material Swatch Buttons */}
               <div className="backdrop-swatch-bar" role="radiogroup" aria-label="5 Studio Backdrops">
@@ -3617,15 +4525,25 @@ export default function App() {
                         type="button"
                         data-testid="brush-add-btn"
                         className={brushMode === 'add' ? 'btn-gold' : 'btn-secondary'}
-                        onClick={() => setBrushMode('add')}
+                        onMouseEnter={() => setHoveredControlKey('brush_restore')}
+                        onMouseLeave={() => setHoveredControlKey(null)}
+                        onClick={() => {
+                          setBrushMode('add');
+                          triggerInstructionalEvent('select_brush_tool', true);
+                        }}
                       >
-                        <Brush size={13} /> Add to Subject (+)
+                        <Brush size={13} /> Restore Artwork (+)
                       </button>
                       <button
                         type="button"
                         data-testid="brush-erase-btn"
                         className={brushMode === 'erase' ? 'btn-gold' : 'btn-secondary'}
-                        onClick={() => setBrushMode('erase')}
+                        onMouseEnter={() => setHoveredControlKey('brush_erase')}
+                        onMouseLeave={() => setHoveredControlKey(null)}
+                        onClick={() => {
+                          setBrushMode('erase');
+                          triggerInstructionalEvent('select_brush_tool', true);
+                        }}
                       >
                         <Eraser size={13} /> Remove Background (−)
                       </button>
@@ -3741,6 +4659,7 @@ export default function App() {
                     onPointerMove={handleRefinerPointerMove}
                     onPointerUp={handleRefinerPointerUp}
                     onPointerCancel={handleRefinerPointerUp}
+                    onContextMenu={(e) => e.preventDefault()}
                     style={{
                       cursor: brushMode === 'pan' ? 'grab' : 'crosshair'
                     }}
@@ -3749,6 +4668,7 @@ export default function App() {
                       ref={refinerCanvasRef}
                       data-testid="refiner-canvas"
                       className="refiner-canvas"
+                      onContextMenu={(e) => e.preventDefault()}
                       style={{
                         transform: `translate(${refinerPan.x}px, ${refinerPan.y}px) scale(${refinerZoom})`
                       }}
@@ -3786,7 +4706,11 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="refiner-slider-box">
+                    <div
+                      className="refiner-slider-box"
+                      onMouseEnter={() => setHoveredControlKey('edge_expand')}
+                      onMouseLeave={() => setHoveredControlKey(null)}
+                    >
                       <label htmlFor="edge-expand-range">
                         <span>Mask Expand / Contract</span>
                         <span className="val">{edgeExpandPx > 0 ? `+${edgeExpandPx}` : edgeExpandPx}px</span>
@@ -3802,7 +4726,11 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="refiner-slider-box">
+                    <div
+                      className="refiner-slider-box"
+                      onMouseEnter={() => setHoveredControlKey('edge_feather')}
+                      onMouseLeave={() => setHoveredControlKey(null)}
+                    >
                       <label htmlFor="edge-feather-range">
                         <span>Edge Feathering</span>
                         <span className="val">{edgeFeatherPx}px</span>
@@ -3818,7 +4746,11 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="refiner-slider-box">
+                    <div
+                      className="refiner-slider-box"
+                      onMouseEnter={() => setHoveredControlKey('color_decontam')}
+                      onMouseLeave={() => setHoveredControlKey(null)}
+                    >
                       <label htmlFor="edge-decontam-range">
                         <span>Color Decontamination</span>
                         <span className="val">{edgeDecontam ? `${edgeDecontamStrength}%` : 'OFF'}</span>
