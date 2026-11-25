@@ -161,6 +161,26 @@ const PREMIUM_BACKDROP_OPTIONS = [
 const ALL_BACKDROP_OPTIONS = [...FIVE_BACKDROP_OPTIONS, ...PREMIUM_BACKDROP_OPTIONS];
 const SERVER_GATED_STYLE_MAP = new Map(PREMIUM_BACKDROP_OPTIONS.map((o) => [o.id, o]));
 
+// 16 Curated Clean Premium Commercial, Editorial & Technical Studio Fonts
+const STUDIO_PREMIUM_FONTS = [
+  { id: 'Plus Jakarta Sans', label: 'Plus Jakarta Sans', category: 'Architectural & Commercial Sans', sample: 'Swiss Geometric Clarity' },
+  { id: 'Outfit', label: 'Outfit', category: 'Architectural & Commercial Sans', sample: 'Modern Studio Display' },
+  { id: 'Manrope', label: 'Manrope', category: 'Architectural & Commercial Sans', sample: 'Precision D2C Catalog' },
+  { id: 'DM Sans', label: 'DM Sans', category: 'Architectural & Commercial Sans', sample: 'Minimalist Brand Sans' },
+  { id: 'Space Grotesk', label: 'Space Grotesk', category: 'Architectural & Commercial Sans', sample: 'Engineered Industrial' },
+  { id: 'Geist', label: 'Geist Sans', category: 'Architectural & Commercial Sans', sample: 'Digital Workstation UI' },
+  { id: 'Instrument Serif', label: 'Instrument Serif', category: 'Luxury Editorial Serifs', sample: 'Editorial Lookbook Serif' },
+  { id: 'Cormorant Garamond', label: 'Cormorant Garamond', category: 'Luxury Editorial Serifs', sample: 'Haute Couture & Fragrance' },
+  { id: 'Playfair Display', label: 'Playfair Display', category: 'Luxury Editorial Serifs', sample: 'High-Contrast Magazine' },
+  { id: 'Fraunces', label: 'Fraunces', category: 'Luxury Editorial Serifs', sample: 'Artisan Boutique Craft' },
+  { id: 'Libre Baskerville', label: 'Libre Baskerville', category: 'Luxury Editorial Serifs', sample: 'Classic Literary Heritage' },
+  { id: 'Cinzel', label: 'Cinzel', category: 'Display & Showroom Headlines', sample: 'ENGRAVED ROMAN LUXURY' },
+  { id: 'Syne', label: 'Syne', category: 'Display & Showroom Headlines', sample: 'Avant-Garde Design House' },
+  { id: 'Montserrat', label: 'Montserrat', category: 'Display & Showroom Headlines', sample: 'SHOWROOM & EVENT DISPLAY' },
+  { id: 'JetBrains Mono', label: 'JetBrains Mono', category: 'Technical Monospace', sample: 'SPEC-01 · 1448×1086 PX' },
+  { id: 'Geist Mono', label: 'Geist Mono', category: 'Technical Monospace', sample: 'LAB TELEMETRY · 0.42s' }
+];
+
 // Pre-loaded Showcase Pairs — all 6 use dynamic 5-backdrop compositing & shared 4:3 coordinate alignment
 const EDR_SHOWCASE_SAMPLES = [
   {
@@ -373,7 +393,11 @@ async function generateLightweightThumbnail(file) {
   }
 }
 
-function createWatermarkedPreviewDataUrl(sourceCanvas, watermarkText = 'EDR PARTY RENTALS • PREVIEW ONLY') {
+function createWatermarkedPreviewDataUrl(
+  sourceCanvas,
+  watermarkText = '',
+  watermarkFont = 'Plus Jakarta Sans'
+) {
   const prevW = 1040;
   const prevH = Math.round((sourceCanvas.height / sourceCanvas.width) * prevW);
   const c = document.createElement('canvas');
@@ -399,15 +423,15 @@ function createWatermarkedPreviewDataUrl(sourceCanvas, watermarkText = 'EDR PART
     ctx.save();
     ctx.translate(prevW / 2, prevH / 2);
     ctx.rotate((-24 * Math.PI) / 180);
-    ctx.font = '600 15px "Geist Mono", "IBM Plex Mono", monospace';
+    ctx.font = `600 17px "${watermarkFont}", "Plus Jakarta Sans", sans-serif`;
     ctx.textAlign = 'center';
 
     for (let y = -prevH; y <= prevH; y += 118) {
       for (let x = -prevW; x <= prevW; x += 380) {
-        ctx.strokeStyle = 'rgba(7, 8, 12, 0.28)';
+        ctx.strokeStyle = 'rgba(7, 8, 12, 0.34)';
         ctx.lineWidth = 2.5;
         ctx.strokeText(watermarkText, x, y);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.30)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.34)';
         ctx.fillText(watermarkText, x, y);
       }
     }
@@ -529,7 +553,12 @@ function buildPolishedSubjectFromRgba(origImg, rgbaBuffer, alphaMask, w, h, poli
 /**
  * Renders a single requested studio backdrop environment on demand (1448x1086 4:3)
  */
-async function renderSingleEnvironmentComposite(engineCache, styleId, watermarkText) {
+async function renderSingleEnvironmentComposite(
+  engineCache,
+  styleId,
+  watermarkText,
+  watermarkFont = 'Plus Jakarta Sans'
+) {
   const backdrops = await loadAllStudioBackdrops();
   const { subjectCanvas, tightBbox, sceneW, sceneH, drawX, drawY, drawW, drawH } = engineCache;
 
@@ -645,7 +674,7 @@ async function renderSingleEnvironmentComposite(engineCache, styleId, watermarkT
     styleId === 'transparent'
       ? canvas.toDataURL('image/png')
       : canvas.toDataURL('image/jpeg', 0.94);
-  const previewUrl = createWatermarkedPreviewDataUrl(canvas, watermarkText);
+  const previewUrl = createWatermarkedPreviewDataUrl(canvas, watermarkText, watermarkFont);
   return { cleanUrl, previewUrl };
 }
 
@@ -660,7 +689,8 @@ async function buildSubjectAndActiveBackdrop(
   watermarkText = '',
   activeStyleId = 'corkboard',
   existingEngineCache = null,
-  refineOptions = null
+  refineOptions = null,
+  watermarkFont = 'Plus Jakarta Sans'
 ) {
   let w, h, origImg, origRgba, autoAlphaMask, userAlphaMask;
 
@@ -845,7 +875,8 @@ async function buildSubjectAndActiveBackdrop(
   const activeRendered = await renderSingleEnvironmentComposite(
     engineCache,
     activeStyleId,
-    watermarkText
+    watermarkText,
+    watermarkFont
   );
 
   const cleanByStyle = {
@@ -902,6 +933,21 @@ export default function App() {
   const [polishIntensity, setPolishIntensity] = useState('high');
   // Defect Fix: Default watermarkText to empty string so previews and exported files match 1:1 without stock preview watermarks
   const [watermarkText, setWatermarkText] = useState('');
+  const [watermarkFont, setWatermarkFont] = useState('Plus Jakarta Sans');
+  const [uiFontFamily, setUiFontFamily] = useState('Plus Jakarta Sans');
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty(
+        '--font-sans',
+        `"${uiFontFamily}", "Plus Jakarta Sans", "Outfit", "Geist", -apple-system, sans-serif`
+      );
+      document.documentElement.style.setProperty(
+        '--font-display',
+        `"${uiFontFamily}", "Outfit", "Plus Jakarta Sans", sans-serif`
+      );
+    }
+  }, [uiFontFamily]);
 
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -1242,7 +1288,8 @@ export default function App() {
       const rendered = await renderSingleEnvironmentComposite(
         selectedJob._engineCache,
         backdropStyle,
-        watermarkText
+        watermarkText,
+        watermarkFont
       );
       if (!active) return;
 
@@ -1271,7 +1318,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [selectedJob, backdropStyle, watermarkText]);
+  }, [selectedJob, backdropStyle, watermarkText, watermarkFont]);
 
   // Sync Manual Edge Refiner Canvas whenever in 'refine' mode or parameters change
   const renderRefinerPreviewCanvas = useCallback(() => {
@@ -1489,7 +1536,8 @@ export default function App() {
         featherPx: edgeFeatherPx,
         decontaminate: edgeDecontam,
         decontaminateStrength: edgeDecontamStrength / 100
-      }
+      },
+      watermarkFont
     );
 
     const updatedJob = {
@@ -1559,7 +1607,10 @@ export default function App() {
       cutoutBlob,
       polishIntensity,
       watermarkText,
-      backdropStyle
+      backdropStyle,
+      null,
+      null,
+      watermarkFont
     );
 
     const elapsedSec = ((performance.now() - t0) / 1000).toFixed(2);
@@ -4393,6 +4444,50 @@ export default function App() {
                   </div>
 
                   <div className="form-group">
+                    <label htmlFor="ui-font-select">Workspace &amp; Brand Typography (16 Premium Fonts)</label>
+                    <select
+                      id="ui-font-select"
+                      data-testid="premium-font-select"
+                      value={watermarkFont}
+                      onChange={(e) => {
+                        setWatermarkFont(e.target.value);
+                        setUiFontFamily(e.target.value);
+                      }}
+                      style={{ fontFamily: `"${watermarkFont}", sans-serif` }}
+                    >
+                      {['Architectural & Commercial Sans', 'Luxury Editorial Serifs', 'Display & Showroom Headlines', 'Technical Monospace'].map((cat) => (
+                        <optgroup key={cat} label={cat}>
+                          {STUDIO_PREMIUM_FONTS.filter((f) => f.category === cat).map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.label} — {f.sample}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <div
+                      style={{
+                        marginTop: '6px',
+                        padding: '8px 10px',
+                        borderRadius: '7px',
+                        background: 'rgba(6, 8, 13, 0.82)',
+                        border: '1px solid var(--border-subtle)',
+                        fontFamily: `"${watermarkFont}", sans-serif`,
+                        fontSize: '14px',
+                        color: 'var(--gold)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <span>{watermarkText || 'CleanSnap Studio · Luxury Specimen'}</span>
+                      <span className="mono-num" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                        {watermarkFont}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
                     <label htmlFor="watermark-input">Custom Brand Watermark Text (Optional)</label>
                     <input
                       id="watermark-input"
@@ -4400,6 +4495,7 @@ export default function App() {
                       value={watermarkText}
                       onChange={(e) => setWatermarkText(e.target.value)}
                       placeholder="Leave blank for clean watermark-free preview"
+                      style={{ fontFamily: `"${watermarkFont}", sans-serif` }}
                     />
                   </div>
 

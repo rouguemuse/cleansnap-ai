@@ -97,12 +97,12 @@ body {
 }
 
 .brand-title-serif {
-  font-family: var(--font-display);
-  font-style: normal;
-  font-weight: 600;
-  font-size: inherit;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.12em;
   color: var(--gold);
-  letter-spacing: -0.03em;
+  letter-spacing: 0.01em;
 }
 
 .brand-subtitle {
