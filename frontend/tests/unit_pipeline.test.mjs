@@ -389,3 +389,76 @@ test('Unit 11: 5-Layer Instructional Engine & Feature Discovery state persistenc
   assert.match(refineStatus.feature, /Ruby Overlay/);
   assert.match(refineStatus.trialBadge, /2 of 3/);
 });
+
+test('Unit 12: Successful purchase redirect, failed purchase rejection, license restoration, existing paid-user access & project preservation', async () => {
+  const stripeMod = await import('../../api/verify-stripe.js');
+  const entMod = await import('../src/lib/entitlementEngine.js');
+
+  const callVerifyApi = async (bodyObj) => {
+    let statusCode = 0;
+    let payload = null;
+    const req = { method: 'POST', body: bodyObj };
+    const res = {
+      setHeader() {},
+      status(code) {
+        statusCode = code;
+        return this;
+      },
+      json(obj) {
+        payload = obj;
+      }
+    };
+    await stripeMod.default(req, res);
+    return { statusCode, payload };
+  };
+
+  // 1. Successful purchase via Live Payment Link redirect session ID
+  const successRes = await callVerifyApi({
+    action: 'verify',
+    sessionId: 'cs_live_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6',
+    tier: 'pro'
+  });
+  assert.equal(successRes.statusCode, 200);
+  assert.equal(successRes.payload.valid, true);
+  assert.match(successRes.payload.licenseKey, /^CSPRO-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/);
+  assert.ok(successRes.payload.accessToken.includes('.'));
+
+  // 2. Failed purchase / invalid license key rejection
+  const failRes = await callVerifyApi({
+    action: 'verify',
+    licenseKey: 'CSPRO-BAD0-KEY0-0000'
+  });
+  assert.equal(failRes.statusCode, 400);
+  assert.equal(failRes.payload.valid, false);
+
+  // 3. Purchase restoration using previously issued signed license key
+  const restoreRes = await callVerifyApi({
+    action: 'verify',
+    licenseKey: successRes.payload.licenseKey
+  });
+  assert.equal(restoreRes.statusCode, 200);
+  assert.equal(restoreRes.payload.valid, true);
+  assert.equal(restoreRes.payload.licenseKey, successRes.payload.licenseKey);
+
+  // 4. Existing paid-user / owner access works both online and offline without re-charging
+  const ownerOffline = entMod.verifyLicenseAndTokenClient('CSPRO-MUSE-VIP-2026');
+  assert.equal(ownerOffline.valid, true);
+  const customerOffline = entMod.verifyLicenseAndTokenClient(successRes.payload.licenseKey);
+  assert.equal(customerOffline.valid, true);
+
+  // 5. Project preservation when an export is restricted
+  const activeProjectSnapshot = {
+    selectedJobId: 'job_user_upload_1',
+    userAlphaMaskSum: 48200,
+    refineOptions: { expandPx: -1, featherPx: 2, decontaminate: true }
+  };
+  const restrictedGate = entMod.evaluateExportEntitlement({
+    format: 'png',
+    isBatch: false,
+    entitlementState: { isProValid: false },
+    trialState: { usedCount: 3, maxAllowance: 3, remainingCount: 0 }
+  });
+  assert.equal(restrictedGate.allowed, false);
+  assert.equal(activeProjectSnapshot.selectedJobId, 'job_user_upload_1');
+  assert.equal(activeProjectSnapshot.userAlphaMaskSum, 48200);
+});

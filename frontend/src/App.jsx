@@ -1882,6 +1882,73 @@ export default function App() {
     });
   };
 
+  const handleCopyCutoutToClipboard = async (job = selectedJob) => {
+    if (!job) return false;
+    const pngUrl =
+      job.full_res_alpha_url ||
+      job.cleanByStyle?.transparent ||
+      job.trimmed_sticker_url;
+    if (!pngUrl) return false;
+    const base = job.original_filename.replace(/\.[^/.]+$/, '');
+    const filename = `${base}_clipboard.png`;
+
+    return executeGuardedExport({
+      format: 'png',
+      isBatch: false,
+      jobId: `${job.job_id}_clipboard`,
+      filename,
+      onApproved: async () => {
+        try {
+          const resp = await fetch(pngUrl);
+          const blob = await resp.blob();
+          if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+            await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
+          }
+        } catch {
+          // Fallback if ClipboardItem permission denied in headless environment
+        }
+      }
+    });
+  };
+
+  const handleSaveAsNativeDesktop = async (job = selectedJob) => {
+    if (!job || !activeCleanDownloadUrl) return false;
+    const base = job.original_filename.replace(/\.[^/.]+$/, '');
+    const ext = backdropStyle === 'transparent' ? 'png' : 'jpg';
+    const filename = `${base}_${backdropStyle}_master.${ext}`;
+
+    return executeGuardedExport({
+      format: ext,
+      isBatch: false,
+      jobId: `${job.job_id}_saveas`,
+      filename,
+      onApproved: async () => {
+        if (typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: filename,
+              types: [
+                {
+                  description: ext === 'png' ? 'PNG Transparent Cutout' : 'JPEG Studio Composite',
+                  accept: { [ext === 'png' ? 'image/png' : 'image/jpeg']: [`.${ext}`] }
+                }
+              ]
+            });
+            const writable = await handle.createWritable();
+            const resp = await fetch(activeCleanDownloadUrl);
+            const blob = await resp.blob();
+            await writable.write(blob);
+            await writable.close();
+            return;
+          } catch (err) {
+            if (err?.name === 'AbortError') return;
+          }
+        }
+        triggerRawBrowserDownload(activeCleanDownloadUrl, filename);
+      }
+    });
+  };
+
   const loadTechniqueSampleSafely = (tech) => {
     const hasUnsavedUserWork =
       maskHistoryInfo.dirty || jobs.some((j) => !j.is_showcase);
@@ -2183,11 +2250,36 @@ export default function App() {
       }
     };
 
+    const onGlobalCopy = (e) => {
+      const tag = e.target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      const liveEnt = loadPersistedEntitlementState();
+      const liveTrial = loadTrialExportState();
+      const gate = evaluateExportEntitlement({
+        format: 'png',
+        isBatch: false,
+        entitlementState: { isProValid: isProUnlocked && liveEnt.isProValid },
+        trialState: liveTrial,
+        config: COMMERCIAL_CONFIG
+      });
+      if (!gate.allowed) {
+        e.preventDefault();
+        setUpgradeDialogBanner({
+          title: gate.upgradeTitle || 'CleanSnap Studio Pro Required',
+          message: gate.message,
+          reason: gate.reason
+        });
+        setShowProModal(true);
+      }
+    };
+
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('copy', onGlobalCopy);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('copy', onGlobalCopy);
     };
   });
 
@@ -3839,8 +3931,8 @@ export default function App() {
               {visibleFilmstripJobs.map((job, idx) => {
                 const isSelected = selectedJob?.job_id === job.job_id;
                 const thumbSrc =
-                  job.cleanByStyle?.[backdropStyle] ||
-                  job.cleanByStyle?.corkboard ||
+                  job.previewByStyle?.[backdropStyle] ||
+                  job.previewByStyle?.corkboard ||
                   job.thumb_url ||
                   job.original_url;
                 return (
@@ -3854,11 +3946,13 @@ export default function App() {
                     }}
                     className={`contact-card ${isSelected ? 'selected' : ''} status-${job.status}`}
                   >
-                    <div className="contact-thumb-wrap">
+                    <div className="contact-thumb-wrap" onContextMenu={(e) => e.preventDefault()}>
                       <img
                         src={thumbSrc}
                         alt={job.title || job.original_filename}
                         loading="lazy"
+                        draggable={false}
+                        onContextMenu={(e) => e.preventDefault()}
                       />
                       <span className="contact-badge">{job.dimensions || `0${idx + 1}`}</span>
                       <span className={`contact-status-pill ${job.status}`}>
@@ -4229,6 +4323,29 @@ export default function App() {
                     <Archive size={14} />
                     Export Batch Archive ({completedJobs.length} .SVG in .ZIP) {!isProUnlocked ? '· PRO' : ''}
                   </button>
+
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      data-testid="export-save-as-btn"
+                      className="btn-secondary"
+                      disabled={!selectedJob || !activeCleanDownloadUrl}
+                      onClick={() => handleSaveAsNativeDesktop(selectedJob)}
+                      style={{ flex: 1, padding: '7px 9px', fontSize: '11.5px' }}
+                    >
+                      Save As...
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="export-copy-clipboard-btn"
+                      className="btn-secondary"
+                      disabled={!selectedJob}
+                      onClick={() => handleCopyCutoutToClipboard(selectedJob)}
+                      style={{ flex: 1, padding: '7px 9px', fontSize: '11.5px' }}
+                    >
+                      Copy .PNG
+                    </button>
+                  </div>
                 </div>
               </div>
 
