@@ -1,0 +1,1060 @@
+{
+  "label": "Atelier Nocturne — Repaired (After Repair)",
+  "crawl": {
+    "startUrl": "http://127.0.0.1:65417/",
+    "origin": "http://127.0.0.1:65417",
+    "startedAt": "2026-11-24T01:38:11.074Z",
+    "finishedAt": "2026-11-24T01:38:11.082Z",
+    "limits": {
+      "maxPages": 10,
+      "maxDepth": 3,
+      "timeoutMs": 8000,
+      "userAgent": "ContextMuseAudit/1.0 (+local-studio-audit; respects-robots)"
+    },
+    "robots": {
+      "url": "http://127.0.0.1:65417/robots.txt",
+      "status": 200,
+      "found": true,
+      "rawText": "# robots.txt for Atelier Nocturne\nUser-agent: *\nDisallow: /private-drafts\nAllow: /\nSitemap: http://127.0.0.1:65417/sitemap.xml",
+      "rules": [
+        {
+          "type": "disallow",
+          "pattern": "/private-drafts",
+          "raw": "Disallow: /private-drafts"
+        },
+        {
+          "type": "allow",
+          "pattern": "/",
+          "raw": "Allow: /"
+        }
+      ],
+      "crawlDelay": null,
+      "sitemaps": [
+        "http://127.0.0.1:65417/sitemap.xml"
+      ]
+    },
+    "sitemap": {
+      "url": "http://127.0.0.1:65417/sitemap.xml",
+      "status": 200,
+      "found": true,
+      "urls": [
+        "http://127.0.0.1:65417/",
+        "http://127.0.0.1:65417/exhibitions",
+        "http://127.0.0.1:65417/essays/light-and-form",
+        "http://127.0.0.1:65417/archive/colophon"
+      ],
+      "isSitemapIndex": false,
+      "totalListed": 4,
+      "coveredInCrawlCount": 4,
+      "uncrawledUrls": [],
+      "blockedByRobotsUrls": []
+    },
+    "coverage": {
+      "inspectedCount": 4,
+      "excludedByRobotsCount": 1,
+      "skippedByLimitCount": 0,
+      "failedRequestsCount": 0,
+      "nonHtmlSkippedCount": 0,
+      "externalLinksCount": 1,
+      "totalDiscoveredSameOrigin": 5
+    },
+    "inspectedPages": [
+      {
+        "url": "http://127.0.0.1:65417/",
+        "finalUrl": "http://127.0.0.1:65417/",
+        "depth": 0,
+        "discoveredFrom": null,
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "xRobotsTag": "",
+        "cacheControl": "",
+        "elapsedMs": 2,
+        "byteLength": 3655,
+        "signals": {
+          "htmlLang": "en",
+          "title": "Atelier Nocturne — Spatial Monographs & Research",
+          "metaDescription": "Atelier Nocturne is an architectural research and book-design studio studying shadow, masonry acoustics, and quiet exhibition spaces.",
+          "metaViewport": "width=device-width, initial-scale=1",
+          "metaRobots": "",
+          "canonical": "http://127.0.0.1:65417/",
+          "ogTags": {
+            "og:title": "Atelier Nocturne — Spatial Monographs & Research",
+            "og:description": "Architectural research and book-design studio studying shadow, masonry acoustics, and quiet exhibition spaces.",
+            "og:image": "http://127.0.0.1:65417/assets/monolith-study.svg"
+          },
+          "twitterTags": {},
+          "stylesheets": [],
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "Spatial Monographs & Material Studies",
+              "raw": "<h1>Spatial Monographs &amp; Material Studies</h1>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Seasonal Salon Dispatches",
+              "raw": "<h2 id=\"dispatch-heading\">Seasonal Salon Dispatches</h2>"
+            }
+          ],
+          "landmarks": {
+            "hasMainLandmark": true,
+            "hasNavLandmark": true,
+            "hasHeaderLandmark": true,
+            "hasFooterLandmark": true,
+            "hasSkipLink": false
+          },
+          "images": [
+            {
+              "src": "/assets/monolith-study.svg",
+              "hasAltAttr": true,
+              "altText": "Charcoal study of the North Pavilion skylight casting a diagonal beam across board-formed concrete",
+              "isDecorative": false,
+              "hasDimensions": true,
+              "width": "1200",
+              "height": "750",
+              "loading": "",
+              "raw": "<img src=\"/assets/monolith-study.svg\" alt=\"Charcoal study of the North Pavilion skylight casting a diagonal beam across board-formed concrete\" width=\"1200\" height=\"750\">"
+            }
+          ],
+          "links": [
+            {
+              "rawHref": "/",
+              "resolvedUrl": "http://127.0.0.1:65417/",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Atelier Index",
+              "ariaLabel": "",
+              "accessibleName": "Atelier Index",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/\">Atelier Index</a>"
+            },
+            {
+              "rawHref": "/exhibitions",
+              "resolvedUrl": "http://127.0.0.1:65417/exhibitions",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Exhibitions",
+              "ariaLabel": "",
+              "accessibleName": "Exhibitions",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/exhibitions\">Exhibitions</a>"
+            },
+            {
+              "rawHref": "/essays/light-and-form",
+              "resolvedUrl": "http://127.0.0.1:65417/essays/light-and-form",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Essay: Light & Form",
+              "ariaLabel": "",
+              "accessibleName": "Essay: Light & Form",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/essays/light-and-form\">Essay: Light &amp; Form</a>"
+            },
+            {
+              "rawHref": "/archive/colophon",
+              "resolvedUrl": "http://127.0.0.1:65417/archive/colophon",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Colophon",
+              "ariaLabel": "",
+              "accessibleName": "Colophon",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/archive/colophon\">Colophon</a>"
+            },
+            {
+              "rawHref": "/private-drafts",
+              "resolvedUrl": "http://127.0.0.1:65417/private-drafts",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Studio Working Drafts (Internal)",
+              "ariaLabel": "",
+              "accessibleName": "Studio Working Drafts (Internal)",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/private-drafts\">Studio Working Drafts (Internal)</a>"
+            },
+            {
+              "rawHref": "https://example.org/architectural-index",
+              "resolvedUrl": "https://example.org/architectural-index",
+              "isSameOrigin": false,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "External Archive Reference",
+              "ariaLabel": "",
+              "accessibleName": "External Archive Reference",
+              "target": "",
+              "rel": "noopener",
+              "raw": "<a href=\"https://example.org/architectural-index\" rel=\"noopener\">External Archive Reference</a>"
+            }
+          ],
+          "elementIds": [
+            "main-content",
+            "dispatch-heading",
+            "salon-email"
+          ],
+          "formControls": [
+            {
+              "tag": "input",
+              "type": "email",
+              "id": "salon-email",
+              "name": "email",
+              "placeholder": "Your email for salon dispatches",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<input id=\"salon-email\" type=\"email\" name=\"email\" placeholder=\"Your email for salon dispatches\">"
+            }
+          ],
+          "renderBlockingScripts": [],
+          "jsonLdBlocks": [
+            {
+              "valid": true,
+              "schemaTypes": [
+                "DesignAgency"
+              ],
+              "raw": "{ \"@context\": \"https://schema.org\", \"@type\": \"DesignAgency\", \"name\": \"Atelier Nocturne\", \"url\": \"http://127.0.0.1:65417/\" }"
+            }
+          ],
+          "editorialSignals": {
+            "fontFamilies": [],
+            "wordCount": 76,
+            "bodyExcerpt": "Atelier Index Exhibitions Essay: Light & Form Colophon Spatial Monographs & Material Studies We collaborate with curators, timber craftspeople, and architectural archives to document spaces defined by natural twilight and acoustic stillness. Plate I — North Pavilion Skylight…",
+            "domElementCount": 37
+          }
+        }
+      },
+      {
+        "url": "http://127.0.0.1:65417/exhibitions",
+        "finalUrl": "http://127.0.0.1:65417/exhibitions",
+        "depth": 1,
+        "discoveredFrom": "http://127.0.0.1:65417/",
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "xRobotsTag": "",
+        "cacheControl": "",
+        "elapsedMs": 1,
+        "byteLength": 3318,
+        "signals": {
+          "htmlLang": "en",
+          "title": "Exhibitions & Installations — Atelier Nocturne",
+          "metaDescription": "Selected architectural installations, tactile book tables, and lighting studies exhibited by Atelier Nocturne between 2021 and 2026.",
+          "metaViewport": "width=device-width, initial-scale=1",
+          "metaRobots": "",
+          "canonical": "http://127.0.0.1:65417/exhibitions",
+          "ogTags": {
+            "og:title": "Exhibitions & Installations — Atelier Nocturne",
+            "og:description": "Selected architectural installations, tactile book tables, and lighting studies.",
+            "og:image": "http://127.0.0.1:65417/assets/monolith-study.svg"
+          },
+          "twitterTags": {},
+          "stylesheets": [],
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "Exhibitions & Tactile Archives",
+              "raw": "<h1>Exhibitions &amp; Tactile Archives</h1>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Weight of Shadow (Kyoto & Paris)",
+              "raw": "<h2>Weight of Shadow (Kyoto &amp; Paris)</h2>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Curator Notes on Lighting",
+              "raw": "<h2>Curator Notes on Lighting</h2>"
+            }
+          ],
+          "landmarks": {
+            "hasMainLandmark": true,
+            "hasNavLandmark": true,
+            "hasHeaderLandmark": true,
+            "hasFooterLandmark": true,
+            "hasSkipLink": false
+          },
+          "images": [],
+          "links": [
+            {
+              "rawHref": "/",
+              "resolvedUrl": "http://127.0.0.1:65417/",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Atelier Index",
+              "ariaLabel": "",
+              "accessibleName": "Atelier Index",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/\">Atelier Index</a>"
+            },
+            {
+              "rawHref": "/exhibitions",
+              "resolvedUrl": "http://127.0.0.1:65417/exhibitions",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Exhibitions",
+              "ariaLabel": "",
+              "accessibleName": "Exhibitions",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/exhibitions\">Exhibitions</a>"
+            },
+            {
+              "rawHref": "/essays/light-and-form",
+              "resolvedUrl": "http://127.0.0.1:65417/essays/light-and-form",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Essay: Light & Form",
+              "ariaLabel": "",
+              "accessibleName": "Essay: Light & Form",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/essays/light-and-form\">Essay: Light &amp; Form</a>"
+            },
+            {
+              "rawHref": "/archive/colophon",
+              "resolvedUrl": "http://127.0.0.1:65417/archive/colophon",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Colophon",
+              "ariaLabel": "",
+              "accessibleName": "Colophon",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/archive/colophon\">Colophon</a>"
+            },
+            {
+              "rawHref": "#curator-notes",
+              "resolvedUrl": null,
+              "isSameOrigin": true,
+              "isFragmentOnly": true,
+              "fragmentId": "curator-notes",
+              "text": "Jump to Curator Notes",
+              "ariaLabel": "",
+              "accessibleName": "Jump to Curator Notes",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"#curator-notes\">Jump to Curator Notes</a>"
+            },
+            {
+              "rawHref": "/essays/light-and-form",
+              "resolvedUrl": "http://127.0.0.1:65417/essays/light-and-form",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Read the accompanying essay: Light and Architectural Form",
+              "ariaLabel": "",
+              "accessibleName": "Read the accompanying essay: Light and Architectural Form",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/essays/light-and-form\">Read the accompanying essay: Light and Architectural Form</a>"
+            },
+            {
+              "rawHref": "/private-drafts",
+              "resolvedUrl": "http://127.0.0.1:65417/private-drafts",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Studio Working Drafts (Internal)",
+              "ariaLabel": "",
+              "accessibleName": "Studio Working Drafts (Internal)",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/private-drafts\">Studio Working Drafts (Internal)</a>"
+            },
+            {
+              "rawHref": "https://example.org/architectural-index",
+              "resolvedUrl": "https://example.org/architectural-index",
+              "isSameOrigin": false,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "External Archive Reference",
+              "ariaLabel": "",
+              "accessibleName": "External Archive Reference",
+              "target": "",
+              "rel": "noopener",
+              "raw": "<a href=\"https://example.org/architectural-index\" rel=\"noopener\">External Archive Reference</a>"
+            }
+          ],
+          "elementIds": [
+            "main-content",
+            "curator-notes"
+          ],
+          "formControls": [],
+          "renderBlockingScripts": [],
+          "jsonLdBlocks": [
+            {
+              "valid": true,
+              "schemaTypes": [
+                "ExhibitionEvent"
+              ],
+              "raw": "{ \"@context\": \"https://schema.org\", \"@type\": \"ExhibitionEvent\", \"name\": \"Weight of Shadow: Monographs 2021–2026\", \"location\": \"Pavillon de l'Arsenal, Paris\" }"
+            }
+          ],
+          "editorialSignals": {
+            "fontFamilies": [],
+            "wordCount": 90,
+            "bodyExcerpt": "Atelier Index Exhibitions Essay: Light & Form Colophon Exhibitions & Tactile Archives Each installation pairs unbound letterpress signatures with scaled timber models. Jump to Curator Notes . Weight of Shadow (Kyoto & Paris) An exploration of basalt thresholds…",
+            "domElementCount": 35
+          }
+        }
+      },
+      {
+        "url": "http://127.0.0.1:65417/essays/light-and-form",
+        "finalUrl": "http://127.0.0.1:65417/essays/light-and-form",
+        "depth": 1,
+        "discoveredFrom": "http://127.0.0.1:65417/",
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "xRobotsTag": "",
+        "cacheControl": "",
+        "elapsedMs": 1,
+        "byteLength": 3066,
+        "signals": {
+          "htmlLang": "en",
+          "title": "On Light and Architectural Form — Atelier Nocturne",
+          "metaDescription": "An essay examining how north-facing clerestory apertures and lime plaster diffuse daylight across long reading tables.",
+          "metaViewport": "width=device-width, initial-scale=1",
+          "metaRobots": "",
+          "canonical": "http://127.0.0.1:65417/essays/light-and-form",
+          "ogTags": {
+            "og:title": "On Light and Architectural Form — Atelier Nocturne",
+            "og:description": "An essay examining how north-facing clerestory apertures and lime plaster diffuse daylight.",
+            "og:image": "http://127.0.0.1:65417/assets/monolith-study.svg"
+          },
+          "twitterTags": {},
+          "stylesheets": [],
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "On Light and Architectural Form",
+              "raw": "<h1>On Light and Architectural Form</h1>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Monograph Essay No. 14 · Autumn Series",
+              "raw": "<h2 class=\"kicker-scale\">Monograph Essay No. 14 · Autumn Series</h2>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Acoustic Stillness in Masonry Rooms",
+              "raw": "<h2>Acoustic Stillness in Masonry Rooms</h2>"
+            }
+          ],
+          "landmarks": {
+            "hasMainLandmark": true,
+            "hasNavLandmark": true,
+            "hasHeaderLandmark": true,
+            "hasFooterLandmark": true,
+            "hasSkipLink": false
+          },
+          "images": [],
+          "links": [
+            {
+              "rawHref": "/",
+              "resolvedUrl": "http://127.0.0.1:65417/",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Atelier Index",
+              "ariaLabel": "",
+              "accessibleName": "Atelier Index",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/\">Atelier Index</a>"
+            },
+            {
+              "rawHref": "/exhibitions",
+              "resolvedUrl": "http://127.0.0.1:65417/exhibitions",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Exhibitions",
+              "ariaLabel": "",
+              "accessibleName": "Exhibitions",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/exhibitions\">Exhibitions</a>"
+            },
+            {
+              "rawHref": "/essays/light-and-form",
+              "resolvedUrl": "http://127.0.0.1:65417/essays/light-and-form",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Essay: Light & Form",
+              "ariaLabel": "",
+              "accessibleName": "Essay: Light & Form",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/essays/light-and-form\">Essay: Light &amp; Form</a>"
+            },
+            {
+              "rawHref": "/archive/colophon",
+              "resolvedUrl": "http://127.0.0.1:65417/archive/colophon",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Colophon",
+              "ariaLabel": "",
+              "accessibleName": "Colophon",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/archive/colophon\">Colophon</a>"
+            },
+            {
+              "rawHref": "/private-drafts",
+              "resolvedUrl": "http://127.0.0.1:65417/private-drafts",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Studio Working Drafts (Internal)",
+              "ariaLabel": "",
+              "accessibleName": "Studio Working Drafts (Internal)",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/private-drafts\">Studio Working Drafts (Internal)</a>"
+            },
+            {
+              "rawHref": "https://example.org/architectural-index",
+              "resolvedUrl": "https://example.org/architectural-index",
+              "isSameOrigin": false,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "External Archive Reference",
+              "ariaLabel": "",
+              "accessibleName": "External Archive Reference",
+              "target": "",
+              "rel": "noopener",
+              "raw": "<a href=\"https://example.org/architectural-index\" rel=\"noopener\">External Archive Reference</a>"
+            }
+          ],
+          "elementIds": [
+            "main-content"
+          ],
+          "formControls": [],
+          "renderBlockingScripts": [],
+          "jsonLdBlocks": [
+            {
+              "valid": true,
+              "schemaTypes": [
+                "ScholarlyArticle"
+              ],
+              "raw": "{ \"@context\": \"https://schema.org\", \"@type\": \"ScholarlyArticle\", \"headline\": \"On Light and Architectural Form\", \"author\": \"Atelier Nocturne Research Group\" }"
+            }
+          ],
+          "editorialSignals": {
+            "fontFamilies": [],
+            "wordCount": 84,
+            "bodyExcerpt": "Atelier Index Exhibitions Essay: Light & Form Colophon On Light and Architectural Form Monograph Essay No. 14 · Autumn Series When daylight grazes hand-troweled lime plaster at an acute angle, the wall ceases to act as a flat…",
+            "domElementCount": 29
+          }
+        }
+      },
+      {
+        "url": "http://127.0.0.1:65417/archive/colophon",
+        "finalUrl": "http://127.0.0.1:65417/archive/colophon",
+        "depth": 1,
+        "discoveredFrom": "http://127.0.0.1:65417/",
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "xRobotsTag": "",
+        "cacheControl": "",
+        "elapsedMs": 1,
+        "byteLength": 2449,
+        "signals": {
+          "htmlLang": "en",
+          "title": "Colophon & Printing Specifications — Atelier Nocturne",
+          "metaDescription": "",
+          "metaViewport": "width=device-width, initial-scale=1",
+          "metaRobots": "",
+          "canonical": "http://127.0.0.1:65417/archive/colophon",
+          "ogTags": {
+            "og:title": "Colophon & Printing Specifications — Atelier Nocturne",
+            "og:description": "Typesetting, paper stock, and archival binding specifications for Atelier Nocturne.",
+            "og:image": "http://127.0.0.1:65417/assets/monolith-study.svg"
+          },
+          "twitterTags": {},
+          "stylesheets": [],
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "Colophon & Edition Notes",
+              "raw": "<h1>Colophon &amp; Edition Notes</h1>"
+            }
+          ],
+          "landmarks": {
+            "hasMainLandmark": true,
+            "hasNavLandmark": true,
+            "hasHeaderLandmark": true,
+            "hasFooterLandmark": true,
+            "hasSkipLink": false
+          },
+          "images": [],
+          "links": [
+            {
+              "rawHref": "/",
+              "resolvedUrl": "http://127.0.0.1:65417/",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Atelier Index",
+              "ariaLabel": "",
+              "accessibleName": "Atelier Index",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/\">Atelier Index</a>"
+            },
+            {
+              "rawHref": "/exhibitions",
+              "resolvedUrl": "http://127.0.0.1:65417/exhibitions",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Exhibitions",
+              "ariaLabel": "",
+              "accessibleName": "Exhibitions",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/exhibitions\">Exhibitions</a>"
+            },
+            {
+              "rawHref": "/essays/light-and-form",
+              "resolvedUrl": "http://127.0.0.1:65417/essays/light-and-form",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Essay: Light & Form",
+              "ariaLabel": "",
+              "accessibleName": "Essay: Light & Form",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/essays/light-and-form\">Essay: Light &amp; Form</a>"
+            },
+            {
+              "rawHref": "/archive/colophon",
+              "resolvedUrl": "http://127.0.0.1:65417/archive/colophon",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Colophon",
+              "ariaLabel": "",
+              "accessibleName": "Colophon",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/archive/colophon\">Colophon</a>"
+            },
+            {
+              "rawHref": "/private-drafts",
+              "resolvedUrl": "http://127.0.0.1:65417/private-drafts",
+              "isSameOrigin": true,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "Studio Working Drafts (Internal)",
+              "ariaLabel": "",
+              "accessibleName": "Studio Working Drafts (Internal)",
+              "target": "",
+              "rel": "",
+              "raw": "<a href=\"/private-drafts\">Studio Working Drafts (Internal)</a>"
+            },
+            {
+              "rawHref": "https://example.org/architectural-index",
+              "resolvedUrl": "https://example.org/architectural-index",
+              "isSameOrigin": false,
+              "isFragmentOnly": false,
+              "fragmentId": null,
+              "text": "External Archive Reference",
+              "ariaLabel": "",
+              "accessibleName": "External Archive Reference",
+              "target": "",
+              "rel": "noopener",
+              "raw": "<a href=\"https://example.org/architectural-index\" rel=\"noopener\">External Archive Reference</a>"
+            }
+          ],
+          "elementIds": [
+            "main-content"
+          ],
+          "formControls": [],
+          "renderBlockingScripts": [],
+          "jsonLdBlocks": [],
+          "editorialSignals": {
+            "fontFamilies": [],
+            "wordCount": 57,
+            "bodyExcerpt": "Atelier Index Exhibitions Essay: Light & Form Colophon Colophon & Edition Notes Set in Cormorant Garamond and Inter. Printed on 135 gsm Cotton Rag at Imprimerie du Marais. Bound in exposed linen thread so every spread opens flat…",
+            "domElementCount": 24
+          }
+        }
+      }
+    ],
+    "excludedByRobots": [
+      {
+        "url": "http://127.0.0.1:65417/private-drafts",
+        "depth": 1,
+        "discoveredFrom": "http://127.0.0.1:65417/",
+        "matchedRule": "Disallow: /private-drafts",
+        "referrers": [
+          {
+            "fromUrl": "http://127.0.0.1:65417/",
+            "rawTag": "<a href=\"/private-drafts\">Studio Working Drafts (Internal)</a>",
+            "anchorText": "Studio Working Drafts (Internal)"
+          },
+          {
+            "fromUrl": "http://127.0.0.1:65417/exhibitions",
+            "rawTag": "<a href=\"/private-drafts\">Studio Working Drafts (Internal)</a>",
+            "anchorText": "Studio Working Drafts (Internal)"
+          },
+          {
+            "fromUrl": "http://127.0.0.1:65417/essays/light-and-form",
+            "rawTag": "<a href=\"/private-drafts\">Studio Working Drafts (Internal)</a>",
+            "anchorText": "Studio Working Drafts (Internal)"
+          },
+          {
+            "fromUrl": "http://127.0.0.1:65417/archive/colophon",
+            "rawTag": "<a href=\"/private-drafts\">Studio Working Drafts (Internal)</a>",
+            "anchorText": "Studio Working Drafts (Internal)"
+          }
+        ]
+      }
+    ],
+    "skippedByLimit": [],
+    "failedRequests": [],
+    "nonHtmlSkipped": [],
+    "externalLinks": [
+      {
+        "url": "https://example.org/architectural-index",
+        "discoveredFrom": "http://127.0.0.1:65417/",
+        "anchorText": "External Archive Reference"
+      }
+    ]
+  },
+  "analysis": {
+    "priorityMeta": {
+      "P1": {
+        "rank": 1,
+        "code": "P1",
+        "label": "Priority 1 — Structural Blockers & Broken Journeys",
+        "shortLabel": "P1 · Structural First",
+        "description": "Broken pathways, unreachable pages, blocked assistive controls, or parser errors that actively prevent visitors or search crawlers from using the site."
+      },
+      "P2": {
+        "rank": 2,
+        "code": "P2",
+        "label": "Priority 2 — High-Leverage Craft & Structural Polish",
+        "shortLabel": "P2 · High-Leverage Craft",
+        "description": "Meaningful technical and structural improvements that strengthen image narrative, layout stability, first-paint speed, and canonical clarity while preserving visual design."
+      },
+      "P3": {
+        "rank": 3,
+        "code": "P3",
+        "label": "Priority 3 — Contextual Refinements & Search Enrichment",
+        "shortLabel": "P3 · Contextual / Editorial",
+        "description": "Nuanced metadata, typographic hierarchy, and snippet opportunities where editorial judgment decides whether a change serves the page or whether the current treatment is intentional."
+      }
+    },
+    "summary": {
+      "totalGroupedFindings": 1,
+      "totalOccurrences": 1,
+      "byPriority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 1
+      },
+      "byPillar": {
+        "Accessibility": 0,
+        "Usability": 0,
+        "Performance": 0,
+        "Search Visibility": 1
+      },
+      "byEvidenceType": {
+        "deterministic": 1,
+        "heuristic": 0
+      }
+    },
+    "findings": [
+      {
+        "id": "SEARCH_MISSING_META_DESCRIPTION",
+        "title": "Meta description is omitted (contextual refinement — not an urgent defect)",
+        "pillar": "Search Visibility",
+        "priority": "P3",
+        "priorityLabel": "P3 · Contextual / Editorial",
+        "evidenceType": "Deterministic Technical Observation",
+        "whyItMatters": "A <meta name=\"description\"> gives you editorial control over the summary snippet invited in search results. However, an omitted description is never an emergency: search engines automatically synthesize a snippet from visible page prose matching the visitor’s query.",
+        "voiceAndIntentNote": "Prioritize writing bespoke 120–155 character descriptions for your homepage, flagship exhibitions, and primary research essays. For minimalist colophon, archival index, or utility pages, leaving the description unset or concise is often completely appropriate.",
+        "concreteRepair": "Where a curated summary adds value, add <meta name=\"description\" content=\"A concise 1–2 sentence editorial summary in the site’s voice.\"> to <head>. Otherwise, mark as an Intentional Expressive Choice in the Editorial Review Studio.",
+        "howToVerify": "Preview the authored description vs. the auto-extracted body prose fallback in the Search Snippet Preview panel.",
+        "affectedUrls": [
+          {
+            "url": "http://127.0.0.1:65417/archive/colophon",
+            "evidence": "No <meta name=\"description\"> on archival/colophon path (/archive/colophon) — low urgency; body excerpt fallback: \"Atelier Index Exhibitions Essay: Light & Form Colophon Colophon & Edition Notes Set in Cormorant Garamond and Inter. Printed on 135 gsm Cotton Rag at Imprimerie du Marais. Bound in exposed linen thread so every spread opens flat…\""
+          }
+        ]
+      }
+    ],
+    "editorialStudio": {
+      "purpose": "Automated rules surface markup signals, but preserving an expressive website’s voice and visual intent requires human design and editorial judgment. Use this workspace to inspect snippets, heading cadence, and image descriptions, and record which findings are intentional artistic choices versus repairs to schedule.",
+      "snippetPreviews": [
+        {
+          "url": "http://127.0.0.1:65417/",
+          "pathname": "/",
+          "title": "Atelier Nocturne — Spatial Monographs & Research",
+          "titleLength": 48,
+          "hasAuthoredDescription": true,
+          "descriptionSource": "Authored <meta name=\"description\">",
+          "snippetText": "Atelier Nocturne is an architectural research and book-design studio studying shadow, masonry acoustics, and quiet exhibition spaces.",
+          "descriptionLength": 133,
+          "canonical": "http://127.0.0.1:65417/",
+          "metaRobots": "index, follow (default)",
+          "ogReady": true,
+          "ogImage": "http://127.0.0.1:65417/assets/monolith-study.svg",
+          "schemaTypes": [
+            "DesignAgency"
+          ]
+        },
+        {
+          "url": "http://127.0.0.1:65417/exhibitions",
+          "pathname": "/exhibitions",
+          "title": "Exhibitions & Installations — Atelier Nocturne",
+          "titleLength": 46,
+          "hasAuthoredDescription": true,
+          "descriptionSource": "Authored <meta name=\"description\">",
+          "snippetText": "Selected architectural installations, tactile book tables, and lighting studies exhibited by Atelier Nocturne between 2021 and 2026.",
+          "descriptionLength": 132,
+          "canonical": "http://127.0.0.1:65417/exhibitions",
+          "metaRobots": "index, follow (default)",
+          "ogReady": true,
+          "ogImage": "http://127.0.0.1:65417/assets/monolith-study.svg",
+          "schemaTypes": [
+            "ExhibitionEvent"
+          ]
+        },
+        {
+          "url": "http://127.0.0.1:65417/essays/light-and-form",
+          "pathname": "/essays/light-and-form",
+          "title": "On Light and Architectural Form — Atelier Nocturne",
+          "titleLength": 50,
+          "hasAuthoredDescription": true,
+          "descriptionSource": "Authored <meta name=\"description\">",
+          "snippetText": "An essay examining how north-facing clerestory apertures and lime plaster diffuse daylight across long reading tables.",
+          "descriptionLength": 118,
+          "canonical": "http://127.0.0.1:65417/essays/light-and-form",
+          "metaRobots": "index, follow (default)",
+          "ogReady": true,
+          "ogImage": "http://127.0.0.1:65417/assets/monolith-study.svg",
+          "schemaTypes": [
+            "ScholarlyArticle"
+          ]
+        },
+        {
+          "url": "http://127.0.0.1:65417/archive/colophon",
+          "pathname": "/archive/colophon",
+          "title": "Colophon & Printing Specifications — Atelier Nocturne",
+          "titleLength": 53,
+          "hasAuthoredDescription": false,
+          "descriptionSource": "Organic Body Prose Fallback",
+          "snippetText": "Atelier Index Exhibitions Essay: Light & Form Colophon Colophon & Edition Notes Set in Cormorant Garamond and Inter. Printed on 135 gsm Cotton Rag at Imprimerie du Marais. Bound in exposed linen thread so every spread opens flat…",
+          "descriptionLength": 0,
+          "canonical": "http://127.0.0.1:65417/archive/colophon",
+          "metaRobots": "index, follow (default)",
+          "ogReady": true,
+          "ogImage": "http://127.0.0.1:65417/assets/monolith-study.svg",
+          "schemaTypes": []
+        }
+      ],
+      "typographyAndHierarchy": [
+        {
+          "url": "http://127.0.0.1:65417/",
+          "pathname": "/",
+          "fontFamilies": [],
+          "wordCount": 76,
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "Spatial Monographs & Material Studies",
+              "raw": "<h1>Spatial Monographs &amp; Material Studies</h1>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Seasonal Salon Dispatches",
+              "raw": "<h2 id=\"dispatch-heading\">Seasonal Salon Dispatches</h2>"
+            }
+          ]
+        },
+        {
+          "url": "http://127.0.0.1:65417/exhibitions",
+          "pathname": "/exhibitions",
+          "fontFamilies": [],
+          "wordCount": 90,
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "Exhibitions & Tactile Archives",
+              "raw": "<h1>Exhibitions &amp; Tactile Archives</h1>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Weight of Shadow (Kyoto & Paris)",
+              "raw": "<h2>Weight of Shadow (Kyoto &amp; Paris)</h2>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Curator Notes on Lighting",
+              "raw": "<h2>Curator Notes on Lighting</h2>"
+            }
+          ]
+        },
+        {
+          "url": "http://127.0.0.1:65417/essays/light-and-form",
+          "pathname": "/essays/light-and-form",
+          "fontFamilies": [],
+          "wordCount": 84,
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "On Light and Architectural Form",
+              "raw": "<h1>On Light and Architectural Form</h1>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Monograph Essay No. 14 · Autumn Series",
+              "raw": "<h2 class=\"kicker-scale\">Monograph Essay No. 14 · Autumn Series</h2>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Acoustic Stillness in Masonry Rooms",
+              "raw": "<h2>Acoustic Stillness in Masonry Rooms</h2>"
+            }
+          ]
+        },
+        {
+          "url": "http://127.0.0.1:65417/archive/colophon",
+          "pathname": "/archive/colophon",
+          "fontFamilies": [],
+          "wordCount": 57,
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "Colophon & Edition Notes",
+              "raw": "<h1>Colophon &amp; Edition Notes</h1>"
+            }
+          ]
+        }
+      ],
+      "artworkAltLedger": [
+        {
+          "pageUrl": "http://127.0.0.1:65417/",
+          "pathname": "/",
+          "src": "/assets/monolith-study.svg",
+          "status": "Authored alt text",
+          "altText": "Charcoal study of the North Pavilion skylight casting a diagonal beam across board-formed concrete",
+          "dimensions": "1200×750"
+        }
+      ],
+      "reviewPrompts": [
+        {
+          "id": "voice-titles-snippets",
+          "category": "Voice & Search Presence",
+          "question": "Do the page titles and search snippets reflect the studio’s editorial voice without generic marketing boilerplate?",
+          "guidance": "Check whether pages relying on organic body prose fallback read well in the Snippet Preview table below, and craft custom meta descriptions only where the fallback feels fragmented."
+        },
+        {
+          "id": "visual-typographic-hierarchy",
+          "category": "Typographic Intent vs. Semantic Outline",
+          "question": "Where heading levels skip (e.g., H1 to H3), is that a visual scale choice that should be decoupled via CSS classes?",
+          "guidance": "Keep the exact font sizes, tracking, and margins, but map structural section titles to sequential H1 → H2 → H3 tags for screen-reader wayfinding."
+        },
+        {
+          "id": "curatorial-image-descriptions",
+          "category": "Artwork & Photography Narrative",
+          "question": "Do photography and exhibition plates carry alt text that conveys composition and subject, while atmospheric textures use alt=\"\"?",
+          "guidance": "Avoid robotic SEO keyword lists in alt attributes; describe the visual work as you would to a colleague over the phone."
+        },
+        {
+          "id": "interactive-focus-and-contrast",
+          "category": "Interactive Craft & Contrast Verification",
+          "question": "Have custom cursor states, delicate hairlines, and text over photography been checked with keyboard Tab navigation and visual contrast tools?",
+          "guidance": "Static HTML analysis cannot see rendered WebGL/canvas or photographic overlays—verify these directly in the live browser viewport."
+        }
+      ],
+      "humanReview": {
+        "reviewerName": "",
+        "updatedAt": null,
+        "studioNotes": "",
+        "checklistStates": {},
+        "findingDispositions": {}
+      }
+    },
+    "evidenceBoundaries": {
+      "observedDirectly": [
+        "HTTP status codes, redirects, response headers (Content-Type, X-Robots-Tag, Cache-Control), and HTML transfer size",
+        "robots.txt directives (Allow/Disallow/Sitemap) and sitemap.xml URL coverage alignment",
+        "Static DOM structure: <title>, meta tags, canonicals, OpenGraph tags, heading outline (H1–H6), landmarks, and in-page #fragment targets",
+        "JSON-LD structured data syntax validity and declared @type entities",
+        "Presence of alt attributes and intrinsic width/height attributes on <img> elements, programmatic labels on form inputs, and synchronous <script> tags in <head>"
+      ],
+      "unavailableInZeroCredentialCrawl": [
+        {
+          "category": "Rendered Visual Contrast & Complex Compositing",
+          "reason": "Static HTTP/HTML inspection does not execute full GPU layout or rasterize CSS blend-modes, background images, or WebGL canvases. Text-over-image contrast and hover/focus visibility must be verified in a rendered viewport."
+        },
+        {
+          "category": "Assistive Technology Interaction & Reading Flow",
+          "reason": "Heuristics detect missing alt or label attributes, but cannot prove WCAG conformance or evaluate whether alt prose is meaningful, whether custom JS widgets trap keyboard focus, or how VoiceOver/NVDA announces dynamic state changes."
+        },
+        {
+          "category": "Field Core Web Vitals (CrUX) & Lab Paint Timing (LCP / INP / CLS)",
+          "reason": "True Largest Contentful Paint, Interaction to Next Paint, and Cumulative Layout Shift require browser trace instrumentation or real-user telemetry. ContextMuse flags deterministic structural causes (unsized images, render-blocking head scripts) without inventing synthetic millisecond scores."
+        },
+        {
+          "category": "Search Engine Index State, Query Impressions & Competitor Rankings",
+          "reason": "A local crawl verifies technical indexability rules (robots.txt, meta noindex, canonicals, schema syntax) without paid rank-tracker APIs or Google/Bing account credentials."
+        }
+      ],
+      "optionalIntegrations": {
+        "searchConsole": {
+          "status": "not_attached",
+          "label": "Optional Google Search Console / Bing Webmaster Export",
+          "description": "Attach a Search Console performance JSON/CSV export later to overlay real query impressions, clicks, and index coverage alongside technical findings.",
+          "data": null
+        },
+        "measuredPerformance": {
+          "status": "not_attached",
+          "label": "Optional Lighthouse / Web Vitals Lab Trace JSON",
+          "description": "Attach a measured Lighthouse or Web Vitals JSON artifact later to display actual measured LCP, CLS, and INP alongside static asset findings.",
+          "data": null
+        }
+      }
+    }
+  },
+  "runId": "run-2026-11-24T01-38-11-083Z-5c1040",
+  "createdAt": "2026-11-24T01:38:11.083Z"
+}

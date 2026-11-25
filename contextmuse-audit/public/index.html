@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ContextMuse — Expressive Website Audit &amp; Editorial Review Studio</title>
+  <meta name="description" content="Local zero-credential website audit workspace for ContextMuse design and research studio — uniting accessibility, usability, performance, search visibility, and editorial review.">
+  <link rel="canonical" href="http://127.0.0.1:4173/">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main audit workspace</a>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div>
+        <span class="brand-kicker">ContextMuse · Design &amp; Research Studio Instrument</span>
+        <h1 class="brand-title">Expressive Website Audit &amp; Repair Prioritization</h1>
+        <p class="brand-subtitle">
+          Decide which repairs to make first while preserving each site’s voice, typographic craft, and visual intent.
+        </p>
+      </div>
+      <div class="principles-ribbon" aria-label="Audit methodological principles">
+        <span class="principle-tag">Same-Origin &amp; Robots-Respecting</span>
+        <span class="principle-tag">Search Inside Full Site Audit</span>
+        <span class="principle-tag">Facts vs. Heuristics Distinct</span>
+        <span class="principle-tag">Zero Invented Metrics</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="workspace-container">
+    <!-- Top Control Grid: Live URL Audit + Offline Reproducible Studio Example -->
+    <section class="control-grid" aria-label="Audit Configuration and Reproducible Studio Example">
+      <!-- Left: Any Live or Local URL Audit Form -->
+      <div class="panel">
+        <h2 class="panel-heading">Inspect a Website</h2>
+        <p class="panel-desc">
+          Enter any starting URL (live site or local server). Crawls same-origin pages within explicit limits, honors <code>robots.txt</code>, and requires no credentials or paid APIs.
+        </p>
+        <form id="audit-form">
+          <div class="audit-form-grid">
+            <div class="field-group">
+              <label for="input-start-url">Starting URL</label>
+              <input
+                id="input-start-url"
+                name="startUrl"
+                type="url"
+                required
+                placeholder="https://example.com or http://127.0.0.1:4174/"
+              >
+            </div>
+            <button id="btn-run-audit" type="submit" class="btn btn-primary">
+              Run Website Audit
+            </button>
+          </div>
+
+          <div class="limits-row">
+            <div class="field-group">
+              <label for="input-max-pages">Max Pages (1–50)</label>
+              <input id="input-max-pages" name="maxPages" type="number" min="1" max="50" value="10">
+            </div>
+            <div class="field-group">
+              <label for="input-max-depth">Max Link Depth (0–6)</label>
+              <input id="input-max-depth" name="maxDepth" type="number" min="0" max="6" value="3">
+            </div>
+            <div class="field-group">
+              <label for="input-timeout">Timeout per Page (ms)</label>
+              <input id="input-timeout" name="timeoutMs" type="number" min="1000" max="30000" step="500" value="8000">
+            </div>
+            <div class="field-group">
+              <label for="input-run-label">Snapshot Label (optional)</label>
+              <input id="input-run-label" name="label" type="text" placeholder="e.g., Pre-launch baseline">
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right: Offline Reproducible Example & Saved Snapshots -->
+      <div class="panel">
+        <h2 class="panel-heading">Offline Reproducible Example &amp; Run History</h2>
+        <p class="panel-desc">
+          Companion local server hosts <em>Atelier Nocturne</em> (5 pages + <code>robots.txt</code> + <code>sitemap.xml</code>) with switchable <strong>Before Repair</strong> and <strong>After Repair</strong> states.
+        </p>
+        <div class="demo-actions">
+          <div id="demo-status-display" class="demo-status-line">
+            Loading offline fixture status…
+          </div>
+          <div class="demo-btn-row">
+            <button id="btn-demo-before-after" type="button" class="btn btn-primary">
+              Run Offline Before → Repair → Compare Demo
+            </button>
+            <button id="btn-toggle-demo-mode" type="button" class="btn btn-secondary">
+              Toggle Fixture State
+            </button>
+          </div>
+          <div class="field-group" style="margin-top: 0.35rem;">
+            <label for="select-saved-run">Load Saved Audit Snapshot</label>
+            <select id="select-saved-run">
+              <option value="">— No snapshots loaded yet —</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Status Banner -->
+    <div id="status-banner" class="status-banner" role="status" aria-live="polite">
+      <span id="status-text">Ready. Launch an audit on any URL or run the offline Atelier Nocturne before/after demonstration.</span>
+      <button id="btn-rerun-compare-quick" type="button" class="btn btn-secondary" style="display: none;">
+        Rerun Current URL &amp; Compare
+      </button>
+    </div>
+
+    <!-- Factual Summary Strip -->
+    <section id="summary-strip" class="ledger-strip" aria-label="Audit Coverage and Findings Summary" style="display: none;">
+      <div class="ledger-card">
+        <span class="ledger-label">Pages Inspected</span>
+        <strong id="stat-inspected" class="ledger-value">0</strong>
+        <span id="stat-inspected-note" class="ledger-note">Within crawl limits</span>
+      </div>
+      <div class="ledger-card">
+        <span class="ledger-label">Robots &amp; Limits</span>
+        <strong id="stat-robots" class="ledger-value">0</strong>
+        <span id="stat-robots-note" class="ledger-note">Excluded by robots.txt</span>
+      </div>
+      <div class="ledger-card">
+        <span class="ledger-label">P1 · Structural First</span>
+        <strong id="stat-p1" class="ledger-value" style="color: var(--p1-ink);">0</strong>
+        <span class="ledger-note">Blockers &amp; broken paths</span>
+      </div>
+      <div class="ledger-card">
+        <span class="ledger-label">P2 · High-Leverage Craft</span>
+        <strong id="stat-p2" class="ledger-value" style="color: var(--p2-ink);">0</strong>
+        <span class="ledger-note">Polish &amp; layout stability</span>
+      </div>
+      <div class="ledger-card">
+        <span class="ledger-label">P3 · Contextual / Editorial</span>
+        <strong id="stat-p3" class="ledger-value" style="color: var(--p3-ink);">0</strong>
+        <span class="ledger-note">Refinements (non-urgent)</span>
+      </div>
+      <div class="ledger-card">
+        <span class="ledger-label">Evidence Split</span>
+        <strong id="stat-evidence" class="ledger-value">0 / 0</strong>
+        <span class="ledger-note">Deterministic vs. Heuristic</span>
+      </div>
+    </section>
+
+    <!-- Report Navigation Tabs -->
+    <nav class="report-tabs" role="tablist" aria-label="Audit Report Views">
+      <button
+        id="tabbtn-findings"
+        class="tab-btn"
+        role="tab"
+        aria-selected="true"
+        aria-controls="tabpanel-findings"
+        type="button"
+      >
+        1. Prioritized Findings &amp; Repairs
+      </button>
+      <button
+        id="tabbtn-editorial"
+        class="tab-btn"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tabpanel-editorial"
+        type="button"
+      >
+        2. Design, Voice &amp; Editorial Review Studio
+      </button>
+      <button
+        id="tabbtn-coverage"
+        class="tab-btn"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tabpanel-coverage"
+        type="button"
+      >
+        3. Coverage, Robots &amp; Sitemap Ledger
+      </button>
+      <button
+        id="tabbtn-compare"
+        class="tab-btn"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tabpanel-compare"
+        type="button"
+      >
+        4. Rerun &amp; Compare (Before / After Diff)
+      </button>
+      <button
+        id="tabbtn-boundaries"
+        class="tab-btn"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tabpanel-boundaries"
+        type="button"
+      >
+        5. Unavailable Evidence &amp; Optional Data Slots
+      </button>
+    </nav>
+
+    <!-- TAB 1: Prioritized Findings & Repairs -->
+    <section
+      id="tabpanel-findings"
+      class="tab-panel active"
+      role="tabpanel"
+      aria-labelledby="tabbtn-findings"
+    >
+      <div class="filter-bar">
+        <div class="field-group">
+          <label for="filter-priority">Filter by Priority</label>
+          <select id="filter-priority">
+            <option value="ALL">All Priorities (P1, P2, P3)</option>
+            <option value="P1">P1 — Structural Blockers First</option>
+            <option value="P2">P2 — High-Leverage Craft</option>
+            <option value="P3">P3 — Contextual / Editorial (Non-Urgent)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="filter-pillar">Filter by Pillar</label>
+          <select id="filter-pillar">
+            <option value="ALL">All 4 Pillars (Unified Audit)</option>
+            <option value="Accessibility">Accessibility</option>
+            <option value="Usability">Usability</option>
+            <option value="Performance">Performance</option>
+            <option value="Search Visibility">Search Visibility</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="filter-evidence">Filter by Evidence Class</label>
+          <select id="filter-evidence">
+            <option value="ALL">All Evidence Classes</option>
+            <option value="Deterministic">Deterministic Technical Observations</option>
+            <option value="Heuristic">Heuristic Signals (Require Human Review)</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="findings-container">
+        <div class="panel">
+          <p style="margin: 0; color: var(--ink-secondary);">
+            No audit loaded yet. Click <strong>Run Offline Before → Repair → Compare Demo</strong> above or enter a URL to generate a prioritized report.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Design, Voice & Editorial Review Studio -->
+    <section
+      id="tabpanel-editorial"
+      class="tab-panel"
+      role="tabpanel"
+      aria-labelledby="tabbtn-editorial"
+    >
+      <div id="editorial-container">
+        <div class="panel">
+          <p style="margin: 0; color: var(--ink-secondary);">
+            Run an audit first to populate the Design, Voice &amp; Editorial Review Studio with live SERP/social snippet previews, typographic outlines, and artwork alt-text ledgers.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Crawl Coverage, Robots.txt & Sitemap Ledger -->
+    <section
+      id="tabpanel-coverage"
+      class="tab-panel"
+      role="tabpanel"
+      aria-labelledby="tabbtn-coverage"
+    >
+      <div id="coverage-container">
+        <div class="panel">
+          <p style="margin: 0; color: var(--ink-secondary);">
+            Run an audit to view the Crawl Coverage Ledger, robots.txt exclusion proofs, and sitemap.xml cross-checks.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Rerun & Compare Findings -->
+    <section
+      id="tabpanel-compare"
+      class="tab-panel"
+      role="tabpanel"
+      aria-labelledby="tabbtn-compare"
+    >
+      <div class="panel" style="margin-bottom: 1.25rem;">
+        <h2 class="panel-heading">Compare Two Audit Snapshots (Before vs. After Repair)</h2>
+        <p class="panel-desc">
+          Select a Baseline snapshot and a Current snapshot to verify which grouped findings were resolved, reduced in scope, newly introduced, or intentionally left unchanged.
+        </p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.85rem; align-items: end;">
+          <div class="field-group">
+            <label for="compare-baseline-select">Baseline Run (Before)</label>
+            <select id="compare-baseline-select"></select>
+          </div>
+          <div class="field-group">
+            <label for="compare-current-select">Comparison Run (After)</label>
+            <select id="compare-current-select"></select>
+          </div>
+          <button id="btn-run-compare" type="button" class="btn btn-primary">
+            Compare Selected Runs
+          </button>
+        </div>
+      </div>
+
+      <div id="compare-results-container">
+        <div class="panel">
+          <p style="margin: 0; color: var(--ink-secondary);">
+            Select two snapshots above or click <strong>Run Offline Before → Repair → Compare Demo</strong> to view a live verification diff.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: Evidence Boundaries & Optional Telemetry Slots -->
+    <section
+      id="tabpanel-boundaries"
+      class="tab-panel"
+      role="tabpanel"
+      aria-labelledby="tabbtn-boundaries"
+    >
+      <div id="boundaries-container">
+        <div class="panel">
+          <p style="margin: 0; color: var(--ink-secondary);">
+            Run an audit to inspect what was directly observed versus unavailable evidence, or attach optional Search Console / Measured Performance JSON artifacts.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

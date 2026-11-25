@@ -1,0 +1,498 @@
+{
+  "label": "Self-Audit of ContextMuse UI",
+  "crawl": {
+    "startUrl": "http://127.0.0.1:65516/",
+    "origin": "http://127.0.0.1:65516",
+    "startedAt": "2026-11-24T01:38:55.821Z",
+    "finishedAt": "2026-11-24T01:38:55.827Z",
+    "limits": {
+      "maxPages": 5,
+      "maxDepth": 1,
+      "timeoutMs": 8000,
+      "userAgent": "ContextMuseAudit/1.0 (+local-studio-audit; respects-robots)"
+    },
+    "robots": {
+      "url": "http://127.0.0.1:65516/robots.txt",
+      "status": 404,
+      "found": false,
+      "rawText": "",
+      "rules": [],
+      "crawlDelay": null,
+      "sitemaps": []
+    },
+    "sitemap": {
+      "url": "http://127.0.0.1:65516/sitemap.xml",
+      "status": 404,
+      "found": false,
+      "urls": [],
+      "isSitemapIndex": false,
+      "totalListed": 0,
+      "coveredInCrawlCount": 0,
+      "uncrawledUrls": [],
+      "blockedByRobotsUrls": []
+    },
+    "coverage": {
+      "inspectedCount": 1,
+      "excludedByRobotsCount": 0,
+      "skippedByLimitCount": 0,
+      "failedRequestsCount": 0,
+      "nonHtmlSkippedCount": 0,
+      "externalLinksCount": 0,
+      "totalDiscoveredSameOrigin": 1
+    },
+    "inspectedPages": [
+      {
+        "url": "http://127.0.0.1:65516/",
+        "finalUrl": "http://127.0.0.1:65516/",
+        "depth": 0,
+        "discoveredFrom": null,
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "xRobotsTag": "",
+        "cacheControl": "no-cache",
+        "elapsedMs": 2,
+        "byteLength": 13783,
+        "signals": {
+          "htmlLang": "en",
+          "title": "ContextMuse — Expressive Website Audit & Editorial Review Studio",
+          "metaDescription": "Local zero-credential website audit workspace for ContextMuse design and research studio — uniting accessibility, usability, performance, search visibility, and editorial review.",
+          "metaViewport": "width=device-width, initial-scale=1",
+          "metaRobots": "",
+          "canonical": "http://127.0.0.1:4173/",
+          "ogTags": {},
+          "twitterTags": {},
+          "stylesheets": [
+            "/styles.css"
+          ],
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "Expressive Website Audit & Repair Prioritization",
+              "raw": "<h1 class=\"brand-title\">Expressive Website Audit &amp; Repair Prioritization</h1>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Inspect a Website",
+              "raw": "<h2 class=\"panel-heading\">Inspect a Website</h2>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Offline Reproducible Example & Run History",
+              "raw": "<h2 class=\"panel-heading\">Offline Reproducible Example &amp; Run History</h2>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Compare Two Audit Snapshots (Before vs. After Repair)",
+              "raw": "<h2 class=\"panel-heading\">Compare Two Audit Snapshots (Before vs. After Repair)</h2>"
+            }
+          ],
+          "landmarks": {
+            "hasMainLandmark": true,
+            "hasNavLandmark": true,
+            "hasHeaderLandmark": true,
+            "hasFooterLandmark": false,
+            "hasSkipLink": true
+          },
+          "images": [],
+          "links": [
+            {
+              "rawHref": "#main-content",
+              "resolvedUrl": null,
+              "isSameOrigin": true,
+              "isFragmentOnly": true,
+              "fragmentId": "main-content",
+              "text": "Skip to main audit workspace",
+              "ariaLabel": "",
+              "accessibleName": "Skip to main audit workspace",
+              "target": "",
+              "rel": "",
+              "raw": "<a class=\"skip-link\" href=\"#main-content\">Skip to main audit workspace</a>"
+            }
+          ],
+          "elementIds": [
+            "main-content",
+            "audit-form",
+            "input-start-url",
+            "btn-run-audit",
+            "input-max-pages",
+            "input-max-depth",
+            "input-timeout",
+            "input-run-label",
+            "demo-status-display",
+            "btn-demo-before-after",
+            "btn-toggle-demo-mode",
+            "select-saved-run",
+            "status-banner",
+            "status-text",
+            "btn-rerun-compare-quick",
+            "summary-strip",
+            "stat-inspected",
+            "stat-inspected-note",
+            "stat-robots",
+            "stat-robots-note",
+            "stat-p1",
+            "stat-p2",
+            "stat-p3",
+            "stat-evidence",
+            "tabbtn-findings",
+            "tabbtn-editorial",
+            "tabbtn-coverage",
+            "tabbtn-compare",
+            "tabbtn-boundaries",
+            "tabpanel-findings",
+            "filter-priority",
+            "filter-pillar",
+            "filter-evidence",
+            "findings-container",
+            "tabpanel-editorial",
+            "editorial-container",
+            "tabpanel-coverage",
+            "coverage-container",
+            "tabpanel-compare",
+            "compare-baseline-select",
+            "compare-current-select",
+            "btn-run-compare",
+            "compare-results-container",
+            "tabpanel-boundaries",
+            "boundaries-container"
+          ],
+          "formControls": [
+            {
+              "tag": "input",
+              "type": "url",
+              "id": "input-start-url",
+              "name": "startUrl",
+              "placeholder": "https://example.com or http://127.0.0.1:4174/",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<input id=\"input-start-url\" name=\"startUrl\" type=\"url\" required placeholder=\"https://example.com or http://127.0.0.1:4174/\" >"
+            },
+            {
+              "tag": "input",
+              "type": "number",
+              "id": "input-max-pages",
+              "name": "maxPages",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<input id=\"input-max-pages\" name=\"maxPages\" type=\"number\" min=\"1\" max=\"50\" value=\"10\">"
+            },
+            {
+              "tag": "input",
+              "type": "number",
+              "id": "input-max-depth",
+              "name": "maxDepth",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<input id=\"input-max-depth\" name=\"maxDepth\" type=\"number\" min=\"0\" max=\"6\" value=\"3\">"
+            },
+            {
+              "tag": "input",
+              "type": "number",
+              "id": "input-timeout",
+              "name": "timeoutMs",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<input id=\"input-timeout\" name=\"timeoutMs\" type=\"number\" min=\"1000\" max=\"30000\" step=\"500\" value=\"8000\">"
+            },
+            {
+              "tag": "input",
+              "type": "text",
+              "id": "input-run-label",
+              "name": "label",
+              "placeholder": "e.g., Pre-launch baseline",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<input id=\"input-run-label\" name=\"label\" type=\"text\" placeholder=\"e.g., Pre-launch baseline\">"
+            },
+            {
+              "tag": "select",
+              "type": "select",
+              "id": "select-saved-run",
+              "name": "",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<select id=\"select-saved-run\">"
+            },
+            {
+              "tag": "select",
+              "type": "select",
+              "id": "filter-priority",
+              "name": "",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<select id=\"filter-priority\">"
+            },
+            {
+              "tag": "select",
+              "type": "select",
+              "id": "filter-pillar",
+              "name": "",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<select id=\"filter-pillar\">"
+            },
+            {
+              "tag": "select",
+              "type": "select",
+              "id": "filter-evidence",
+              "name": "",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<select id=\"filter-evidence\">"
+            },
+            {
+              "tag": "select",
+              "type": "select",
+              "id": "compare-baseline-select",
+              "name": "",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<select id=\"compare-baseline-select\">"
+            },
+            {
+              "tag": "select",
+              "type": "select",
+              "id": "compare-current-select",
+              "name": "",
+              "placeholder": "",
+              "titleAttr": "",
+              "isLabeled": true,
+              "onlyHasPlaceholder": false,
+              "raw": "<select id=\"compare-current-select\">"
+            }
+          ],
+          "renderBlockingScripts": [],
+          "jsonLdBlocks": [],
+          "editorialSignals": {
+            "fontFamilies": [],
+            "wordCount": 395,
+            "bodyExcerpt": "Inspect a Website Enter any starting URL (live site or local server). Crawls same-origin pages within explicit limits, honors robots.txt , and requires no credentials or paid APIs. Starting URL Run Website Audit Max Pages (1–50) Max Link…",
+            "domElementCount": 153
+          }
+        }
+      }
+    ],
+    "excludedByRobots": [],
+    "skippedByLimit": [],
+    "failedRequests": [],
+    "nonHtmlSkipped": [],
+    "externalLinks": []
+  },
+  "analysis": {
+    "priorityMeta": {
+      "P1": {
+        "rank": 1,
+        "code": "P1",
+        "label": "Priority 1 — Structural Blockers & Broken Journeys",
+        "shortLabel": "P1 · Structural First",
+        "description": "Broken pathways, unreachable pages, blocked assistive controls, or parser errors that actively prevent visitors or search crawlers from using the site."
+      },
+      "P2": {
+        "rank": 2,
+        "code": "P2",
+        "label": "Priority 2 — High-Leverage Craft & Structural Polish",
+        "shortLabel": "P2 · High-Leverage Craft",
+        "description": "Meaningful technical and structural improvements that strengthen image narrative, layout stability, first-paint speed, and canonical clarity while preserving visual design."
+      },
+      "P3": {
+        "rank": 3,
+        "code": "P3",
+        "label": "Priority 3 — Contextual Refinements & Search Enrichment",
+        "shortLabel": "P3 · Contextual / Editorial",
+        "description": "Nuanced metadata, typographic hierarchy, and snippet opportunities where editorial judgment decides whether a change serves the page or whether the current treatment is intentional."
+      }
+    },
+    "summary": {
+      "totalGroupedFindings": 1,
+      "totalOccurrences": 1,
+      "byPriority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 1
+      },
+      "byPillar": {
+        "Accessibility": 0,
+        "Usability": 0,
+        "Performance": 0,
+        "Search Visibility": 1
+      },
+      "byEvidenceType": {
+        "deterministic": 1,
+        "heuristic": 0
+      }
+    },
+    "findings": [
+      {
+        "id": "SEARCH_MISSING_SOCIAL_CARD_TAGS",
+        "title": "Incomplete OpenGraph social preview metadata for studio sharing",
+        "pillar": "Search Visibility",
+        "priority": "P3",
+        "priorityLabel": "P3 · Contextual / Editorial",
+        "evidenceType": "Deterministic Technical Observation",
+        "whyItMatters": "Design and research work is frequently shared in client decks, Slack/Discord channels, and newsletters. Without og:title, og:description, and og:image, shared links render as bare URLs or pull an arbitrary thumbnail.",
+        "voiceAndIntentNote": "Curate a specific 1200×630 art-directed still for og:image on key pages so link previews reflect the studio’s visual standards.",
+        "concreteRepair": "Add the missing OpenGraph meta tags (og:title, og:description, og:image) inside <head>.",
+        "howToVerify": "Check the Social Card column in the Snippet Preview table after rerunning the audit.",
+        "affectedUrls": [
+          {
+            "url": "http://127.0.0.1:65516/",
+            "evidence": "Missing OpenGraph properties: og:title, og:description, og:image"
+          }
+        ]
+      }
+    ],
+    "editorialStudio": {
+      "purpose": "Automated rules surface markup signals, but preserving an expressive website’s voice and visual intent requires human design and editorial judgment. Use this workspace to inspect snippets, heading cadence, and image descriptions, and record which findings are intentional artistic choices versus repairs to schedule.",
+      "snippetPreviews": [
+        {
+          "url": "http://127.0.0.1:65516/",
+          "pathname": "/",
+          "title": "ContextMuse — Expressive Website Audit & Editorial Review Studio",
+          "titleLength": 64,
+          "hasAuthoredDescription": true,
+          "descriptionSource": "Authored <meta name=\"description\">",
+          "snippetText": "Local zero-credential website audit workspace for ContextMuse design and research studio — uniting accessibility, usability, performance, search visibility, and editorial review.",
+          "descriptionLength": 178,
+          "canonical": "http://127.0.0.1:4173/",
+          "metaRobots": "index, follow (default)",
+          "ogReady": false,
+          "ogImage": null,
+          "schemaTypes": []
+        }
+      ],
+      "typographyAndHierarchy": [
+        {
+          "url": "http://127.0.0.1:65516/",
+          "pathname": "/",
+          "fontFamilies": [],
+          "wordCount": 395,
+          "headings": [
+            {
+              "tag": "h1",
+              "level": 1,
+              "text": "Expressive Website Audit & Repair Prioritization",
+              "raw": "<h1 class=\"brand-title\">Expressive Website Audit &amp; Repair Prioritization</h1>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Inspect a Website",
+              "raw": "<h2 class=\"panel-heading\">Inspect a Website</h2>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Offline Reproducible Example & Run History",
+              "raw": "<h2 class=\"panel-heading\">Offline Reproducible Example &amp; Run History</h2>"
+            },
+            {
+              "tag": "h2",
+              "level": 2,
+              "text": "Compare Two Audit Snapshots (Before vs. After Repair)",
+              "raw": "<h2 class=\"panel-heading\">Compare Two Audit Snapshots (Before vs. After Repair)</h2>"
+            }
+          ]
+        }
+      ],
+      "artworkAltLedger": [],
+      "reviewPrompts": [
+        {
+          "id": "voice-titles-snippets",
+          "category": "Voice & Search Presence",
+          "question": "Do the page titles and search snippets reflect the studio’s editorial voice without generic marketing boilerplate?",
+          "guidance": "Check whether pages relying on organic body prose fallback read well in the Snippet Preview table below, and craft custom meta descriptions only where the fallback feels fragmented."
+        },
+        {
+          "id": "visual-typographic-hierarchy",
+          "category": "Typographic Intent vs. Semantic Outline",
+          "question": "Where heading levels skip (e.g., H1 to H3), is that a visual scale choice that should be decoupled via CSS classes?",
+          "guidance": "Keep the exact font sizes, tracking, and margins, but map structural section titles to sequential H1 → H2 → H3 tags for screen-reader wayfinding."
+        },
+        {
+          "id": "curatorial-image-descriptions",
+          "category": "Artwork & Photography Narrative",
+          "question": "Do photography and exhibition plates carry alt text that conveys composition and subject, while atmospheric textures use alt=\"\"?",
+          "guidance": "Avoid robotic SEO keyword lists in alt attributes; describe the visual work as you would to a colleague over the phone."
+        },
+        {
+          "id": "interactive-focus-and-contrast",
+          "category": "Interactive Craft & Contrast Verification",
+          "question": "Have custom cursor states, delicate hairlines, and text over photography been checked with keyboard Tab navigation and visual contrast tools?",
+          "guidance": "Static HTML analysis cannot see rendered WebGL/canvas or photographic overlays—verify these directly in the live browser viewport."
+        }
+      ],
+      "humanReview": {
+        "reviewerName": "",
+        "updatedAt": null,
+        "studioNotes": "",
+        "checklistStates": {},
+        "findingDispositions": {}
+      }
+    },
+    "evidenceBoundaries": {
+      "observedDirectly": [
+        "HTTP status codes, redirects, response headers (Content-Type, X-Robots-Tag, Cache-Control), and HTML transfer size",
+        "robots.txt directives (Allow/Disallow/Sitemap) and sitemap.xml URL coverage alignment",
+        "Static DOM structure: <title>, meta tags, canonicals, OpenGraph tags, heading outline (H1–H6), landmarks, and in-page #fragment targets",
+        "JSON-LD structured data syntax validity and declared @type entities",
+        "Presence of alt attributes and intrinsic width/height attributes on <img> elements, programmatic labels on form inputs, and synchronous <script> tags in <head>"
+      ],
+      "unavailableInZeroCredentialCrawl": [
+        {
+          "category": "Rendered Visual Contrast & Complex Compositing",
+          "reason": "Static HTTP/HTML inspection does not execute full GPU layout or rasterize CSS blend-modes, background images, or WebGL canvases. Text-over-image contrast and hover/focus visibility must be verified in a rendered viewport."
+        },
+        {
+          "category": "Assistive Technology Interaction & Reading Flow",
+          "reason": "Heuristics detect missing alt or label attributes, but cannot prove WCAG conformance or evaluate whether alt prose is meaningful, whether custom JS widgets trap keyboard focus, or how VoiceOver/NVDA announces dynamic state changes."
+        },
+        {
+          "category": "Field Core Web Vitals (CrUX) & Lab Paint Timing (LCP / INP / CLS)",
+          "reason": "True Largest Contentful Paint, Interaction to Next Paint, and Cumulative Layout Shift require browser trace instrumentation or real-user telemetry. ContextMuse flags deterministic structural causes (unsized images, render-blocking head scripts) without inventing synthetic millisecond scores."
+        },
+        {
+          "category": "Search Engine Index State, Query Impressions & Competitor Rankings",
+          "reason": "A local crawl verifies technical indexability rules (robots.txt, meta noindex, canonicals, schema syntax) without paid rank-tracker APIs or Google/Bing account credentials."
+        }
+      ],
+      "optionalIntegrations": {
+        "searchConsole": {
+          "status": "not_attached",
+          "label": "Optional Google Search Console / Bing Webmaster Export",
+          "description": "Attach a Search Console performance JSON/CSV export later to overlay real query impressions, clicks, and index coverage alongside technical findings.",
+          "data": null
+        },
+        "measuredPerformance": {
+          "status": "not_attached",
+          "label": "Optional Lighthouse / Web Vitals Lab Trace JSON",
+          "description": "Attach a measured Lighthouse or Web Vitals JSON artifact later to display actual measured LCP, CLS, and INP alongside static asset findings.",
+          "data": null
+        }
+      }
+    }
+  },
+  "runId": "run-2026-11-24T01-38-55-827Z-7179e4",
+  "createdAt": "2026-11-24T01:38:55.827Z"
+}

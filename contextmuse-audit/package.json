@@ -1,0 +1,15 @@
+{
+  "name": "contextmuse-website-audit",
+  "version": "1.0.0",
+  "description": "Local website audit MVP for ContextMuse design and research studio — combining search visibility, accessibility, usability, performance, and editorial review.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "cli": "node src/cli.js",
+    "demo": "node src/cli.js --demo",
+    "test": "node --test test/audit.test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

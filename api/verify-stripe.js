@@ -1,7 +1,7 @@
 /**
  * Vercel Serverless API Route: /api/verify-stripe
- * 100% Stripe-Native Checkout & Payment Link Router wired directly to the 8 official
- * Context & Muse LLC (acct_1UeNRLBrNU5pKwT3 - Live Mode) Products, Prices & Payment Links,
+ * 100% Stripe-Native Checkout & Payment Link Router wired directly to the 5 official
+ * CleanSnap Studio Products, Prices & Payment Links in Context & Muse LLC (acct_1UeNRLBrNU5pKwT3 - Live Mode),
  * Email Purchase Restore & Server-Signed HMAC Access Token Issuer.
  */
 import crypto from 'node:crypto';
@@ -71,42 +71,6 @@ export const TIER_CATALOG = {
       'White-glove commercial catalog cleanup (up to 200 photos), custom brand backdrops, watermarked web previews, die-cut .SVG/.PNG master archive, plus complimentary All-Access Studio Pro key.',
     image: 'https://bold-oppenheimer.vercel.app/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png',
     entitlements: ['all', 'pack_rental', 'pack_auto', 'pack_ecom', 'b2b_order']
-  },
-  lb_standard_49: {
-    productId: 'prod_Vg2IsXT0PZWBsM',
-    priceId: 'price_1UegE2BrNU5pKwT3TM8jqjpB',
-    paymentLinkId: 'plink_1UegEgBrNU5pKwT3vLV3JX2j',
-    paymentLinkUrl: 'https://buy.stripe.com/aFafZg3VjbKqbwz5pHebu00',
-    priceCents: '4900',
-    name: 'Literary Brutalism — Standard Studio Template',
-    description:
-      'Self-contained browser Studio editor, static .ZIP website exporter, 5 niche starter presets, 4 color palettes, and 23 palette-aware tokenized vector SVGs.',
-    image: 'https://bold-oppenheimer.vercel.app/products/01_CleanSnap_AllAccess_Pro_Bundle_1080x1080.png',
-    entitlements: ['literary_brutalism_std']
-  },
-  lb_complete_89: {
-    productId: 'prod_Vg2Ir6jgDcuYuy',
-    priceId: 'price_1UegEBBrNU5pKwT34GcFdG6u',
-    paymentLinkId: 'plink_1UegEnBrNU5pKwT3ekh7UqRU',
-    paymentLinkUrl: 'https://buy.stripe.com/5kQ5kC4Zn9CifMP19rebu01',
-    priceCents: '8900',
-    name: 'Literary Brutalism — Complete Studio + Figma Bundle',
-    description:
-      'Everything in Standard Studio Template plus the 5-board 1440px editable Figma Design System & Layout Kit, standalone library.html visual catalog, and 23 raw .SVG files.',
-    image: 'https://bold-oppenheimer.vercel.app/products/04_CleanSnap_ECommerce_Apparel_Pack_1080x1080.png',
-    entitlements: ['literary_brutalism_complete']
-  },
-  lb_agency_199: {
-    productId: 'prod_Vg2IDwypedWmRA',
-    priceId: 'price_1UegEEBrNU5pKwT3oEZZZv1j',
-    paymentLinkId: 'plink_1UegEwBrNU5pKwT3YPcaXtap',
-    paymentLinkUrl: 'https://buy.stripe.com/9B628qezXdSy7gjg4lebu02',
-    priceCents: '19900',
-    name: 'Literary Brutalism — Agency / Unlimited Commercial License',
-    description:
-      'Everything in Complete Studio + Figma Bundle plus Commercial Agency License for unlimited client builds, white-label handoff rights, and complete modular source repo.',
-    image: 'https://bold-oppenheimer.vercel.app/products/05_CleanSnap_B2B_200Photo_Bulk_Catalog_1080x1080.png',
-    entitlements: ['literary_brutalism_agency']
   }
 };
 

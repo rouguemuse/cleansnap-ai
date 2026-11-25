@@ -133,7 +133,6 @@ test('Unit 6: All required public studio backdrops, showcase cutouts, ONNX model
     'manifest.webmanifest',
     'sw.js',
     'manual.html',
-    'prompt-pack.html',
     'privacy.html',
     'icons/icon-192.png',
     'icons/icon-512.png',
@@ -185,7 +184,7 @@ test('Unit 7: Stripe HMAC Access Token & Signed License Key cryptographic verifi
   assert.equal(stripeMod.verifyHmacAccessToken(token + 'tamper'), null, 'Tampered HMAC token must be rejected');
 });
 
-test('Unit 8: All 8 Live Context & Muse LLC (acct_1UeNRLBrNU5pKwT3) Stripe Products, Prices & Payment Links verify end-to-end', async () => {
+test('Unit 8: All 5 Live CleanSnap Studio Products, Prices & Payment Links verify end-to-end', async () => {
   const stripeMod = await import('../../api/verify-stripe.js');
   const catalog = stripeMod.TIER_CATALOG;
   const expectedTiers = [
@@ -193,10 +192,7 @@ test('Unit 8: All 8 Live Context & Muse LLC (acct_1UeNRLBrNU5pKwT3) Stripe Produ
     'pack_rental',
     'pack_auto',
     'pack_ecom',
-    'b2b',
-    'lb_standard_49',
-    'lb_complete_89',
-    'lb_agency_199'
+    'b2b'
   ];
 
   for (const tier of expectedTiers) {
