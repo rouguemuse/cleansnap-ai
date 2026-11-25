@@ -3814,6 +3814,8 @@ export default function App() {
                           src={sampleJob.thumb_url || sampleJob.original_url}
                           alt={sampleJob.title}
                           loading="lazy"
+                          draggable={false}
+                          onContextMenu={(e) => e.preventDefault()}
                         />
                       </button>
                     );
@@ -3852,6 +3854,7 @@ export default function App() {
                   alt="Cleaned Studio Composite"
                   className="slider-image-layer"
                   draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
                 />
 
                 {/* BEFORE: Raw Photo Clipped by Slider */}
@@ -3864,6 +3867,7 @@ export default function App() {
                   alt="Raw Original Subject"
                   className="slider-image-layer"
                   draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
                   style={{
                     clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
                   }}
@@ -5211,6 +5215,7 @@ export default function App() {
                       src={job.previewByStyle?.[backdropStyle] || job.trimmed_sticker_url}
                       alt={job.original_filename}
                       draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                     <span className="contact-badge">{String(idx + 1).padStart(2, '0')}</span>

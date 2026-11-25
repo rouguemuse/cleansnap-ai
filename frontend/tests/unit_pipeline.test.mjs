@@ -305,11 +305,17 @@ test('Unit 10: Purchase verification, license restoration, offline behavior, and
     removeItem: (k) => storeMap.delete(k)
   };
 
-  // 1. Plain boolean or invalid string in localStorage must NOT grant Pro
+  // 1. Plain boolean or fabricated hex string in localStorage must NOT grant Pro
   mockStorage.setItem(entMod.COMMERCIAL_CONFIG.storageKeys.license, 'true');
   assert.equal(entMod.loadPersistedEntitlementState(mockStorage).isProValid, false);
   mockStorage.setItem(entMod.COMMERCIAL_CONFIG.storageKeys.license, 'CSPRO-ZZZZ-ZZZZ-ZZZZ');
   assert.equal(entMod.loadPersistedEntitlementState(mockStorage).isProValid, false);
+  mockStorage.setItem(entMod.COMMERCIAL_CONFIG.storageKeys.license, 'CSPRO-1234-5678-9ABC');
+  assert.equal(
+    entMod.loadPersistedEntitlementState(mockStorage).isProValid,
+    false,
+    'Fabricated valid-hex CSPRO key without server HMAC token must be rejected'
+  );
 
   // 2. Valid server-signed key + HMAC token activates Pro and unlocks unlimited single & batch .ZIP exports
   const signedKey = stripeMod.generateSignedLicenseKey('pro_buyer@contextmuse.com:pro');
@@ -440,7 +446,10 @@ test('Unit 12: Successful purchase redirect, failed purchase rejection, license 
   // 4. Existing paid-user / owner access works both online and offline without re-charging
   const ownerOffline = entMod.verifyLicenseAndTokenClient('CSPRO-MUSE-VIP-2026');
   assert.equal(ownerOffline.valid, true);
-  const customerOffline = entMod.verifyLicenseAndTokenClient(successRes.payload.licenseKey);
+  const customerOffline = entMod.verifyLicenseAndTokenClient(
+    successRes.payload.licenseKey,
+    successRes.payload.accessToken
+  );
   assert.equal(customerOffline.valid, true);
 
   // 5. Project preservation when an export is restricted

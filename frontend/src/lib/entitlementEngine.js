@@ -93,40 +93,38 @@ export function verifyLicenseAndTokenClient(rawLicenseKey, rawAccessToken = '') 
     return { valid: false, reason: 'malformed_license_key', entitlements: [] };
   }
 
-  // If a server-issued HMAC token is present, decode and verify its claims match the license key
-  if (rawAccessToken && typeof rawAccessToken === 'string' && rawAccessToken.includes('.')) {
-    const [payloadB64, sig] = rawAccessToken.split('.');
-    if (!payloadB64 || !sig || sig.length < 16) {
-      return { valid: false, reason: 'malformed_hmac_token', entitlements: [] };
-    }
-    try {
-      const jsonStr =
-        typeof atob === 'function'
-          ? atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'))
-          : Buffer.from(payloadB64, 'base64url').toString('utf8');
-      const payload = JSON.parse(jsonStr);
-      if (payload.sub !== cleanKey || !Array.isArray(payload.ent) || payload.ent.length === 0) {
-        return { valid: false, reason: 'token_subject_mismatch', entitlements: [] };
-      }
-      return {
-        valid: true,
-        licenseKey: cleanKey,
-        reason: 'verified_hmac_token',
-        entitlements: payload.ent,
-        email: payload.email || null
-      };
-    } catch {
-      return { valid: false, reason: 'corrupt_token_payload', entitlements: [] };
-    }
+  // Require a valid server-issued HMAC token matching the license key subject (rejects fabricated CSPRO-AAAA-BBBB-CCCC keys)
+  if (!rawAccessToken || typeof rawAccessToken !== 'string' || !rawAccessToken.includes('.')) {
+    return { valid: false, reason: 'missing_hmac_token', entitlements: [] };
   }
-
-  // Offline portable signed CSPRO-XXXX-XXXX-XXXX key verified by server checksum format
-  return {
-    valid: true,
-    licenseKey: cleanKey,
-    reason: 'verified_signed_key_format',
-    entitlements: ['all', 'pack_rental', 'pack_auto', 'pack_ecom']
-  };
+  const [payloadB64, sig] = rawAccessToken.split('.');
+  if (!payloadB64 || !sig || sig.length < 16) {
+    return { valid: false, reason: 'malformed_hmac_token', entitlements: [] };
+  }
+  try {
+    const jsonStr =
+      typeof atob === 'function'
+        ? atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'))
+        : Buffer.from(payloadB64, 'base64url').toString('utf8');
+    const payload = JSON.parse(jsonStr);
+    if (
+      payload.sub !== cleanKey ||
+      !Array.isArray(payload.ent) ||
+      payload.ent.length === 0 ||
+      !Number.isFinite(payload.iat)
+    ) {
+      return { valid: false, reason: 'token_subject_mismatch', entitlements: [] };
+    }
+    return {
+      valid: true,
+      licenseKey: cleanKey,
+      reason: 'verified_hmac_token',
+      entitlements: payload.ent,
+      email: payload.email || null
+    };
+  } catch {
+    return { valid: false, reason: 'corrupt_token_payload', entitlements: [] };
+  }
 }
 
 /**
